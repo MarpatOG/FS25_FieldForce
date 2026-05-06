@@ -85,7 +85,7 @@
                     <Border Classes="panel">
                         <StackPanel Spacing="12">
                             <TextBlock Classes="section" Text="Current State"/>
-                            <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                 <TextBlock Classes="muted" Text="Selected wheel"/>
                                 <TextBlock Grid.Column="1" Text="{Binding SelectedDevice.DisplayName, FallbackValue=None}"/>
                                 <TextBlock Grid.Row="1" Classes="muted" Text="Device status"/>
@@ -98,10 +98,14 @@
                                 <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding PanicHotkey}"/>
                                 <TextBlock Grid.Row="5" Classes="muted" Text="Gameplay FFB"/>
                                 <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding GameplayFfbEnabled}"/>
-                                <TextBlock Grid.Row="6" Classes="muted" Text="Active effects"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ActiveGameplayEffects}"/>
-                                <TextBlock Grid.Row="7" Classes="muted" Text="Spring / damper / friction"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1">
+                                <TextBlock Grid.Row="6" Classes="muted" Text="FFB runtime"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding GameplayFfbRuntimeStatus}"/>
+                                <TextBlock Grid.Row="7" Classes="muted" Text="Active effects"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding ActiveGameplayEffects}"/>
+                                <TextBlock Grid.Row="8" Classes="muted" Text="Active category"/>
+                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ActiveVehicleCategory}"/>
+                                <TextBlock Grid.Row="9" Classes="muted" Text="Spring / damper / friction"/>
+                                <TextBlock Grid.Row="9" Grid.Column="1">
                                     <TextBlock.Text>
                                         <MultiBinding StringFormat="{}{0} / {1} / {2}">
                                             <Binding Path="SpringOutput"/>
@@ -110,8 +114,8 @@
                                         </MultiBinding>
                                     </TextBlock.Text>
                                 </TextBlock>
-                                <TextBlock Grid.Row="8" Classes="muted" Text="Vibration"/>
-                                <TextBlock Grid.Row="8" Grid.Column="1">
+                                <TextBlock Grid.Row="10" Classes="muted" Text="Vibration"/>
+                                <TextBlock Grid.Row="10" Grid.Column="1">
                                     <TextBlock.Text>
                                         <MultiBinding StringFormat="{}RPM {0}, Surface {1}, Slip {2}, Bump {3}">
                                             <Binding Path="EngineVibrationOutput"/>
@@ -121,10 +125,10 @@
                                         </MultiBinding>
                                     </TextBlock.Text>
                                 </TextBlock>
-                                <TextBlock Grid.Row="9" Classes="muted" Text="Load factor"/>
-                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding LoadFactor}"/>
-                                <TextBlock Grid.Row="10" Classes="muted" Text="Telemetry fade"/>
-                                <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding TelemetryFade}"/>
+                                <TextBlock Grid.Row="11" Classes="muted" Text="Load factor"/>
+                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding LoadFactor}"/>
+                                <TextBlock Grid.Row="12" Classes="muted" Text="Telemetry fade"/>
+                                <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding TelemetryFade}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -254,27 +258,29 @@
                     <Border Grid.Column="1" Classes="panel">
                         <StackPanel Spacing="12">
                             <TextBlock Classes="section" Text="Vehicle"/>
-                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                 <TextBlock Classes="muted" Text="Vehicle"/>
                                 <TextBlock Grid.Column="1" Text="{Binding CurrentVehicle}"/>
                                 <TextBlock Grid.Row="1" Classes="muted" Text="Type"/>
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleType}"/>
-                                <TextBlock Grid.Row="2" Classes="muted" Text="Game state"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GameState}"/>
-                                <TextBlock Grid.Row="3" Classes="muted" Text="Speed"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SpeedKmh}"/>
-                                <TextBlock Grid.Row="4" Classes="muted" Text="Steering"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SteeringAngle}"/>
-                                <TextBlock Grid.Row="5" Classes="muted" Text="RPM"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Rpm}"/>
-                                <TextBlock Grid.Row="6" Classes="muted" Text="Engine"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding EngineStatus}"/>
-                                <TextBlock Grid.Row="7" Classes="muted" Text="Mass / total"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding MassAndTotal}"/>
-                                <TextBlock Grid.Row="8" Classes="muted" Text="On field"/>
-                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding IsOnField}"/>
-                                <TextBlock Grid.Row="9" Classes="muted" Text="Surface"/>
-                                <TextBlock Grid.Row="9" Grid.Column="1">
+                                <TextBlock Grid.Row="2" Classes="muted" Text="Category"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding VehicleCategory}"/>
+                                <TextBlock Grid.Row="3" Classes="muted" Text="Game state"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding GameState}"/>
+                                <TextBlock Grid.Row="4" Classes="muted" Text="Speed"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SpeedKmh}"/>
+                                <TextBlock Grid.Row="5" Classes="muted" Text="Steering"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SteeringAngle}"/>
+                                <TextBlock Grid.Row="6" Classes="muted" Text="RPM"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Rpm}"/>
+                                <TextBlock Grid.Row="7" Classes="muted" Text="Engine"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding EngineStatus}"/>
+                                <TextBlock Grid.Row="8" Classes="muted" Text="Mass / total"/>
+                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding MassAndTotal}"/>
+                                <TextBlock Grid.Row="9" Classes="muted" Text="On field"/>
+                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding IsOnField}"/>
+                                <TextBlock Grid.Row="10" Classes="muted" Text="Surface"/>
+                                <TextBlock Grid.Row="10" Grid.Column="1">
                                     <TextBlock.Text>
                                         <MultiBinding StringFormat="{}{0} / attr {1}">
                                             <Binding Path="SurfaceType"/>
@@ -282,18 +288,18 @@
                                         </MultiBinding>
                                     </TextBlock.Text>
                                 </TextBlock>
-                                <TextBlock Grid.Row="10" Classes="muted" Text="Wetness / rain"/>
-                                <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding WetnessAndRain}"/>
-                                <TextBlock Grid.Row="11" Classes="muted" Text="Slip avg / max"/>
-                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding WheelSlip}"/>
-                                <TextBlock Grid.Row="12" Classes="muted" Text="Ground contact"/>
-                                <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding GroundContactRatio}"/>
-                                <TextBlock Grid.Row="13" Classes="muted" Text="Pitch / roll / slope"/>
-                                <TextBlock Grid.Row="13" Grid.Column="1" Text="{Binding Attitude}"/>
-                                <TextBlock Grid.Row="14" Classes="muted" Text="Local accel"/>
-                                <TextBlock Grid.Row="14" Grid.Column="1" Text="{Binding LocalAcceleration}"/>
-                                <TextBlock Grid.Row="15" Classes="muted" Text="Bump impulse"/>
-                                <TextBlock Grid.Row="15" Grid.Column="1" Text="{Binding BumpImpulse}"/>
+                                <TextBlock Grid.Row="11" Classes="muted" Text="Wetness / rain"/>
+                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding WetnessAndRain}"/>
+                                <TextBlock Grid.Row="12" Classes="muted" Text="Slip avg / max"/>
+                                <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding WheelSlip}"/>
+                                <TextBlock Grid.Row="13" Classes="muted" Text="Ground contact"/>
+                                <TextBlock Grid.Row="13" Grid.Column="1" Text="{Binding GroundContactRatio}"/>
+                                <TextBlock Grid.Row="14" Classes="muted" Text="Pitch / roll / slope"/>
+                                <TextBlock Grid.Row="14" Grid.Column="1" Text="{Binding Attitude}"/>
+                                <TextBlock Grid.Row="15" Classes="muted" Text="Local accel"/>
+                                <TextBlock Grid.Row="15" Grid.Column="1" Text="{Binding LocalAcceleration}"/>
+                                <TextBlock Grid.Row="16" Classes="muted" Text="Bump impulse"/>
+                                <TextBlock Grid.Row="16" Grid.Column="1" Text="{Binding BumpImpulse}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -319,7 +325,15 @@
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="section" Text="Gameplay Effects"/>
-                                <TextBlock Classes="muted" Text="Conservative Logitech MOMO defaults. Emergency Stop disables gameplay FFB until re-enabled here."/>
+                                <TextBlock Classes="muted" Text="Conservative Logitech MOMO defaults. Stop All pauses runtime output without changing this profile setting."/>
+                                <TextBlock Classes="muted">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}Runtime {0} / category {1}">
+                                            <Binding Path="GameplayFfbRuntimeStatus"/>
+                                            <Binding Path="ActiveVehicleCategory"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
                             </StackPanel>
                             <CheckBox Grid.Column="1"
                                       VerticalAlignment="Center"

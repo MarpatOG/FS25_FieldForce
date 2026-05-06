@@ -19,6 +19,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private AppConfig _config;
     private IntPtr _windowHandle;
     private bool _loadingConfig;
+    private bool _gameplayFfbPausedByStopAll;
     private bool _disposed;
 
     [ObservableProperty]
@@ -74,6 +75,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string _vehicleType = "Unknown";
+
+    [ObservableProperty]
+    private string _vehicleCategory = "Unknown";
 
     [ObservableProperty]
     private string _speedKmh = "-";
@@ -259,6 +263,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string _activeGameplayEffects = "None";
 
     [ObservableProperty]
+    private string _activeVehicleCategory = "Unknown";
+
+    [ObservableProperty]
+    private string _gameplayFfbRuntimeStatus = "FFB enabled";
+
+    [ObservableProperty]
     private string _springOutput = "0%";
 
     [ObservableProperty]
@@ -313,7 +323,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _backend.UpdateForceLimits(GlobalForceLimitPercent, DeviceForceLimitPercent);
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
         _telemetryReceiver.Start(_config.TelemetryHost, _config.TelemetryPort, _config.TelemetryLostTimeoutMs, _config.TelemetryFilePath);
-        _gameplayFfb = new GameplayFfbController(_telemetryReceiver, _backend, _log, () => _config.GameplayFfb, OnGameplayOutputChanged);
+        _gameplayFfb = new GameplayFfbController(_telemetryReceiver, _backend, _log, GetRuntimeGameplaySettings, OnGameplayOutputChanged, OnGameplayApplyResultChanged);
         _log.Information("Application initialized. Config={ConfigPath}", ConfigPath);
     }
 
@@ -339,9 +349,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public void HandlePanicHotkey()
     {
-        GameplayFfbEnabled = false;
+        _gameplayFfbPausedByStopAll = true;
         _safety.OnPanicHotkey();
         OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+        GameplayFfbRuntimeStatus = "Paused by emergency stop";
         BackendStatus = "Emergency stop active";
         StopAllEffectsCommand.NotifyCanExecuteChanged();
     }
@@ -425,9 +436,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void StopAllEffects()
     {
-        GameplayFfbEnabled = false;
+        _gameplayFfbPausedByStopAll = true;
+        _log.Information("Stop All requested: reason={Reason}, persistentGameplayConfigChanged={PersistentConfigChanged}", "user stop", false);
         _safety.StopAll("user stop");
         OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+        GameplayFfbRuntimeStatus = "Paused by Stop All";
         BackendStatus = "All effects stopped";
     }
 
@@ -491,11 +504,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     partial void OnGameplayFfbEnabledChanged(bool value)
     {
+        if (value)
+        {
+            _gameplayFfbPausedByStopAll = false;
+            GameplayFfbRuntimeStatus = CanRunEffects ? "FFB enabled" : "Device not acquired";
+        }
+
         SaveGameplaySettingsFromUi();
         if (!value && !_loadingConfig)
         {
             _backend.StopGameplayEffects("gameplay ffb disabled");
             OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+            GameplayFfbRuntimeStatus = "FFB disabled";
         }
     }
     partial void OnSpeedSpringEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
@@ -636,6 +656,49 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _log.Information("Gameplay FFB settings updated");
     }
 
+    private GameplayFfbSettings GetRuntimeGameplaySettings()
+    {
+        if (!_gameplayFfbPausedByStopAll)
+        {
+            return _config.GameplayFfb;
+        }
+
+        return new GameplayFfbSettings
+        {
+            Enabled = false,
+            SpeedSpring = _config.GameplayFfb.SpeedSpring,
+            SpeedDamper = _config.GameplayFfb.SpeedDamper,
+            MechanicalFriction = _config.GameplayFfb.MechanicalFriction,
+            LoadResistance = _config.GameplayFfb.LoadResistance,
+            EngineVibration = _config.GameplayFfb.EngineVibration,
+            SurfaceFeedback = _config.GameplayFfb.SurfaceFeedback,
+            SlipFeedback = _config.GameplayFfb.SlipFeedback,
+            WetnessFeedback = _config.GameplayFfb.WetnessFeedback,
+            MotionFeedback = _config.GameplayFfb.MotionFeedback,
+            BumpFeedback = _config.GameplayFfb.BumpFeedback
+        };
+    }
+
+    private void OnGameplayApplyResultChanged(FfbApplyResult result)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            GameplayFfbRuntimeStatus = result.Status switch
+            {
+                FfbApplyStatus.Applied => "FFB enabled",
+                FfbApplyStatus.AcquireFailed => "Device not acquired",
+                _ when _gameplayFfbPausedByStopAll => "Paused by Stop All",
+                _ when GameplayFfbEnabled => "FFB enabled",
+                _ => "FFB disabled"
+            };
+
+            if (result.Status == FfbApplyStatus.AcquireFailed)
+            {
+                BackendStatus = result.Message;
+            }
+        });
+    }
+
     private void OnGameplayOutputChanged(GameplayFfbOutput output)
     {
         Dispatcher.UIThread.Post(() =>
@@ -705,6 +768,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             CurrentVehicle = "No vehicle";
             VehicleType = "Unknown";
+            VehicleCategory = "Unknown";
+            ActiveVehicleCategory = "Unknown";
             SpeedKmh = "-";
             SteeringAngle = "-";
             Rpm = "-";
@@ -727,6 +792,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             CurrentVehicle = string.IsNullOrWhiteSpace(packet.VehicleName) ? "No vehicle" : packet.VehicleName;
             VehicleType = string.IsNullOrWhiteSpace(packet.VehicleType) ? "Unknown" : packet.VehicleType;
+            VehicleCategory = string.IsNullOrWhiteSpace(packet.VehicleCategory) ? "Unknown" : packet.VehicleCategory;
+            ActiveVehicleCategory = VehicleCategory;
             SpeedKmh = FormatNumber(packet.SpeedKmh, "0.0 km/h");
             SteeringAngle = FormatNumber(packet.SteeringAngle, "0.000");
             Rpm = FormatNumber(packet.Rpm, "0 rpm");

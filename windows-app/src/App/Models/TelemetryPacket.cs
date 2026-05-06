@@ -19,6 +19,9 @@ public sealed class TelemetryPacket
     [JsonPropertyName("vehicleType")]
     public string? VehicleType { get; set; }
 
+    [JsonPropertyName("vehicleCategory")]
+    public string? VehicleCategory { get; set; }
+
     [JsonPropertyName("speedKmh")]
     public double? SpeedKmh { get; set; }
 

@@ -4,6 +4,7 @@
   "isPlayerInVehicle": true,
   "vehicleName": "UDP Test Tractor",
   "vehicleType": "tractor",
+  "vehicleCategory": "TractorWheeled",
   "speedKmh": 12.5,
   "steeringAngle": 0.1,
   "rpm": 850,

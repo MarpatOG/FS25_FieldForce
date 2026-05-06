@@ -4,6 +4,8 @@ namespace FS25FfbBridge.App.Services;
 
 public sealed class GameplayFfbCalculator
 {
+    private const double MovingSpeedThresholdKmh = 2.0;
+
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings)
     {
         if (!settings.Enabled)
@@ -21,7 +23,10 @@ public sealed class GameplayFfbCalculator
             return GameplayFfbOutput.Zero;
         }
 
-        var speed = Math.Max(0, packet.SpeedKmh ?? 0);
+        settings = ApplyVehicleCategoryProfile(settings, packet.VehicleCategory);
+
+        var rawSpeed = Math.Max(0, packet.SpeedKmh ?? 0);
+        var speed = rawSpeed < MovingSpeedThresholdKmh ? 0 : rawSpeed;
         var loadFactor = CalculateLoadFactor(packet.Mass, packet.TotalMass);
         var loadResistance = CalculateLoadResistance(settings.LoadResistance, loadFactor);
         var loadRatio = CalculateLoadRatio(loadFactor);
@@ -120,6 +125,192 @@ public sealed class GameplayFfbCalculator
                        output.SurfaceVibrationPercent > 0 ||
                        output.SlipVibrationPercent > 0 ||
                        output.BumpImpulsePercent != 0
+        };
+    }
+
+    private static GameplayFfbSettings ApplyVehicleCategoryProfile(GameplayFfbSettings settings, string? vehicleCategory)
+    {
+        var category = NormalizeVehicleCategory(vehicleCategory);
+        if (!settings.VehicleCategoryProfiles.TryGetValue(category, out var profile))
+        {
+            profile = VehicleCategoryFfbProfile.CreateDefaults().GetValueOrDefault(category);
+        }
+
+        return profile is null ? settings : ApplyProfile(CloneSettings(settings), profile);
+    }
+
+    private static string NormalizeVehicleCategory(string? vehicleCategory)
+    {
+        if (string.IsNullOrWhiteSpace(vehicleCategory))
+        {
+            return VehicleCategoryFfbProfile.Unknown;
+        }
+
+        var value = vehicleCategory.Trim();
+        return value switch
+        {
+            VehicleCategoryFfbProfile.TractorWheeled or
+            VehicleCategoryFfbProfile.TractorTracked or
+            VehicleCategoryFfbProfile.HeavyTractorWheeled or
+            VehicleCategoryFfbProfile.HeavyTractorTracked or
+            VehicleCategoryFfbProfile.Harvester or
+            VehicleCategoryFfbProfile.Truck or
+            VehicleCategoryFfbProfile.LoaderTelehandler or
+            VehicleCategoryFfbProfile.LightVehicle or
+            VehicleCategoryFfbProfile.Unknown => value,
+            _ => VehicleCategoryFfbProfile.Unknown
+        };
+    }
+
+    private static GameplayFfbSettings ApplyProfile(GameplayFfbSettings settings, VehicleCategoryFfbProfile profile)
+    {
+        ApplySpeedProfile(settings.SpeedSpring, profile.SpeedSpringStrengthMultiplier, profile.SpeedSpringMaxMultiplier, profile.SpeedSpringReferenceMultiplier);
+        ApplySpeedProfile(settings.SpeedDamper, profile.SpeedDamperStrengthMultiplier, profile.SpeedDamperMaxMultiplier, profile.SpeedDamperReferenceMultiplier);
+        ApplyEffectProfile(settings.MechanicalFriction, profile.MechanicalFrictionStrengthMultiplier, profile.MechanicalFrictionMaxMultiplier);
+        ApplyEffectProfile(settings.LoadResistance, profile.LoadResistanceStrengthMultiplier, profile.LoadResistanceMaxMultiplier);
+        ApplyEffectProfile(settings.EngineVibration, profile.EngineVibrationStrengthMultiplier, profile.EngineVibrationMaxMultiplier);
+        ApplyEffectProfile(settings.SurfaceFeedback, profile.SurfaceFeedbackStrengthMultiplier, profile.SurfaceFeedbackMaxMultiplier);
+        ApplyEffectProfile(settings.SlipFeedback, profile.SlipFeedbackStrengthMultiplier, profile.SlipFeedbackMaxMultiplier);
+        ApplyEffectProfile(settings.BumpFeedback, profile.BumpFeedbackStrengthMultiplier, profile.BumpFeedbackMaxMultiplier);
+        return settings;
+    }
+
+    private static void ApplyEffectProfile(FfbEffectSettings settings, double strengthMultiplier, double maxMultiplier)
+    {
+        settings.StrengthPercent = ClampSettingPercent(settings.StrengthPercent * SanitizeMultiplier(strengthMultiplier));
+        settings.MaxOutputPercent = ClampSettingPercent(settings.MaxOutputPercent * SanitizeMultiplier(maxMultiplier));
+    }
+
+    private static void ApplySpeedProfile(SpeedConditionSettings settings, double strengthMultiplier, double maxMultiplier, double speedReferenceMultiplier)
+    {
+        ApplyEffectProfile(settings, strengthMultiplier, maxMultiplier);
+        settings.SpeedReferenceKmh = Math.Clamp(settings.SpeedReferenceKmh * SanitizeMultiplier(speedReferenceMultiplier), 1, 300);
+    }
+
+    private static double SanitizeMultiplier(double value)
+    {
+        return double.IsFinite(value) && value >= 0 ? Math.Clamp(value, 0, 3) : 1;
+    }
+
+    private static int ClampSettingPercent(double value)
+    {
+        return Math.Clamp((int)Math.Round(value), 0, 100);
+    }
+
+    private static GameplayFfbSettings CloneSettings(GameplayFfbSettings settings)
+    {
+        return new GameplayFfbSettings
+        {
+            Enabled = settings.Enabled,
+            VehicleCategoryProfiles = settings.VehicleCategoryProfiles,
+            SpeedSpring = CloneSpeed(settings.SpeedSpring),
+            SpeedDamper = CloneSpeed(settings.SpeedDamper),
+            MechanicalFriction = new MechanicalFrictionSettings
+            {
+                Enabled = settings.MechanicalFriction.Enabled,
+                StrengthPercent = settings.MechanicalFriction.StrengthPercent,
+                MaxOutputPercent = settings.MechanicalFriction.MaxOutputPercent,
+                Curve = settings.MechanicalFriction.Curve,
+                BaseFriction = settings.MechanicalFriction.BaseFriction,
+                LoadInfluence = settings.MechanicalFriction.LoadInfluence,
+                FieldInfluence = settings.MechanicalFriction.FieldInfluence
+            },
+            LoadResistance = new LoadResistanceSettings
+            {
+                Enabled = settings.LoadResistance.Enabled,
+                StrengthPercent = settings.LoadResistance.StrengthPercent,
+                MaxOutputPercent = settings.LoadResistance.MaxOutputPercent,
+                Curve = settings.LoadResistance.Curve,
+                AffectsSpring = settings.LoadResistance.AffectsSpring,
+                AffectsDamper = settings.LoadResistance.AffectsDamper,
+                AffectsFriction = settings.LoadResistance.AffectsFriction,
+                SpringScale = settings.LoadResistance.SpringScale,
+                DamperScale = settings.LoadResistance.DamperScale,
+                FrictionScale = settings.LoadResistance.FrictionScale
+            },
+            EngineVibration = new EngineVibrationSettings
+            {
+                Enabled = settings.EngineVibration.Enabled,
+                StrengthPercent = settings.EngineVibration.StrengthPercent,
+                MaxOutputPercent = settings.EngineVibration.MaxOutputPercent,
+                Curve = settings.EngineVibration.Curve,
+                MinRpm = settings.EngineVibration.MinRpm,
+                MaxRpm = settings.EngineVibration.MaxRpm,
+                MinFrequencyHz = settings.EngineVibration.MinFrequencyHz,
+                MaxFrequencyHz = settings.EngineVibration.MaxFrequencyHz
+            },
+            SurfaceFeedback = new SurfaceFeedbackSettings
+            {
+                Enabled = settings.SurfaceFeedback.Enabled,
+                StrengthPercent = settings.SurfaceFeedback.StrengthPercent,
+                MaxOutputPercent = settings.SurfaceFeedback.MaxOutputPercent,
+                Curve = settings.SurfaceFeedback.Curve,
+                MinSpeedKmh = settings.SurfaceFeedback.MinSpeedKmh,
+                FieldFrequencyMinHz = settings.SurfaceFeedback.FieldFrequencyMinHz,
+                FieldFrequencyMaxHz = settings.SurfaceFeedback.FieldFrequencyMaxHz,
+                FieldSpringModifierPercent = settings.SurfaceFeedback.FieldSpringModifierPercent,
+                FieldDamperModifierPercent = settings.SurfaceFeedback.FieldDamperModifierPercent,
+                FieldFrictionModifierPercent = settings.SurfaceFeedback.FieldFrictionModifierPercent
+            },
+            SlipFeedback = new SlipFeedbackSettings
+            {
+                Enabled = settings.SlipFeedback.Enabled,
+                StrengthPercent = settings.SlipFeedback.StrengthPercent,
+                MaxOutputPercent = settings.SlipFeedback.MaxOutputPercent,
+                Curve = settings.SlipFeedback.Curve,
+                MinSlip = settings.SlipFeedback.MinSlip,
+                FullSlip = settings.SlipFeedback.FullSlip,
+                MinSpeedKmh = settings.SlipFeedback.MinSpeedKmh,
+                MinFrequencyHz = settings.SlipFeedback.MinFrequencyHz,
+                MaxFrequencyHz = settings.SlipFeedback.MaxFrequencyHz
+            },
+            WetnessFeedback = new WetnessFeedbackSettings
+            {
+                Enabled = settings.WetnessFeedback.Enabled,
+                StrengthPercent = settings.WetnessFeedback.StrengthPercent,
+                MaxOutputPercent = settings.WetnessFeedback.MaxOutputPercent,
+                Curve = settings.WetnessFeedback.Curve,
+                MinWetness = settings.WetnessFeedback.MinWetness,
+                DamperModifierPercent = settings.WetnessFeedback.DamperModifierPercent,
+                SurfaceVibrationModifierPercent = settings.WetnessFeedback.SurfaceVibrationModifierPercent
+            },
+            MotionFeedback = new MotionFeedbackSettings
+            {
+                Enabled = settings.MotionFeedback.Enabled,
+                StrengthPercent = settings.MotionFeedback.StrengthPercent,
+                MaxOutputPercent = settings.MotionFeedback.MaxOutputPercent,
+                Curve = settings.MotionFeedback.Curve,
+                FullRollDeg = settings.MotionFeedback.FullRollDeg,
+                FullPitchDeg = settings.MotionFeedback.FullPitchDeg,
+                FullYawRateDegPerSec = settings.MotionFeedback.FullYawRateDegPerSec,
+                FullAcceleration = settings.MotionFeedback.FullAcceleration,
+                SpringModifierPercent = settings.MotionFeedback.SpringModifierPercent,
+                DamperModifierPercent = settings.MotionFeedback.DamperModifierPercent
+            },
+            BumpFeedback = new BumpFeedbackSettings
+            {
+                Enabled = settings.BumpFeedback.Enabled,
+                StrengthPercent = settings.BumpFeedback.StrengthPercent,
+                MaxOutputPercent = settings.BumpFeedback.MaxOutputPercent,
+                Curve = settings.BumpFeedback.Curve,
+                MinImpulse = settings.BumpFeedback.MinImpulse,
+                FullImpulse = settings.BumpFeedback.FullImpulse,
+                DurationMs = settings.BumpFeedback.DurationMs,
+                CooldownMs = settings.BumpFeedback.CooldownMs
+            }
+        };
+    }
+
+    private static SpeedConditionSettings CloneSpeed(SpeedConditionSettings settings)
+    {
+        return new SpeedConditionSettings
+        {
+            Enabled = settings.Enabled,
+            StrengthPercent = settings.StrengthPercent,
+            MaxOutputPercent = settings.MaxOutputPercent,
+            Curve = settings.Curve,
+            StandstillFloor = settings.StandstillFloor,
+            SpeedReferenceKmh = settings.SpeedReferenceKmh
         };
     }
 

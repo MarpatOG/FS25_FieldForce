@@ -15,6 +15,7 @@ public sealed class TelemetryReceiverServiceTests
           "isPlayerInVehicle": true,
           "vehicleName": "Tractor",
           "vehicleType": "tractor",
+          "vehicleCategory": "TractorWheeled",
           "speedKmh": 12.4,
           "steeringAngle": 0.13,
           "rpm": 850,
@@ -32,6 +33,7 @@ public sealed class TelemetryReceiverServiceTests
           "isPlayerInVehicle": true,
           "vehicleName": "Tractor",
           "vehicleType": "tractor",
+          "vehicleCategory": "TractorWheeled",
           "speedKmh": 12.4,
           "steeringAngle": 0.13,
           "rpm": 850,
@@ -74,6 +76,7 @@ public sealed class TelemetryReceiverServiceTests
 
         var state = await stateTask;
         Assert.Equal("Tractor", state.LastPacket?.VehicleName);
+        Assert.Equal("TractorWheeled", state.LastPacket?.VehicleCategory);
         Assert.Null(state.LastPacket?.SurfaceType);
         Assert.StartsWith("Listening: udp://127.0.0.1:", state.UdpStatus);
     }

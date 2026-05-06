@@ -28,6 +28,53 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Speed_below_two_kmh_is_treated_as_standstill()
+    {
+        var settings = new GameplayFfbSettings();
+        var stopped = _calculator.Calculate(State(Packet(speedKmh: 0)), settings);
+        var creeping = _calculator.Calculate(State(Packet(speedKmh: 1.9)), settings);
+
+        Assert.Equal(stopped.SpringPercent, creeping.SpringPercent);
+        Assert.Equal(stopped.DamperPercent, creeping.DamperPercent);
+    }
+
+    [Fact]
+    public void Valid_gameplay_packet_produces_nonzero_condition_effects()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 22, mass: 6000, totalMass: 8500)), new GameplayFfbSettings());
+
+        Assert.True(output.IsActive);
+        Assert.True(output.SpringPercent > 0);
+        Assert.True(output.DamperPercent > 0);
+        Assert.True(output.FrictionPercent > 0);
+    }
+
+    [Fact]
+    public void Vehicle_category_profile_applies_multipliers()
+    {
+        var settings = new GameplayFfbSettings();
+        var wheeled = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorWheeled)), settings);
+        var tracked = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorTracked)), settings);
+
+        Assert.True(tracked.DamperPercent > wheeled.DamperPercent);
+        Assert.True(tracked.FrictionPercent > wheeled.FrictionPercent);
+        Assert.True(tracked.SpringPercent < wheeled.SpringPercent);
+    }
+
+    [Fact]
+    public void Unknown_vehicle_category_keeps_current_output_unchanged()
+    {
+        var settings = new GameplayFfbSettings();
+        var missing = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: null)), settings);
+        var unknown = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.Unknown)), settings);
+
+        Assert.Equal(missing.SpringPercent, unknown.SpringPercent);
+        Assert.Equal(missing.DamperPercent, unknown.DamperPercent);
+        Assert.Equal(missing.FrictionPercent, unknown.FrictionPercent);
+        Assert.Equal(missing.EngineVibrationPercent, unknown.EngineVibrationPercent);
+    }
+
+    [Fact]
     public void Heavier_total_mass_increases_load_influence()
     {
         var settings = new GameplayFfbSettings();
@@ -204,7 +251,8 @@ public sealed class GameplayFfbCalculatorTests
         double? localAccelerationX = null,
         double? localAccelerationY = null,
         double? localAccelerationZ = null,
-        double? bumpImpulse = null)
+        double? bumpImpulse = null,
+        string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled)
     {
         return new TelemetryPacket
         {
@@ -213,6 +261,7 @@ public sealed class GameplayFfbCalculatorTests
             IsPlayerInVehicle = true,
             VehicleName = "Tractor",
             VehicleType = "tractor",
+            VehicleCategory = vehicleCategory,
             SpeedKmh = speedKmh,
             SteeringAngle = 0,
             Rpm = rpm,

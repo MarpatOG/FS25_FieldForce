@@ -87,6 +87,8 @@ public sealed class GameplayFfbSettings
 {
     public bool Enabled { get; set; } = true;
 
+    public Dictionary<string, VehicleCategoryFfbProfile> VehicleCategoryProfiles { get; set; } = VehicleCategoryFfbProfile.CreateDefaults();
+
     public SpeedConditionSettings SpeedSpring { get; set; } = new()
     {
         Enabled = true,
@@ -207,4 +209,107 @@ public sealed class GameplayFfbSettings
         DurationMs = 80,
         CooldownMs = 90
     };
+}
+
+public sealed class VehicleCategoryFfbProfile
+{
+    public const string TractorWheeled = "TractorWheeled";
+    public const string TractorTracked = "TractorTracked";
+    public const string HeavyTractorWheeled = "HeavyTractorWheeled";
+    public const string HeavyTractorTracked = "HeavyTractorTracked";
+    public const string Harvester = "Harvester";
+    public const string Truck = "Truck";
+    public const string LoaderTelehandler = "LoaderTelehandler";
+    public const string LightVehicle = "LightVehicle";
+    public const string Unknown = "Unknown";
+
+    public double SpeedSpringStrengthMultiplier { get; set; } = 1.0;
+    public double SpeedSpringMaxMultiplier { get; set; } = 1.0;
+    public double SpeedSpringReferenceMultiplier { get; set; } = 1.0;
+    public double SpeedDamperStrengthMultiplier { get; set; } = 1.0;
+    public double SpeedDamperMaxMultiplier { get; set; } = 1.0;
+    public double SpeedDamperReferenceMultiplier { get; set; } = 1.0;
+    public double MechanicalFrictionStrengthMultiplier { get; set; } = 1.0;
+    public double MechanicalFrictionMaxMultiplier { get; set; } = 1.0;
+    public double LoadResistanceStrengthMultiplier { get; set; } = 1.0;
+    public double LoadResistanceMaxMultiplier { get; set; } = 1.0;
+    public double EngineVibrationStrengthMultiplier { get; set; } = 1.0;
+    public double EngineVibrationMaxMultiplier { get; set; } = 1.0;
+    public double SurfaceFeedbackStrengthMultiplier { get; set; } = 1.0;
+    public double SurfaceFeedbackMaxMultiplier { get; set; } = 1.0;
+    public double SlipFeedbackStrengthMultiplier { get; set; } = 1.0;
+    public double SlipFeedbackMaxMultiplier { get; set; } = 1.0;
+    public double BumpFeedbackStrengthMultiplier { get; set; } = 1.0;
+    public double BumpFeedbackMaxMultiplier { get; set; } = 1.0;
+
+    public static Dictionary<string, VehicleCategoryFfbProfile> CreateDefaults()
+    {
+        return new(StringComparer.OrdinalIgnoreCase)
+        {
+            [TractorWheeled] = new(),
+            [TractorTracked] = new()
+            {
+                SpeedSpringStrengthMultiplier = 0.85,
+                SpeedSpringMaxMultiplier = 0.90,
+                SpeedDamperStrengthMultiplier = 1.20,
+                MechanicalFrictionStrengthMultiplier = 1.18,
+                LoadResistanceStrengthMultiplier = 1.20,
+                SlipFeedbackStrengthMultiplier = 0.70
+            },
+            [HeavyTractorWheeled] = new()
+            {
+                SpeedDamperStrengthMultiplier = 1.15,
+                MechanicalFrictionStrengthMultiplier = 1.15,
+                LoadResistanceStrengthMultiplier = 1.20,
+                EngineVibrationStrengthMultiplier = 0.90
+            },
+            [HeavyTractorTracked] = new()
+            {
+                SpeedSpringStrengthMultiplier = 0.75,
+                SpeedSpringMaxMultiplier = 0.85,
+                SpeedDamperStrengthMultiplier = 1.35,
+                SpeedDamperMaxMultiplier = 1.10,
+                MechanicalFrictionStrengthMultiplier = 1.35,
+                LoadResistanceStrengthMultiplier = 1.35,
+                LoadResistanceMaxMultiplier = 1.10,
+                EngineVibrationStrengthMultiplier = 0.90,
+                SlipFeedbackStrengthMultiplier = 0.60
+            },
+            [Harvester] = new()
+            {
+                SpeedDamperStrengthMultiplier = 1.25,
+                MechanicalFrictionStrengthMultiplier = 1.20,
+                EngineVibrationStrengthMultiplier = 0.85,
+                BumpFeedbackStrengthMultiplier = 0.75
+            },
+            [Truck] = new()
+            {
+                SpeedSpringStrengthMultiplier = 1.15,
+                SpeedSpringMaxMultiplier = 1.10,
+                SurfaceFeedbackStrengthMultiplier = 0.70,
+                SurfaceFeedbackMaxMultiplier = 0.80
+            },
+            [LoaderTelehandler] = new()
+            {
+                SpeedSpringReferenceMultiplier = 0.75,
+                SpeedDamperReferenceMultiplier = 0.85,
+                MechanicalFrictionStrengthMultiplier = 1.20,
+                BumpFeedbackStrengthMultiplier = 1.20
+            },
+            [LightVehicle] = new()
+            {
+                SpeedSpringMaxMultiplier = 0.70,
+                SpeedSpringReferenceMultiplier = 0.75,
+                SpeedDamperMaxMultiplier = 0.70,
+                SpeedDamperReferenceMultiplier = 0.75,
+                MechanicalFrictionMaxMultiplier = 0.75,
+                LoadResistanceStrengthMultiplier = 0.60,
+                LoadResistanceMaxMultiplier = 0.70,
+                SurfaceFeedbackMaxMultiplier = 0.75,
+                SlipFeedbackMaxMultiplier = 0.75,
+                BumpFeedbackMaxMultiplier = 0.75
+            },
+            [Unknown] = new()
+        };
+    }
 }

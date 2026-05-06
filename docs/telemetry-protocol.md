@@ -24,6 +24,7 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
   "isPlayerInVehicle": true,
   "vehicleName": "Tractor",
   "vehicleType": "tractor",
+  "vehicleCategory": "TractorWheeled",
   "speedKmh": 12.4,
   "steeringAngle": 0.13,
   "rpm": 850,
@@ -52,6 +53,8 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 ## Field Notes
 
 - `timestamp`: FS game time when available, otherwise Lua clock.
+- `vehicleType`: raw FS25 `typeName`/`typeDesc` value kept as a legacy/debug field.
+- `vehicleCategory`: normalized category used by the Windows app to select automatic FFB multipliers. Values are `TractorWheeled`, `TractorTracked`, `HeavyTractorWheeled`, `HeavyTractorTracked`, `Harvester`, `Truck`, `LoaderTelehandler`, `LightVehicle`, and `Unknown`.
 - `steeringAngle`: best-effort normalized/vehicle steering value for Milestone 2.
 - `rpm`: best-effort motor RPM.
 - `mass` and `totalMass`: best-effort vehicle mass values.
@@ -64,6 +67,12 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 - `localAccelerationX/Y/Z`: acceleration in vehicle-local axes when enough motion history is available.
 - `bumpImpulse`: normalized vertical impulse derived from local acceleration.
 - Missing values are sent as `null`.
+
+## Vehicle Categories
+
+The Lua mod classifies vehicles from FS25 `vehicle.typeName` and `vehicle.typeDesc`. Tractor categories are split into wheeled/tracked variants by the FS25 `Crawlers` specialization data (`vehicle.spec_crawlers.crawlers` and wheel-configuration crawler tables). GIANTS documents `Crawlers` as the specialization for crawlers and tracks with rotating or scrolling elements: https://gdn.giants-software.com/documentation_scripting_fs25.php?category=77&class=655&version=script
+
+Heavy tractor detection uses explicit raw type/category names such as large/heavy tractor equivalents. Mass is not used as the primary criterion, and model names are not parsed. If the raw type/category data is missing or unexpected, the mod emits `Unknown`.
 
 ## Receiver States
 

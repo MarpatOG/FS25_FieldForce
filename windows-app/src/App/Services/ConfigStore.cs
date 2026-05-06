@@ -11,10 +11,20 @@ public sealed class ConfigStore
         PropertyNameCaseInsensitive = true
     };
 
-    public string ConfigPath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "FS25FFBBridge",
-        "config.json");
+    public ConfigStore()
+        : this(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "FS25FFBBridge",
+            "config.json"))
+    {
+    }
+
+    public ConfigStore(string configPath)
+    {
+        ConfigPath = configPath;
+    }
+
+    public string ConfigPath { get; }
 
     public AppConfig Load()
     {
@@ -66,6 +76,7 @@ public sealed class ConfigStore
         config.GameplayFfb.WetnessFeedback ??= new WetnessFeedbackSettings();
         config.GameplayFfb.MotionFeedback ??= new MotionFeedbackSettings();
         config.GameplayFfb.BumpFeedback ??= new BumpFeedbackSettings();
+        config.GameplayFfb.VehicleCategoryProfiles = NormalizeVehicleCategoryProfiles(config.GameplayFfb.VehicleCategoryProfiles);
         if (config.EffectsProfileVersion < 4)
         {
             config.GameplayFfb.SurfaceFeedback.MinSpeedKmh = Math.Min(config.GameplayFfb.SurfaceFeedback.MinSpeedKmh, 0.2);
@@ -82,6 +93,31 @@ public sealed class ConfigStore
             config.EffectsProfileVersion = 4;
         }
 
+        if (config.EffectsProfileVersion < 5)
+        {
+            config.EffectsProfileVersion = 5;
+        }
+
         return config;
+    }
+
+    private static Dictionary<string, VehicleCategoryFfbProfile> NormalizeVehicleCategoryProfiles(
+        Dictionary<string, VehicleCategoryFfbProfile>? profiles)
+    {
+        var normalized = VehicleCategoryFfbProfile.CreateDefaults();
+        if (profiles is null)
+        {
+            return normalized;
+        }
+
+        foreach (var (key, profile) in profiles)
+        {
+            if (!string.IsNullOrWhiteSpace(key) && profile is not null)
+            {
+                normalized[key] = profile;
+            }
+        }
+
+        return normalized;
     }
 }

@@ -199,6 +199,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
         isPlayerInVehicle = inVehicle,
         vehicleName = inVehicle and self:getVehicleName(vehicle) or nil,
         vehicleType = inVehicle and self:getVehicleType(vehicle) or nil,
+        vehicleCategory = inVehicle and self:getVehicleCategory(vehicle) or nil,
         speedKmh = inVehicle and self:getSpeedKmh(vehicle) or nil,
         steeringAngle = inVehicle and self:getSteeringAngle(vehicle) or nil,
         rpm = inVehicle and self:getRpm(vehicle) or nil,
@@ -340,6 +341,197 @@ function FS25RealFfbTelemetry:getVehicleType(vehicle)
     end
 
     return "Unknown"
+end
+
+function FS25RealFfbTelemetry:getVehicleCategory(vehicle)
+    if vehicle == nil then
+        return "Unknown"
+    end
+
+    local rawType = self:getVehicleTypeText(vehicle)
+    if rawType == nil then
+        return "Unknown"
+    end
+
+    if self:isHarvesterType(rawType) then
+        return "Harvester"
+    end
+
+    if self:isTruckType(rawType) then
+        return "Truck"
+    end
+
+    if self:isLoaderTelehandlerType(rawType) then
+        return "LoaderTelehandler"
+    end
+
+    if self:isLightVehicleType(rawType) then
+        return "LightVehicle"
+    end
+
+    if self:isTractorType(rawType) then
+        local heavy = self:isHeavyTractorType(rawType)
+        local tracked = self:hasActiveCrawlers(vehicle)
+
+        if heavy and tracked then
+            return "HeavyTractorTracked"
+        elseif heavy then
+            return "HeavyTractorWheeled"
+        elseif tracked then
+            return "TractorTracked"
+        end
+
+        return "TractorWheeled"
+    end
+
+    return "Unknown"
+end
+
+function FS25RealFfbTelemetry:getVehicleTypeText(vehicle)
+    local parts = {}
+    if vehicle.typeName ~= nil then
+        table.insert(parts, tostring(vehicle.typeName))
+    end
+    if vehicle.typeDesc ~= nil then
+        table.insert(parts, tostring(vehicle.typeDesc))
+    end
+
+    if #parts == 0 then
+        return nil
+    end
+
+    return string.lower(table.concat(parts, " "))
+end
+
+function FS25RealFfbTelemetry:isTractorType(value)
+    return self:textHasAny(value, {
+        "tractor",
+        "tractors",
+        "traktor",
+        "traktoren"
+    })
+end
+
+function FS25RealFfbTelemetry:isHeavyTractorType(value)
+    return self:textHasAny(value, {
+        "tractorlarge",
+        "tractor large",
+        "large tractor",
+        "heavytractor",
+        "heavy tractor",
+        "bigtractor",
+        "big tractor",
+        "traktor gross",
+        "gross traktor"
+    })
+end
+
+function FS25RealFfbTelemetry:isHarvesterType(value)
+    return self:textHasAny(value, {
+        "combine",
+        "combineharvester",
+        "combine harvester",
+        "harvester",
+        "forageharvester",
+        "forage harvester",
+        "woodharvester",
+        "wood harvester"
+    })
+end
+
+function FS25RealFfbTelemetry:isTruckType(value)
+    return self:textHasAny(value, {
+        "truck",
+        "trucks",
+        "lkw",
+        "semi truck"
+    })
+end
+
+function FS25RealFfbTelemetry:isLoaderTelehandlerType(value)
+    return self:textHasAny(value, {
+        "telehandler",
+        "wheel loader",
+        "wheelloader",
+        "front loader",
+        "frontloader",
+        "skidsteer",
+        "skid steer",
+        "loader"
+    })
+end
+
+function FS25RealFfbTelemetry:isLightVehicleType(value)
+    return self:textHasAny(value, {
+        "car",
+        "cars",
+        "pickup",
+        "pick up",
+        "utv",
+        "atv",
+        "motorbike",
+        "motorcycle",
+        "supportvehicle",
+        "support vehicle"
+    })
+end
+
+function FS25RealFfbTelemetry:textHasAny(value, patterns)
+    if value == nil then
+        return false
+    end
+
+    for _, pattern in ipairs(patterns) do
+        if string.find(value, pattern, 1, true) ~= nil then
+            return true
+        end
+    end
+
+    return false
+end
+
+function FS25RealFfbTelemetry:hasActiveCrawlers(vehicle)
+    if vehicle == nil then
+        return false
+    end
+
+    local crawlerSpec = vehicle.spec_crawlers
+    if crawlerSpec == nil then
+        return false
+    end
+
+    if self:tableHasEntries(crawlerSpec.crawlers) then
+        return true
+    end
+
+    local wheelConfigCandidates = {
+        crawlerSpec.wheelConfigurationCrawlers,
+        crawlerSpec.wheelConfigCrawlers,
+        crawlerSpec.crawlersByWheelConfiguration,
+        crawlerSpec.configurationCrawlers
+    }
+
+    for _, candidate in ipairs(wheelConfigCandidates) do
+        if self:tableHasEntries(candidate) then
+            return true
+        end
+    end
+
+    return false
+end
+
+function FS25RealFfbTelemetry:tableHasEntries(value)
+    if type(value) ~= "table" then
+        return false
+    end
+
+    for _, entry in pairs(value) do
+        if entry ~= nil then
+            return true
+        end
+    end
+
+    return false
 end
 
 function FS25RealFfbTelemetry:getSpeedKmh(vehicle)
@@ -1011,6 +1203,7 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
         table.insert(lines, "isPlayerInVehicle: -")
         table.insert(lines, "vehicleName: -")
         table.insert(lines, "vehicleType: -")
+        table.insert(lines, "vehicleCategory: -")
         table.insert(lines, "speedKmh: -")
         table.insert(lines, "steeringAngle: -")
         table.insert(lines, "rpm: -")
@@ -1031,6 +1224,7 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
     table.insert(lines, "isPlayerInVehicle: " .. self:boolText(packet.isPlayerInVehicle))
     table.insert(lines, "vehicleName: " .. tostring(packet.vehicleName or "-"))
     table.insert(lines, "vehicleType: " .. tostring(packet.vehicleType or "-"))
+    table.insert(lines, "vehicleCategory: " .. tostring(packet.vehicleCategory or "-"))
     table.insert(lines, "speedKmh: " .. self:formatNumber(packet.speedKmh, "", 1))
     table.insert(lines, "steeringAngle: " .. self:formatNumber(packet.steeringAngle, "", 3))
     table.insert(lines, "rpm: " .. self:formatNumber(packet.rpm, "", 0))
@@ -1161,6 +1355,7 @@ function FS25RealFfbTelemetry:encodeJson(packet)
         "isPlayerInVehicle",
         "vehicleName",
         "vehicleType",
+        "vehicleCategory",
         "speedKmh",
         "steeringAngle",
         "rpm",
