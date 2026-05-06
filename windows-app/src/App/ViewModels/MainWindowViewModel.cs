@@ -9,6 +9,7 @@ namespace FS25FfbBridge.App.ViewModels;
 
 public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
+    private const int MaxRawTelemetryPreviewLength = 4000;
     private readonly ConfigStore _configStore;
     private readonly IFfbBackend _backend;
     private readonly TelemetryReceiverService _telemetryReceiver;
@@ -340,6 +341,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public string DeviceCountText => $"{Devices.Count} device(s)";
     public string FfbReadyText => CanRunEffects ? "FFB ready" : "FFB inactive";
     public string TelemetryReadyText => TelemetryStatus;
+    public bool IsTelemetryConnected => TelemetryStatus == "Connected";
+    public bool IsTelemetryWaiting => TelemetryStatus == "Waiting";
+    public bool IsTelemetryLost => TelemetryStatus == "Lost";
+    public bool IsFfbReady => CanRunEffects;
+    public bool IsFfbInactive => !CanRunEffects;
 
     public void InitializeWindowHandle(IntPtr windowHandle)
     {
@@ -736,6 +742,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         OnPropertyChanged(nameof(CanRunEffects));
         OnPropertyChanged(nameof(FfbReadyText));
+        OnPropertyChanged(nameof(IsFfbReady));
+        OnPropertyChanged(nameof(IsFfbInactive));
         SpringTestCommand.NotifyCanExecuteChanged();
         DamperTestCommand.NotifyCanExecuteChanged();
         ConstantLeftCommand.NotifyCanExecuteChanged();
@@ -758,7 +766,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         LastPacketSource = state.LastPacketSource;
         LastTransportError = string.IsNullOrWhiteSpace(state.LastTransportError) ? "none" : state.LastTransportError;
         LastPacketAge = state.LastPacketAge is null ? "none" : $"{state.LastPacketAge.Value.TotalMilliseconds:0} ms";
-        RawTelemetryPreview = state.LastRawPacket;
+        RawTelemetryPreview = LimitRawTelemetryPreview(state.LastRawPacket);
         TelemetryParseStatus = string.IsNullOrWhiteSpace(state.LastParseError)
             ? "Last packet parsed"
             : $"Parse error: {state.LastParseError}";
@@ -814,11 +822,24 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         OnPropertyChanged(nameof(TelemetryReadyText));
+        OnPropertyChanged(nameof(IsTelemetryConnected));
+        OnPropertyChanged(nameof(IsTelemetryWaiting));
+        OnPropertyChanged(nameof(IsTelemetryLost));
     }
 
     private static string FormatNumber(double? value, string format)
     {
         return value is null ? "-" : value.Value.ToString(format);
+    }
+
+    private static string LimitRawTelemetryPreview(string raw)
+    {
+        if (raw.Length <= MaxRawTelemetryPreviewLength)
+        {
+            return raw;
+        }
+
+        return $"{raw[..MaxRawTelemetryPreviewLength]}... truncated ({raw.Length} chars)";
     }
 
     public void Dispose()

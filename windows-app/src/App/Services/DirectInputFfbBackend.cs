@@ -35,6 +35,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private int _globalLimitPercent = 40;
     private int _deviceLimitPercent = 35;
     private DateTimeOffset _lastBumpPulseAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastAcquireWarningAt = DateTimeOffset.MinValue;
     private GameplayFfbOutput _lastGameplayOutput = GameplayFfbOutput.Zero;
 
     public DirectInputFfbBackend(AppLogService log)
@@ -152,11 +153,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             {
                 var effect = kind switch
                 {
-                    FfbEffectKind.Spring => CreateConditionEffect(EffectGuid.Spring, MomoTestConditionCoefficient, MomoTestConditionSaturation, MomoSpringDeadBand),
-                    FfbEffectKind.Damper => CreateConditionEffect(EffectGuid.Damper, MomoTestConditionCoefficient, MomoTestConditionSaturation, deadBand: 0),
-                    FfbEffectKind.ConstantLeft => CreateConstantEffect(MomoConstantMagnitude, DirectionNegative, ConstantTestDuration),
-                    FfbEffectKind.ConstantRight => CreateConstantEffect(MomoConstantMagnitude, DirectionPositive, ConstantTestDuration),
-                    FfbEffectKind.LowVibration => CreatePeriodicEffect(EffectGuid.Sine, MomoVibrationMagnitude, MomoVibrationHz, VibrationTestDuration),
+                    FfbEffectKind.Spring => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Spring, MomoTestConditionCoefficient, MomoTestConditionSaturation, MomoSpringDeadBand), "test spring"),
+                    FfbEffectKind.Damper => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Damper, MomoTestConditionCoefficient, MomoTestConditionSaturation, deadBand: 0), "test damper"),
+                    FfbEffectKind.ConstantLeft => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionNegative, ConstantTestDuration), "test constant left"),
+                    FfbEffectKind.ConstantRight => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionPositive, ConstantTestDuration), "test constant right"),
+                    FfbEffectKind.LowVibration => CreateEffectWithAcquireRetry(() => CreatePeriodicEffect(EffectGuid.Sine, MomoVibrationMagnitude, MomoVibrationHz, VibrationTestDuration), "test vibration"),
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
                 };
 
@@ -167,43 +168,87 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             }
             catch (Exception ex)
             {
-                _log.Error(ex, "Effect start failed: {EffectKind}", kind);
+                if (ex is SharpGenException sharpGenException && IsAcquireFailure(sharpGenException))
+                {
+                    LogAcquireFailure(sharpGenException, $"test {kind}");
+                }
+                else
+                {
+                    _log.Error(ex, "Effect start failed: {EffectKind}", kind);
+                }
+
                 StopAllEffectsCore("effect start failure");
             }
         }
     }
 
-    public void ApplyGameplayEffects(GameplayFfbOutput output)
+    public FfbApplyResult ApplyGameplayEffects(GameplayFfbOutput output)
     {
         lock (_effectLock)
         {
             if (_device is null || SelectedDevice is null)
             {
-                return;
+                return FfbApplyResult.Skipped("no selected FFB device");
             }
 
             if (!output.IsActive)
             {
                 StopGameplayEffectsCore("gameplay output zero");
-                return;
+                return FfbApplyResult.Skipped("gameplay output zero");
             }
 
             var quantized = QuantizeOutput(output);
             if (IsSameGameplayOutput(_lastGameplayOutput, quantized))
             {
-                return;
+                return FfbApplyResult.Skipped("unchanged");
             }
 
-            ApplyConditionEffect(ref _gameplaySpringEffect, EffectGuid.Spring, quantized.SpringPercent, deadBand: MomoSpringDeadBand, "spring");
-            ApplyConditionEffect(ref _gameplayDamperEffect, EffectGuid.Damper, quantized.DamperPercent, deadBand: 0, "damper");
-            ApplyConditionEffect(ref _gameplayFrictionEffect, EffectGuid.Friction, quantized.FrictionPercent, deadBand: 0, "friction");
-            ApplyPeriodicEffect(ref _gameplayEngineEffect, quantized.EngineVibrationPercent, quantized.EngineVibrationHz, "engine vibration");
-            ApplyPeriodicEffect(ref _gameplaySurfaceEffect, quantized.SurfaceVibrationPercent, quantized.SurfaceVibrationHz, "surface feedback");
-            ApplyPeriodicEffect(ref _gameplaySlipEffect, quantized.SlipVibrationPercent, quantized.SlipVibrationHz, "slip feedback");
-            ApplyBumpEffect(quantized);
+            var previous = _lastGameplayOutput;
+            FfbApplyResult? result = null;
+            if (previous.SpringPercent != quantized.SpringPercent)
+            {
+                result ??= ApplyConditionEffect(ref _gameplaySpringEffect, EffectGuid.Spring, quantized.SpringPercent, deadBand: MomoSpringDeadBand, "spring");
+            }
+
+            if (previous.DamperPercent != quantized.DamperPercent)
+            {
+                result ??= ApplyConditionEffect(ref _gameplayDamperEffect, EffectGuid.Damper, quantized.DamperPercent, deadBand: 0, "damper");
+            }
+
+            if (previous.FrictionPercent != quantized.FrictionPercent)
+            {
+                result ??= ApplyConditionEffect(ref _gameplayFrictionEffect, EffectGuid.Friction, quantized.FrictionPercent, deadBand: 0, "friction");
+            }
+
+            if (previous.EngineVibrationPercent != quantized.EngineVibrationPercent ||
+                previous.EngineVibrationHz != quantized.EngineVibrationHz)
+            {
+                result ??= ApplyPeriodicEffect(ref _gameplayEngineEffect, quantized.EngineVibrationPercent, quantized.EngineVibrationHz, "engine vibration");
+            }
+
+            if (previous.SurfaceVibrationPercent != quantized.SurfaceVibrationPercent ||
+                previous.SurfaceVibrationHz != quantized.SurfaceVibrationHz)
+            {
+                result ??= ApplyPeriodicEffect(ref _gameplaySurfaceEffect, quantized.SurfaceVibrationPercent, quantized.SurfaceVibrationHz, "surface feedback");
+            }
+
+            if (previous.SlipVibrationPercent != quantized.SlipVibrationPercent ||
+                previous.SlipVibrationHz != quantized.SlipVibrationHz)
+            {
+                result ??= ApplyPeriodicEffect(ref _gameplaySlipEffect, quantized.SlipVibrationPercent, quantized.SlipVibrationHz, "slip feedback");
+            }
+
+            result ??= ApplyBumpEffect(quantized);
+
+            if (result?.Status == FfbApplyStatus.AcquireFailed)
+            {
+                StopGameplayEffectsCore(result.Message);
+                return result;
+            }
+
             _lastGameplayOutput = quantized;
             _log.Information(
-                "Gameplay FFB updated: spring={Spring}%, damper={Damper}%, friction={Friction}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, slip={Slip}%/{SlipHz}Hz, bump={Bump}%, load={Load:0.00}, fade={Fade:0.00}",
+                "Gameplay FFB updated: result=applied, spring={Spring}%, damper={Damper}%, friction={Friction}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, slip={Slip}%/{SlipHz}Hz, bump={Bump}%, load={Load:0.00}, fade={Fade:0.00}",
                 quantized.SpringPercent,
                 quantized.DamperPercent,
                 quantized.FrictionPercent,
@@ -216,6 +261,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                 quantized.BumpImpulsePercent,
                 quantized.LoadFactor,
                 quantized.TelemetryFade);
+            return FfbApplyResult.Applied;
         }
     }
 
@@ -361,62 +407,78 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return _device!.CreateEffect(effectGuid, parameters);
     }
 
-    private void ApplyConditionEffect(ref IDirectInputEffect? effect, Guid effectGuid, int percent, int deadBand, string label)
+    private FfbApplyResult? ApplyConditionEffect(ref IDirectInputEffect? effect, Guid effectGuid, int percent, int deadBand, string label)
     {
         StopAndDisposeEffect(ref effect, label);
         if (percent <= 0)
         {
-            return;
+            return null;
         }
 
         try
         {
             var magnitude = PercentToDirectInputMagnitude(percent);
-            effect = CreateConditionEffect(effectGuid, magnitude, magnitude, deadBand);
+            effect = CreateEffectWithAcquireRetry(() => CreateConditionEffect(effectGuid, magnitude, magnitude, deadBand), label);
             effect.Download().CheckError();
             effect.Start(1).CheckError();
+            return null;
+        }
+        catch (SharpGenException ex) when (IsAcquireFailure(ex))
+        {
+            var result = LogAcquireFailure(ex, $"gameplay {label}");
+            StopAndDisposeEffect(ref effect, label);
+            return result;
         }
         catch (Exception ex)
         {
             _log.Error(ex, "Gameplay condition effect update failed: {EffectLabel}", label);
             StopAndDisposeEffect(ref effect, label);
+            return null;
         }
     }
 
-    private void ApplyPeriodicEffect(ref IDirectInputEffect? effect, int percent, int hz, string label)
+    private FfbApplyResult? ApplyPeriodicEffect(ref IDirectInputEffect? effect, int percent, int hz, string label)
     {
         StopAndDisposeEffect(ref effect, label);
         if (percent <= 0 || hz <= 0)
         {
-            return;
+            return null;
         }
 
         try
         {
-            effect = CreatePeriodicEffect(EffectGuid.Sine, PercentToDirectInputMagnitude(percent), hz, TimeSpan.MaxValue);
+            effect = CreateEffectWithAcquireRetry(() => CreatePeriodicEffect(EffectGuid.Sine, PercentToDirectInputMagnitude(percent), hz, TimeSpan.MaxValue), label);
             effect.Download().CheckError();
             effect.Start(1).CheckError();
+            return null;
+        }
+        catch (SharpGenException ex) when (IsAcquireFailure(ex))
+        {
+            var result = LogAcquireFailure(ex, $"gameplay {label}");
+            StopAndDisposeEffect(ref effect, label);
+            return result;
         }
         catch (Exception ex)
         {
             _log.Error(ex, "Gameplay periodic effect update failed: {EffectLabel}", label);
             StopAndDisposeEffect(ref effect, label);
+            return null;
         }
     }
 
-    private void ApplyBumpEffect(GameplayFfbOutput output)
+    private FfbApplyResult? ApplyBumpEffect(GameplayFfbOutput output)
     {
         if (output.BumpImpulsePercent == 0)
         {
             StopAndDisposeEffect(ref _gameplayBumpEffect, "bump feedback");
-            return;
+            return null;
         }
 
         var now = DateTimeOffset.UtcNow;
         var cooldownMs = Math.Max(20, output.BumpCooldownMs);
         if ((now - _lastBumpPulseAt).TotalMilliseconds < cooldownMs)
         {
-            return;
+            return null;
         }
 
         StopAndDisposeEffect(ref _gameplayBumpEffect, "bump feedback");
@@ -424,19 +486,66 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         try
         {
             var direction = output.BumpImpulsePercent < 0 ? DirectionNegative : DirectionPositive;
-            _gameplayBumpEffect = CreateConstantEffect(
+            _gameplayBumpEffect = CreateEffectWithAcquireRetry(() => CreateConstantEffect(
                 PercentToDirectInputMagnitude(Math.Abs(output.BumpImpulsePercent)),
                 direction,
-                TimeSpan.FromMilliseconds(Math.Clamp(output.BumpDurationMs, 20, 250)));
+                TimeSpan.FromMilliseconds(Math.Clamp(output.BumpDurationMs, 20, 250))), "bump feedback");
             _gameplayBumpEffect.Download().CheckError();
             _gameplayBumpEffect.Start(1).CheckError();
             _lastBumpPulseAt = now;
+            return null;
+        }
+        catch (SharpGenException ex) when (IsAcquireFailure(ex))
+        {
+            var result = LogAcquireFailure(ex, "gameplay bump feedback");
+            StopAndDisposeEffect(ref _gameplayBumpEffect, "bump feedback");
+            return result;
         }
         catch (Exception ex)
         {
             _log.Error(ex, "Gameplay bump effect update failed");
             StopAndDisposeEffect(ref _gameplayBumpEffect, "bump feedback");
+            return null;
         }
+    }
+
+    private IDirectInputEffect CreateEffectWithAcquireRetry(Func<IDirectInputEffect> factory, string label)
+    {
+        EnsureDeviceAcquired();
+        try
+        {
+            return factory();
+        }
+        catch (SharpGenException ex) when (IsAcquireFailure(ex))
+        {
+            _log.Warning("DirectInput effect create needs reacquire: {EffectLabel}", label);
+            EnsureDeviceAcquired();
+            return factory();
+        }
+    }
+
+    private void EnsureDeviceAcquired()
+    {
+        if (_device is null)
+        {
+            return;
+        }
+
+        _device.Acquire().CheckError();
+        _device.SendForceFeedbackCommand(ForceFeedbackCommand.SetActuatorsOn);
+    }
+
+    private FfbApplyResult LogAcquireFailure(SharpGenException ex, string operation)
+    {
+        var message = "DirectInput device is not exclusively acquired or input was lost";
+        var now = DateTimeOffset.UtcNow;
+        if ((now - _lastAcquireWarningAt).TotalSeconds >= 2)
+        {
+            _lastAcquireWarningAt = now;
+            _log.Warning("{Operation} skipped: {Message}. FS25 or the wheel driver may be holding the device. Error={Error}", operation, message, ex.Message);
+        }
+
+        return FfbApplyResult.AcquireFailed(message);
     }
 
     private void StopAndDisposeEffect(ref IDirectInputEffect? effect, string label)
@@ -579,5 +688,14 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     {
         return ex.Message.Contains("DIERR_NOTEXCLUSIVEACQUIRED", StringComparison.OrdinalIgnoreCase) ||
                ex.Message.Contains("NotExclusiveAcquired", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAcquireFailure(SharpGenException ex)
+    {
+        return IsNotExclusiveAcquired(ex) ||
+               ex.Message.Contains("DIERR_INPUTLOST", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("InputLost", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("DIERR_NOTACQUIRED", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("NotAcquired", StringComparison.OrdinalIgnoreCase);
     }
 }

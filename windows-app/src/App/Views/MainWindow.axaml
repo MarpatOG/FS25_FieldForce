@@ -10,55 +10,178 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="FS25 FFB Bridge"
         Background="#F3F1EC">
+    <Window.Resources>
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F3F1EC"/>
+        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#FAF9F5"/>
+        <SolidColorBrush x:Key="PanelAltBrush" Color="#F0EEE8"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#D8D4CA"/>
+        <SolidColorBrush x:Key="TextBrush" Color="#111612"/>
+        <SolidColorBrush x:Key="MutedBrush" Color="#5E665F"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#0D6F63"/>
+        <SolidColorBrush x:Key="AccentSoftBrush" Color="#DDEBE6"/>
+        <SolidColorBrush x:Key="SelectionBrush" Color="#D9E7DF"/>
+        <SolidColorBrush x:Key="SelectionStrongBrush" Color="#1E6A59"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#8D1D22"/>
+        <SolidColorBrush x:Key="DangerSoftBrush" Color="#F4DADC"/>
+        <SolidColorBrush x:Key="WarningBrush" Color="#8A5A00"/>
+        <SolidColorBrush x:Key="WarningSoftBrush" Color="#F3E7C2"/>
+        <SolidColorBrush x:Key="DisabledTextBrush" Color="#8D928C"/>
+        <SolidColorBrush x:Key="DisabledSurfaceBrush" Color="#ECE9E2"/>
+        <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#EEECE6"/>
+        <SolidColorBrush x:Key="LogBackgroundBrush" Color="#20201E"/>
+        <SolidColorBrush x:Key="LogTextBrush" Color="#E8E1D4"/>
+        <SolidColorBrush x:Key="LogMutedBrush" Color="#AFA894"/>
+    </Window.Resources>
     <Window.Styles>
         <Style Selector="TextBlock">
-            <Setter Property="Foreground" Value="#1D211F"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
             <Setter Property="FontSize" Value="13"/>
         </Style>
         <Style Selector="TextBlock.title">
-            <Setter Property="Foreground" Value="#050807"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
             <Setter Property="FontSize" Value="24"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="TextBlock.section">
-            <Setter Property="Foreground" Value="#050807"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        <Style Selector="TabControl">
+            <Setter Property="Background" Value="{StaticResource AppBackgroundBrush}"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="0,10,0,8"/>
+            <Setter Property="Margin" Value="0,0,26,0"/>
+        </Style>
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
         <Style Selector="TabItem TextBlock">
-            <Setter Property="Foreground" Value="#050807"/>
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+        </Style>
+        <Style Selector="TabItem:selected TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
         </Style>
         <Style Selector="TextBlock.muted">
-            <Setter Property="Foreground" Value="#69706B"/>
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
         </Style>
         <Style Selector="Border.panel">
-            <Setter Property="Background" Value="#FAF9F5"/>
-            <Setter Property="BorderBrush" Value="#D8D4CA"/>
+            <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="6"/>
             <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="Border.badge">
+            <Setter Property="Background" Value="{StaticResource PanelAltBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="12,7"/>
+        </Style>
+        <Style Selector="Border.badge.good">
+            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+        </Style>
+        <Style Selector="Border.badge.warn">
+            <Setter Property="Background" Value="{StaticResource WarningSoftBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}"/>
+        </Style>
+        <Style Selector="Border.badge.bad">
+            <Setter Property="Background" Value="{StaticResource DangerSoftBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}"/>
+        </Style>
+        <Style Selector="Border.badge TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        </Style>
+        <Style Selector="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="{StaticResource SelectionBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
         </Style>
         <Style Selector="Button">
             <Setter Property="MinHeight" Value="34"/>
             <Setter Property="Padding" Value="14,7"/>
             <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
         </Style>
         <Style Selector="Button.danger">
-            <Setter Property="Background" Value="#8D1D22"/>
+            <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
             <Setter Property="Foreground" Value="#FFF9F1"/>
         </Style>
         <Style Selector="Button.test">
-            <Setter Property="Background" Value="#243E36"/>
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
             <Setter Property="Foreground" Value="#FFF9F1"/>
+        </Style>
+        <Style Selector="Button:disabled">
+            <Setter Property="Background" Value="{StaticResource DisabledSurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource DisabledTextBrush}"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="MinHeight" Value="32"/>
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
         </Style>
         <Style Selector="TextBox.mono">
             <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace"/>
             <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Background" Value="{StaticResource CodeBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        </Style>
+        <Style Selector="ListBox.logList">
+            <Setter Property="Background" Value="{StaticResource LogBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource LogBackgroundBrush}"/>
+        </Style>
+        <Style Selector="ListBox.logList ListBoxItem:selected">
+            <Setter Property="Background" Value="#3A3934"/>
+            <Setter Property="Foreground" Value="{StaticResource LogTextBrush}"/>
+        </Style>
+        <Style Selector="ListBox.logList ListBoxItem:selected TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource LogTextBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.logLine">
+            <Setter Property="Foreground" Value="{StaticResource LogTextBrush}"/>
+            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="TextBlock.output">
+            <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <Border Background="#FAF9F5" BorderBrush="#D8D4CA" BorderThickness="0,0,0,1" Padding="18,14">
+        <Border Background="{StaticResource PanelBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="18,14">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Spacing="2">
                     <TextBlock Classes="title" Text="FS25 FFB Bridge"/>
@@ -66,11 +189,16 @@
                                Foreground="#1D211F"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="10" Grid.Column="1" VerticalAlignment="Center">
-                    <Border Background="#E7EEE2" CornerRadius="4" Padding="10,6">
-                        <TextBlock Text="{Binding TelemetryReadyText}" FontWeight="SemiBold"/>
+                    <Border Classes="badge"
+                            Classes.good="{Binding IsTelemetryConnected}"
+                            Classes.warn="{Binding IsTelemetryWaiting}"
+                            Classes.bad="{Binding IsTelemetryLost}">
+                        <TextBlock Text="{Binding TelemetryReadyText}"/>
                     </Border>
-                    <Border Background="#FFF9F1" CornerRadius="4" Padding="10,6">
-                        <TextBlock Text="{Binding FfbReadyText}" FontWeight="SemiBold"/>
+                    <Border Classes="badge"
+                            Classes.good="{Binding IsFfbReady}"
+                            Classes.warn="{Binding IsFfbInactive}">
+                        <TextBlock Text="{Binding FfbReadyText}"/>
                     </Border>
                     <Button Classes="danger"
                             Content="Emergency Stop"
@@ -101,7 +229,7 @@
                                 <TextBlock Grid.Row="6" Classes="muted" Text="FFB runtime"/>
                                 <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding GameplayFfbRuntimeStatus}"/>
                                 <TextBlock Grid.Row="7" Classes="muted" Text="Active effects"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding ActiveGameplayEffects}"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Classes="output" Text="{Binding ActiveGameplayEffects}"/>
                                 <TextBlock Grid.Row="8" Classes="muted" Text="Active category"/>
                                 <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ActiveVehicleCategory}"/>
                                 <TextBlock Grid.Row="9" Classes="muted" Text="Spring / damper / friction"/>
@@ -115,7 +243,7 @@
                                     </TextBlock.Text>
                                 </TextBlock>
                                 <TextBlock Grid.Row="10" Classes="muted" Text="Vibration"/>
-                                <TextBlock Grid.Row="10" Grid.Column="1">
+                                <TextBlock Grid.Row="10" Grid.Column="1" Classes="output">
                                     <TextBlock.Text>
                                         <MultiBinding StringFormat="{}RPM {0}, Surface {1}, Slip {2}, Bump {3}">
                                             <Binding Path="EngineVibrationOutput"/>
@@ -156,8 +284,8 @@
                     <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="panel">
                         <StackPanel Spacing="10">
                             <TextBlock Classes="section" Text="Paths"/>
-                            <TextBlock Text="{Binding ConfigPath}"/>
-                            <TextBlock Text="{Binding LogPath}"/>
+                            <TextBlock Classes="output" Text="{Binding ConfigPath}"/>
+                            <TextBlock Classes="output" Text="{Binding LogPath}"/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -175,6 +303,7 @@
                                 <Button Grid.Column="1" Content="Scan" Command="{Binding ScanDevicesCommand}"/>
                             </Grid>
                             <ListBox ItemsSource="{Binding Devices}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      SelectedItem="{Binding SelectedDevice, Mode=TwoWay}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
@@ -312,6 +441,8 @@
                                      IsReadOnly="True"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      MinHeight="180"/>
                         </DockPanel>
                     </Border>
@@ -319,7 +450,7 @@
             </TabItem>
 
             <TabItem Header="Effects">
-                <ScrollViewer Margin="0,16,0,0">
+                <ScrollViewer Margin="0,16,0,0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <Border Classes="panel">
                     <StackPanel Spacing="14">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -341,7 +472,7 @@
                                       IsChecked="{Binding GameplayFfbEnabled, Mode=TwoWay}"/>
                         </Grid>
 
-                        <Grid ColumnDefinitions="150,90,220,220,150,150"
+                        <Grid ColumnDefinitions="145,72,*,*,112,130"
                               RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                               RowSpacing="10"
                               ColumnSpacing="12">
@@ -363,7 +494,7 @@
                             <ComboBox Grid.Row="1" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SpeedSpringCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding SpringOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="1" Grid.Column="5" Classes="output" Text="{Binding SpringOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="2" Text="Speed Damper" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding SpeedDamperEnabled, Mode=TwoWay}"/>
@@ -376,7 +507,7 @@
                             <ComboBox Grid.Row="2" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SpeedDamperCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="2" Grid.Column="5" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="2" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="3" Text="Mechanical Friction" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding MechanicalFrictionEnabled, Mode=TwoWay}"/>
@@ -389,7 +520,7 @@
                             <ComboBox Grid.Row="3" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding MechanicalFrictionCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="3" Grid.Column="5" Text="{Binding FrictionOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="3" Grid.Column="5" Classes="output" Text="{Binding FrictionOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="4" Text="Load Resistance" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding LoadResistanceEnabled, Mode=TwoWay}"/>
@@ -402,7 +533,7 @@
                             <ComboBox Grid.Row="4" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding LoadResistanceCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="4" Grid.Column="5" Text="{Binding LoadFactor}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="4" Grid.Column="5" Classes="output" Text="{Binding LoadFactor}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="5" Text="RPM Vibration" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding EngineVibrationEnabled, Mode=TwoWay}"/>
@@ -415,7 +546,7 @@
                             <ComboBox Grid.Row="5" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding EngineVibrationCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="5" Grid.Column="5" Text="{Binding EngineVibrationOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="5" Grid.Column="5" Classes="output" Text="{Binding EngineVibrationOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="6" Text="Surface Feedback" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding SurfaceFeedbackEnabled, Mode=TwoWay}"/>
@@ -428,7 +559,7 @@
                             <ComboBox Grid.Row="6" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SurfaceFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="6" Grid.Column="5" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="6" Grid.Column="5" Classes="output" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="7" Text="Slip Feedback" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding SlipFeedbackEnabled, Mode=TwoWay}"/>
@@ -441,7 +572,7 @@
                             <ComboBox Grid.Row="7" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SlipFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="7" Grid.Column="5" Text="{Binding SlipFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="7" Grid.Column="5" Classes="output" Text="{Binding SlipFeedbackOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="8" Text="Wetness" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding WetnessFeedbackEnabled, Mode=TwoWay}"/>
@@ -454,7 +585,7 @@
                             <ComboBox Grid.Row="8" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding WetnessFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="8" Grid.Column="5" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="8" Grid.Column="5" Classes="output" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="9" Text="Motion" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="9" Grid.Column="1" IsChecked="{Binding MotionFeedbackEnabled, Mode=TwoWay}"/>
@@ -467,7 +598,7 @@
                             <ComboBox Grid.Row="9" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding MotionFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="9" Grid.Column="5" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="9" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="10" Text="Bump" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="10" Grid.Column="1" IsChecked="{Binding BumpFeedbackEnabled, Mode=TwoWay}"/>
@@ -480,7 +611,7 @@
                             <ComboBox Grid.Row="10" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding BumpFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="10" Grid.Column="5" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="10" Grid.Column="5" Classes="output" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -494,10 +625,13 @@
                             <TextBlock Classes="section" Text="Event Log"/>
                             <TextBlock Classes="muted" Text="{Binding LogPath}"/>
                         </StackPanel>
-                        <ListBox ItemsSource="{Binding Logs}">
+                        <ListBox Classes="logList"
+                                 ItemsSource="{Binding Logs}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding}" FontFamily="Consolas, Cascadia Mono, monospace" FontSize="12"/>
+                                    <TextBlock Classes="logLine" Text="{Binding}"/>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>

@@ -8,9 +8,23 @@ public interface IFfbBackend : IDisposable
     bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent);
     void UpdateForceLimits(int globalLimitPercent, int deviceLimitPercent);
     void StartTestEffect(FfbEffectKind kind);
-    void ApplyGameplayEffects(GameplayFfbOutput output);
+    FfbApplyResult ApplyGameplayEffects(GameplayFfbOutput output);
     void StopGameplayEffects(string reason);
     void StopAllEffects(string reason);
     DeviceInfo? SelectedDevice { get; }
     bool HasSelectedFfbDevice { get; }
+}
+
+public enum FfbApplyStatus
+{
+    Applied,
+    Skipped,
+    AcquireFailed
+}
+
+public sealed record FfbApplyResult(FfbApplyStatus Status, string Message)
+{
+    public static FfbApplyResult Applied { get; } = new(FfbApplyStatus.Applied, "applied");
+    public static FfbApplyResult Skipped(string message) => new(FfbApplyStatus.Skipped, message);
+    public static FfbApplyResult AcquireFailed(string message) => new(FfbApplyStatus.AcquireFailed, message);
 }

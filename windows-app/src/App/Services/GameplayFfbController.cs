@@ -10,6 +10,7 @@ public sealed class GameplayFfbController : IDisposable
     private readonly GameplayFfbCalculator _calculator = new();
     private readonly Func<GameplayFfbSettings> _settingsAccessor;
     private readonly Action<GameplayFfbOutput>? _outputChanged;
+    private readonly Action<FfbApplyResult>? _applyResultChanged;
     private GameplayFfbOutput _lastOutput = GameplayFfbOutput.Zero;
     private bool _wasActive;
     private bool _disposed;
@@ -19,13 +20,15 @@ public sealed class GameplayFfbController : IDisposable
         IFfbBackend backend,
         AppLogService log,
         Func<GameplayFfbSettings> settingsAccessor,
-        Action<GameplayFfbOutput>? outputChanged = null)
+        Action<GameplayFfbOutput>? outputChanged = null,
+        Action<FfbApplyResult>? applyResultChanged = null)
     {
         _telemetryReceiver = telemetryReceiver;
         _backend = backend;
         _log = log;
         _settingsAccessor = settingsAccessor;
         _outputChanged = outputChanged;
+        _applyResultChanged = applyResultChanged;
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
     }
 
@@ -46,7 +49,14 @@ public sealed class GameplayFfbController : IDisposable
             return;
         }
 
-        _backend.ApplyGameplayEffects(output);
+        var result = _backend.ApplyGameplayEffects(output);
+        _applyResultChanged?.Invoke(result);
+        if (result.Status == FfbApplyStatus.AcquireFailed)
+        {
+            StopIfActive(result.Message);
+            return;
+        }
+
         if (!_wasActive)
         {
             _wasActive = true;
