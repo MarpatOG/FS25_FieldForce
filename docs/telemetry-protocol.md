@@ -1,6 +1,6 @@
 # Telemetry Protocol
 
-Milestone 2 uses UDP JSON over localhost when FS25 Lua socket support is available. If socket support is unavailable, the Lua mod writes the same JSON packet to a file in `modSettings`, and the Windows app reads that file.
+The telemetry mod uses UDP JSON over localhost when FS25 Lua socket support is available. If socket support is unavailable, the Lua mod writes the same JSON packet to a file in `modSettings`, and the Windows app reads that file.
 
 ## Transport
 
@@ -30,7 +30,22 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
   "engineStarted": true,
   "mass": 6200,
   "totalMass": 8800,
-  "isOnField": false
+  "isOnField": false,
+  "surfaceType": "field",
+  "surfaceAttribute": 1,
+  "groundWetness": 0.35,
+  "rainScale": 0.2,
+  "wheelSlip": 0.12,
+  "maxWheelSlip": 0.24,
+  "groundContactRatio": 1.0,
+  "pitchDeg": 3.1,
+  "rollDeg": -2.4,
+  "yawRateDegPerSec": 8.5,
+  "slopeDeg": 4.0,
+  "localAccelerationX": 0.3,
+  "localAccelerationY": 1.8,
+  "localAccelerationZ": -0.6,
+  "bumpImpulse": 0.42
 }
 ```
 
@@ -40,7 +55,14 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 - `steeringAngle`: best-effort normalized/vehicle steering value for Milestone 2.
 - `rpm`: best-effort motor RPM.
 - `mass` and `totalMass`: best-effort vehicle mass values.
-- `isOnField`: may be `null` until field detection is refined.
+- `isOnField`: legacy compatibility field; new surface logic prefers `surfaceType`.
+- `surfaceType`: strict exact surface label. Supported exact labels are `asphalt`, `field`, `wetField`, `grass`, `shallowWater`, `snow`, `dirt`, `gravel`, `mud`, and `unknown`. `dirt`, `gravel`, and `mud` are emitted only if FS25 returns those exact names.
+- `surfaceAttribute`: raw terrain attribute number. It is not mapped to dirt/gravel/mud by guesswork.
+- `groundWetness` and `rainScale`: best-effort normalized `0..1` weather values when available.
+- `wheelSlip`, `maxWheelSlip`, and `groundContactRatio`: aggregated wheel physics values.
+- `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, and `slopeDeg`: vehicle attitude and terrain slope values.
+- `localAccelerationX/Y/Z`: acceleration in vehicle-local axes when enough motion history is available.
+- `bumpImpulse`: normalized vertical impulse derived from local acceleration.
 - Missing values are sent as `null`.
 
 ## Receiver States

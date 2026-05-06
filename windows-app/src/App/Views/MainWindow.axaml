@@ -62,7 +62,7 @@
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Spacing="2">
                     <TextBlock Classes="title" Text="FS25 FFB Bridge"/>
-                    <TextBlock Text="MVP: DirectInput gameplay effects plus FS25 telemetry"
+                    <TextBlock Text="DirectInput gameplay effects plus FS25 telemetry"
                                Foreground="#1D211F"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="10" Grid.Column="1" VerticalAlignment="Center">
@@ -100,21 +100,24 @@
                                 <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding GameplayFfbEnabled}"/>
                                 <TextBlock Grid.Row="6" Classes="muted" Text="Active effects"/>
                                 <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ActiveGameplayEffects}"/>
-                                <TextBlock Grid.Row="7" Classes="muted" Text="Spring / damper"/>
+                                <TextBlock Grid.Row="7" Classes="muted" Text="Spring / damper / friction"/>
                                 <TextBlock Grid.Row="7" Grid.Column="1">
                                     <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0} / {1}">
+                                        <MultiBinding StringFormat="{}{0} / {1} / {2}">
                                             <Binding Path="SpringOutput"/>
                                             <Binding Path="DamperOutput"/>
+                                            <Binding Path="FrictionOutput"/>
                                         </MultiBinding>
                                     </TextBlock.Text>
                                 </TextBlock>
                                 <TextBlock Grid.Row="8" Classes="muted" Text="Vibration"/>
                                 <TextBlock Grid.Row="8" Grid.Column="1">
                                     <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}RPM {0}, Surface {1}">
+                                        <MultiBinding StringFormat="{}RPM {0}, Surface {1}, Slip {2}, Bump {3}">
                                             <Binding Path="EngineVibrationOutput"/>
                                             <Binding Path="SurfaceFeedbackOutput"/>
+                                            <Binding Path="SlipFeedbackOutput"/>
+                                            <Binding Path="BumpFeedbackOutput"/>
                                         </MultiBinding>
                                     </TextBlock.Text>
                                 </TextBlock>
@@ -251,7 +254,7 @@
                     <Border Grid.Column="1" Classes="panel">
                         <StackPanel Spacing="12">
                             <TextBlock Classes="section" Text="Vehicle"/>
-                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                 <TextBlock Classes="muted" Text="Vehicle"/>
                                 <TextBlock Grid.Column="1" Text="{Binding CurrentVehicle}"/>
                                 <TextBlock Grid.Row="1" Classes="muted" Text="Type"/>
@@ -270,6 +273,27 @@
                                 <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding MassAndTotal}"/>
                                 <TextBlock Grid.Row="8" Classes="muted" Text="On field"/>
                                 <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding IsOnField}"/>
+                                <TextBlock Grid.Row="9" Classes="muted" Text="Surface"/>
+                                <TextBlock Grid.Row="9" Grid.Column="1">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="{}{0} / attr {1}">
+                                            <Binding Path="SurfaceType"/>
+                                            <Binding Path="SurfaceAttribute"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                                <TextBlock Grid.Row="10" Classes="muted" Text="Wetness / rain"/>
+                                <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding WetnessAndRain}"/>
+                                <TextBlock Grid.Row="11" Classes="muted" Text="Slip avg / max"/>
+                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding WheelSlip}"/>
+                                <TextBlock Grid.Row="12" Classes="muted" Text="Ground contact"/>
+                                <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding GroundContactRatio}"/>
+                                <TextBlock Grid.Row="13" Classes="muted" Text="Pitch / roll / slope"/>
+                                <TextBlock Grid.Row="13" Grid.Column="1" Text="{Binding Attitude}"/>
+                                <TextBlock Grid.Row="14" Classes="muted" Text="Local accel"/>
+                                <TextBlock Grid.Row="14" Grid.Column="1" Text="{Binding LocalAcceleration}"/>
+                                <TextBlock Grid.Row="15" Classes="muted" Text="Bump impulse"/>
+                                <TextBlock Grid.Row="15" Grid.Column="1" Text="{Binding BumpImpulse}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -289,12 +313,13 @@
             </TabItem>
 
             <TabItem Header="Effects">
-                <Border Classes="panel" Margin="0,16,0,0">
+                <ScrollViewer Margin="0,16,0,0">
+                <Border Classes="panel">
                     <StackPanel Spacing="14">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="section" Text="Gameplay Effects"/>
-                                <TextBlock Classes="muted" Text="Logitech MOMO MVP defaults. Emergency Stop disables gameplay FFB until re-enabled here."/>
+                                <TextBlock Classes="muted" Text="Conservative Logitech MOMO defaults. Emergency Stop disables gameplay FFB until re-enabled here."/>
                             </StackPanel>
                             <CheckBox Grid.Column="1"
                                       VerticalAlignment="Center"
@@ -303,7 +328,7 @@
                         </Grid>
 
                         <Grid ColumnDefinitions="150,90,220,220,150,150"
-                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                              RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                               RowSpacing="10"
                               ColumnSpacing="12">
                             <TextBlock Classes="muted" Text="Effect"/>
@@ -339,47 +364,113 @@
                                       SelectedItem="{Binding SpeedDamperCurve, Mode=TwoWay}"/>
                             <TextBlock Grid.Row="2" Grid.Column="5" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="3" Text="Load Resistance" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding LoadResistanceEnabled, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="3" Text="Mechanical Friction" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding MechanicalFrictionEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="3" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding LoadResistanceStrengthPercent, Mode=TwoWay}"/>
+                                    Value="{Binding MechanicalFrictionStrengthPercent, Mode=TwoWay}"/>
                             <Slider Grid.Row="3" Grid.Column="3" Minimum="0" Maximum="100" TickFrequency="5"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding LoadResistanceMaxPercent, Mode=TwoWay}"/>
+                                    Value="{Binding MechanicalFrictionMaxPercent, Mode=TwoWay}"/>
                             <ComboBox Grid.Row="3" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
-                                      SelectedItem="{Binding LoadResistanceCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="3" Grid.Column="5" Text="{Binding LoadFactor}" VerticalAlignment="Center"/>
+                                      SelectedItem="{Binding MechanicalFrictionCurve, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="5" Text="{Binding FrictionOutput}" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="4" Text="RPM Vibration" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding EngineVibrationEnabled, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="4" Text="Load Resistance" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding LoadResistanceEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="4" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding EngineVibrationStrengthPercent, Mode=TwoWay}"/>
+                                    Value="{Binding LoadResistanceStrengthPercent, Mode=TwoWay}"/>
                             <Slider Grid.Row="4" Grid.Column="3" Minimum="0" Maximum="100" TickFrequency="5"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding EngineVibrationMaxPercent, Mode=TwoWay}"/>
+                                    Value="{Binding LoadResistanceMaxPercent, Mode=TwoWay}"/>
                             <ComboBox Grid.Row="4" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
-                                      SelectedItem="{Binding EngineVibrationCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="4" Grid.Column="5" Text="{Binding EngineVibrationOutput}" VerticalAlignment="Center"/>
+                                      SelectedItem="{Binding LoadResistanceCurve, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="5" Text="{Binding LoadFactor}" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="5" Text="Surface Feedback" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding SurfaceFeedbackEnabled, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="5" Text="RPM Vibration" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding EngineVibrationEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="5" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding SurfaceFeedbackStrengthPercent, Mode=TwoWay}"/>
+                                    Value="{Binding EngineVibrationStrengthPercent, Mode=TwoWay}"/>
                             <Slider Grid.Row="5" Grid.Column="3" Minimum="0" Maximum="100" TickFrequency="5"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding SurfaceFeedbackMaxPercent, Mode=TwoWay}"/>
+                                    Value="{Binding EngineVibrationMaxPercent, Mode=TwoWay}"/>
                             <ComboBox Grid.Row="5" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
+                                      SelectedItem="{Binding EngineVibrationCurve, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="5" Grid.Column="5" Text="{Binding EngineVibrationOutput}" VerticalAlignment="Center"/>
+
+                            <TextBlock Grid.Row="6" Text="Surface Feedback" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding SurfaceFeedbackEnabled, Mode=TwoWay}"/>
+                            <Slider Grid.Row="6" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding SurfaceFeedbackStrengthPercent, Mode=TwoWay}"/>
+                            <Slider Grid.Row="6" Grid.Column="3" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding SurfaceFeedbackMaxPercent, Mode=TwoWay}"/>
+                            <ComboBox Grid.Row="6" Grid.Column="4"
+                                      ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SurfaceFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="5" Grid.Column="5" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="6" Grid.Column="5" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
+
+                            <TextBlock Grid.Row="7" Text="Slip Feedback" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding SlipFeedbackEnabled, Mode=TwoWay}"/>
+                            <Slider Grid.Row="7" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding SlipFeedbackStrengthPercent, Mode=TwoWay}"/>
+                            <Slider Grid.Row="7" Grid.Column="3" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding SlipFeedbackMaxPercent, Mode=TwoWay}"/>
+                            <ComboBox Grid.Row="7" Grid.Column="4"
+                                      ItemsSource="{Binding CurveKinds}"
+                                      SelectedItem="{Binding SlipFeedbackCurve, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="7" Grid.Column="5" Text="{Binding SlipFeedbackOutput}" VerticalAlignment="Center"/>
+
+                            <TextBlock Grid.Row="8" Text="Wetness" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding WetnessFeedbackEnabled, Mode=TwoWay}"/>
+                            <Slider Grid.Row="8" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding WetnessFeedbackStrengthPercent, Mode=TwoWay}"/>
+                            <Slider Grid.Row="8" Grid.Column="3" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding WetnessFeedbackMaxPercent, Mode=TwoWay}"/>
+                            <ComboBox Grid.Row="8" Grid.Column="4"
+                                      ItemsSource="{Binding CurveKinds}"
+                                      SelectedItem="{Binding WetnessFeedbackCurve, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="8" Grid.Column="5" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
+
+                            <TextBlock Grid.Row="9" Text="Motion" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="9" Grid.Column="1" IsChecked="{Binding MotionFeedbackEnabled, Mode=TwoWay}"/>
+                            <Slider Grid.Row="9" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding MotionFeedbackStrengthPercent, Mode=TwoWay}"/>
+                            <Slider Grid.Row="9" Grid.Column="3" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding MotionFeedbackMaxPercent, Mode=TwoWay}"/>
+                            <ComboBox Grid.Row="9" Grid.Column="4"
+                                      ItemsSource="{Binding CurveKinds}"
+                                      SelectedItem="{Binding MotionFeedbackCurve, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="9" Grid.Column="5" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
+
+                            <TextBlock Grid.Row="10" Text="Bump" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="10" Grid.Column="1" IsChecked="{Binding BumpFeedbackEnabled, Mode=TwoWay}"/>
+                            <Slider Grid.Row="10" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding BumpFeedbackStrengthPercent, Mode=TwoWay}"/>
+                            <Slider Grid.Row="10" Grid.Column="3" Minimum="0" Maximum="100" TickFrequency="5"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding BumpFeedbackMaxPercent, Mode=TwoWay}"/>
+                            <ComboBox Grid.Row="10" Grid.Column="4"
+                                      ItemsSource="{Binding CurveKinds}"
+                                      SelectedItem="{Binding BumpFeedbackCurve, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="10" Grid.Column="5" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>
                 </Border>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Logs">

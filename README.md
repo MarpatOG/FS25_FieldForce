@@ -9,7 +9,7 @@ Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a
 - Windows app: DirectInput FFB test baseline physically confirmed on Logitech MOMO Racing Wheel.
 - FS25 Lua telemetry mod: implemented for Milestone 2 as a defensive UDP sender.
 - Telemetry receiver: implemented in the Windows app with UDP and file fallback.
-- Gameplay-driven FFB effects: Speed Spring, Speed Damper, Load Resistance, RPM Vibration, and Surface Feedback are implemented with stronger Logitech MOMO MVP defaults.
+- Gameplay-driven FFB effects: Speed Spring, Speed Damper, Mechanical Friction, Load Resistance, RPM Vibration, Surface Feedback, Slip Feedback, Wetness, Motion, and Bump Feedback are implemented with conservative Logitech MOMO defaults.
 - FS25 overlay: displays a compact vertical diagnostic panel with every transmitted telemetry field.
 
 ## Requirements
@@ -69,11 +69,18 @@ The `Effects` tab controls gameplay FFB. Strength controls the requested effect 
 
 - `Speed Spring`: centers the wheel more strongly as speed increases.
 - `Speed Damper`: adds viscous resistance as speed increases.
-- `Load Resistance`: uses `totalMass / mass` to increase spring and damper influence for heavier setups.
+- `Mechanical Friction`: adds baseline steering friction, with load and field influence.
+- `Load Resistance`: uses `totalMass / mass` to increase spring, damper, and friction influence for heavier setups.
 - `RPM Vibration`: capped sine vibration from RPM while the engine is started.
-- `Surface Feedback`: low-frequency field vibration when `isOnField=true`, with conservative spring/damper modifiers.
+- `Surface Feedback`: low-frequency exact field/wet-field vibration with conservative spring/damper/friction modifiers.
+- `Slip Feedback`: sine vibration when wheel slip rises above threshold.
+- `Wetness`: increases damping and surface vibration when ground wetness or rain telemetry is available.
+- `Motion`: uses pitch, roll, slope, yaw rate, and local acceleration as small spring/damper modifiers.
+- `Bump Feedback`: short signed constant-force pulses from bump impulse telemetry.
 
 `Emergency Stop` disables gameplay FFB until `FFB Enabled` is checked again in the `Effects` tab.
+
+Every gameplay FFB mechanic must be documented in `docs/gameplay-ffb-mechanics.md`. Keep that file in sync with code changes that affect telemetry inputs, calculations, DirectInput output mapping, defaults, or stop/safety behavior.
 
 ## Data Locations
 

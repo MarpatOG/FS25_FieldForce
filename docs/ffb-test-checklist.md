@@ -35,7 +35,11 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Speed Damper`: wheel movement gets less twitchy as speed increases, without becoming stiff at standstill.
 - `Load Resistance`: attaching heavier equipment increases the displayed load factor and resistance if enabled.
 - `RPM Vibration`: no vibration when the engine is off; vibration appears when RPM rises.
-- `Surface Feedback`: field state enables soft low-frequency vibration when `isOnField=true`.
+- `Surface Feedback`: exact `field` or `wetField` surface state enables soft low-frequency vibration above minimum speed.
+- `Slip Feedback`: high `maxWheelSlip` enables slip vibration and low slip stays quiet.
+- `Wetness`: `groundWetness` or `rainScale` increases damping/surface feel only when those fields are present.
+- `Motion`: pitch/roll/slope/yaw/local acceleration visibly change live spring/damper output within caps.
+- `Bump Feedback`: bump impulse produces a short signed pulse and then returns to zero.
 - Each effect can be enabled/disabled independently and each strength slider changes the live output value.
 - Stop the engine, leave the vehicle, or stop telemetry; gameplay outputs fade or stop safely.
 - `Stop All` and `Ctrl+Alt+Pause` stop test and gameplay effects. `Stop All` disables gameplay FFB until `FFB Enabled` is checked again.
@@ -44,7 +48,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 
 - Overlay appears as a compact mod container.
 - Telemetry fields are displayed vertically as label/value rows.
-- The overlay includes `timestamp`, `gameState`, `isPlayerInVehicle`, `vehicleName`, `vehicleType`, `speedKmh`, `steeringAngle`, `rpm`, `engineStarted`, `mass`, `totalMass`, and `isOnField`.
+- The overlay includes the base vehicle fields plus surface, wetness/rain, wheel slip, attitude, local acceleration, and bump impulse telemetry.
 - If the panel background is unavailable in the game render API, the text list still renders and FS25 does not crash.
 
 ## Safety Checks

@@ -39,4 +39,49 @@ public sealed class TelemetryPacket
 
     [JsonPropertyName("isOnField")]
     public bool? IsOnField { get; set; }
+
+    [JsonPropertyName("surfaceType")]
+    public string? SurfaceType { get; set; }
+
+    [JsonPropertyName("surfaceAttribute")]
+    public double? SurfaceAttribute { get; set; }
+
+    [JsonPropertyName("groundWetness")]
+    public double? GroundWetness { get; set; }
+
+    [JsonPropertyName("rainScale")]
+    public double? RainScale { get; set; }
+
+    [JsonPropertyName("wheelSlip")]
+    public double? WheelSlip { get; set; }
+
+    [JsonPropertyName("maxWheelSlip")]
+    public double? MaxWheelSlip { get; set; }
+
+    [JsonPropertyName("groundContactRatio")]
+    public double? GroundContactRatio { get; set; }
+
+    [JsonPropertyName("pitchDeg")]
+    public double? PitchDeg { get; set; }
+
+    [JsonPropertyName("rollDeg")]
+    public double? RollDeg { get; set; }
+
+    [JsonPropertyName("yawRateDegPerSec")]
+    public double? YawRateDegPerSec { get; set; }
+
+    [JsonPropertyName("slopeDeg")]
+    public double? SlopeDeg { get; set; }
+
+    [JsonPropertyName("localAccelerationX")]
+    public double? LocalAccelerationX { get; set; }
+
+    [JsonPropertyName("localAccelerationY")]
+    public double? LocalAccelerationY { get; set; }
+
+    [JsonPropertyName("localAccelerationZ")]
+    public double? LocalAccelerationZ { get; set; }
+
+    [JsonPropertyName("bumpImpulse")]
+    public double? BumpImpulse { get; set; }
 }

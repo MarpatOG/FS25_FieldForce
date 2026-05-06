@@ -56,33 +56,21 @@ public sealed class ConfigStore
     private static AppConfig Normalize(AppConfig config)
     {
         config.GameplayFfb ??= new GameplayFfbSettings();
-        config.GameplayFfb.SpeedSpring ??= new FfbEffectSettings();
-        config.GameplayFfb.SpeedDamper ??= new FfbEffectSettings();
+        config.GameplayFfb.SpeedSpring ??= new SpeedConditionSettings();
+        config.GameplayFfb.SpeedDamper ??= new SpeedConditionSettings();
+        config.GameplayFfb.MechanicalFriction ??= new MechanicalFrictionSettings();
         config.GameplayFfb.LoadResistance ??= new LoadResistanceSettings();
         config.GameplayFfb.EngineVibration ??= new EngineVibrationSettings();
         config.GameplayFfb.SurfaceFeedback ??= new SurfaceFeedbackSettings();
-        if (config.EffectsProfileVersion < 2)
+        config.GameplayFfb.SlipFeedback ??= new SlipFeedbackSettings();
+        config.GameplayFfb.WetnessFeedback ??= new WetnessFeedbackSettings();
+        config.GameplayFfb.MotionFeedback ??= new MotionFeedbackSettings();
+        config.GameplayFfb.BumpFeedback ??= new BumpFeedbackSettings();
+        if (config.EffectsProfileVersion < 3)
         {
-            ApplyMvpMomoDefaults(config);
+            config.EffectsProfileVersion = 3;
         }
 
         return config;
-    }
-
-    private static void ApplyMvpMomoDefaults(AppConfig config)
-    {
-        config.EffectsProfileVersion = 2;
-        config.GlobalForceLimitPercent = Math.Max(config.GlobalForceLimitPercent, 45);
-        config.DeviceForceLimitPercent = Math.Max(config.DeviceForceLimitPercent, 45);
-        config.GameplayFfb.SpeedSpring.StrengthPercent = 85;
-        config.GameplayFfb.SpeedSpring.MaxOutputPercent = 90;
-        config.GameplayFfb.SpeedDamper.StrengthPercent = 90;
-        config.GameplayFfb.SpeedDamper.MaxOutputPercent = 95;
-        config.GameplayFfb.LoadResistance.StrengthPercent = 65;
-        config.GameplayFfb.LoadResistance.MaxOutputPercent = 65;
-        config.GameplayFfb.EngineVibration.StrengthPercent = 55;
-        config.GameplayFfb.EngineVibration.MaxOutputPercent = 55;
-        config.GameplayFfb.SurfaceFeedback.StrengthPercent = 60;
-        config.GameplayFfb.SurfaceFeedback.MaxOutputPercent = 60;
     }
 }

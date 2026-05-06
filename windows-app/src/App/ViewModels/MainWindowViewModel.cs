@@ -100,6 +100,30 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string _isOnField = "-";
 
     [ObservableProperty]
+    private string _surfaceType = "-";
+
+    [ObservableProperty]
+    private string _surfaceAttribute = "-";
+
+    [ObservableProperty]
+    private string _wetnessAndRain = "- / -";
+
+    [ObservableProperty]
+    private string _wheelSlip = "-";
+
+    [ObservableProperty]
+    private string _groundContactRatio = "-";
+
+    [ObservableProperty]
+    private string _attitude = "- / - / -";
+
+    [ObservableProperty]
+    private string _localAcceleration = "- / - / -";
+
+    [ObservableProperty]
+    private string _bumpImpulse = "-";
+
+    [ObservableProperty]
     private string _gameState = "-";
 
     [ObservableProperty]
@@ -134,6 +158,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private FfbCurveKind _speedDamperCurve;
+
+    [ObservableProperty]
+    private bool _mechanicalFrictionEnabled;
+
+    [ObservableProperty]
+    private int _mechanicalFrictionStrengthPercent;
+
+    [ObservableProperty]
+    private int _mechanicalFrictionMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _mechanicalFrictionCurve;
 
     [ObservableProperty]
     private bool _loadResistanceEnabled;
@@ -172,6 +208,54 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private FfbCurveKind _surfaceFeedbackCurve;
 
     [ObservableProperty]
+    private bool _slipFeedbackEnabled;
+
+    [ObservableProperty]
+    private int _slipFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private int _slipFeedbackMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _slipFeedbackCurve;
+
+    [ObservableProperty]
+    private bool _wetnessFeedbackEnabled;
+
+    [ObservableProperty]
+    private int _wetnessFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private int _wetnessFeedbackMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _wetnessFeedbackCurve;
+
+    [ObservableProperty]
+    private bool _motionFeedbackEnabled;
+
+    [ObservableProperty]
+    private int _motionFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private int _motionFeedbackMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _motionFeedbackCurve;
+
+    [ObservableProperty]
+    private bool _bumpFeedbackEnabled;
+
+    [ObservableProperty]
+    private int _bumpFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private int _bumpFeedbackMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _bumpFeedbackCurve;
+
+    [ObservableProperty]
     private string _activeGameplayEffects = "None";
 
     [ObservableProperty]
@@ -181,10 +265,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string _damperOutput = "0%";
 
     [ObservableProperty]
+    private string _frictionOutput = "0%";
+
+    [ObservableProperty]
     private string _engineVibrationOutput = "0%";
 
     [ObservableProperty]
     private string _surfaceFeedbackOutput = "0%";
+
+    [ObservableProperty]
+    private string _slipFeedbackOutput = "0%";
+
+    [ObservableProperty]
+    private string _bumpFeedbackOutput = "0%";
 
     [ObservableProperty]
     private string _loadFactor = "1.00";
@@ -413,6 +506,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnSpeedDamperStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedDamperMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedDamperCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnMechanicalFrictionEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnMechanicalFrictionStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnMechanicalFrictionMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnMechanicalFrictionCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
@@ -425,6 +522,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnSurfaceFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnSlipFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnSlipFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSlipFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSlipFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnWetnessFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnWetnessFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnWetnessFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnWetnessFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnMotionFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnMotionFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnMotionFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnMotionFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnBumpFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnBumpFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnBumpFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnBumpFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
 
     private void LoadGameplaySettingsIntoUi(GameplayFfbSettings settings)
     {
@@ -437,6 +550,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SpeedDamperStrengthPercent = settings.SpeedDamper.StrengthPercent;
         SpeedDamperMaxPercent = settings.SpeedDamper.MaxOutputPercent;
         SpeedDamperCurve = settings.SpeedDamper.Curve;
+        MechanicalFrictionEnabled = settings.MechanicalFriction.Enabled;
+        MechanicalFrictionStrengthPercent = settings.MechanicalFriction.StrengthPercent;
+        MechanicalFrictionMaxPercent = settings.MechanicalFriction.MaxOutputPercent;
+        MechanicalFrictionCurve = settings.MechanicalFriction.Curve;
         LoadResistanceEnabled = settings.LoadResistance.Enabled;
         LoadResistanceStrengthPercent = settings.LoadResistance.StrengthPercent;
         LoadResistanceMaxPercent = settings.LoadResistance.MaxOutputPercent;
@@ -449,6 +566,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SurfaceFeedbackStrengthPercent = settings.SurfaceFeedback.StrengthPercent;
         SurfaceFeedbackMaxPercent = settings.SurfaceFeedback.MaxOutputPercent;
         SurfaceFeedbackCurve = settings.SurfaceFeedback.Curve;
+        SlipFeedbackEnabled = settings.SlipFeedback.Enabled;
+        SlipFeedbackStrengthPercent = settings.SlipFeedback.StrengthPercent;
+        SlipFeedbackMaxPercent = settings.SlipFeedback.MaxOutputPercent;
+        SlipFeedbackCurve = settings.SlipFeedback.Curve;
+        WetnessFeedbackEnabled = settings.WetnessFeedback.Enabled;
+        WetnessFeedbackStrengthPercent = settings.WetnessFeedback.StrengthPercent;
+        WetnessFeedbackMaxPercent = settings.WetnessFeedback.MaxOutputPercent;
+        WetnessFeedbackCurve = settings.WetnessFeedback.Curve;
+        MotionFeedbackEnabled = settings.MotionFeedback.Enabled;
+        MotionFeedbackStrengthPercent = settings.MotionFeedback.StrengthPercent;
+        MotionFeedbackMaxPercent = settings.MotionFeedback.MaxOutputPercent;
+        MotionFeedbackCurve = settings.MotionFeedback.Curve;
+        BumpFeedbackEnabled = settings.BumpFeedback.Enabled;
+        BumpFeedbackStrengthPercent = settings.BumpFeedback.StrengthPercent;
+        BumpFeedbackMaxPercent = settings.BumpFeedback.MaxOutputPercent;
+        BumpFeedbackCurve = settings.BumpFeedback.Curve;
     }
 
     private void SaveGameplaySettingsFromUi()
@@ -467,6 +600,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _config.GameplayFfb.SpeedDamper.StrengthPercent = Math.Clamp(SpeedDamperStrengthPercent, 0, 100);
         _config.GameplayFfb.SpeedDamper.MaxOutputPercent = Math.Clamp(SpeedDamperMaxPercent, 0, 100);
         _config.GameplayFfb.SpeedDamper.Curve = SpeedDamperCurve;
+        _config.GameplayFfb.MechanicalFriction.Enabled = MechanicalFrictionEnabled;
+        _config.GameplayFfb.MechanicalFriction.StrengthPercent = Math.Clamp(MechanicalFrictionStrengthPercent, 0, 100);
+        _config.GameplayFfb.MechanicalFriction.MaxOutputPercent = Math.Clamp(MechanicalFrictionMaxPercent, 0, 100);
+        _config.GameplayFfb.MechanicalFriction.Curve = MechanicalFrictionCurve;
         _config.GameplayFfb.LoadResistance.Enabled = LoadResistanceEnabled;
         _config.GameplayFfb.LoadResistance.StrengthPercent = Math.Clamp(LoadResistanceStrengthPercent, 0, 100);
         _config.GameplayFfb.LoadResistance.MaxOutputPercent = Math.Clamp(LoadResistanceMaxPercent, 0, 100);
@@ -479,6 +616,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _config.GameplayFfb.SurfaceFeedback.StrengthPercent = Math.Clamp(SurfaceFeedbackStrengthPercent, 0, 100);
         _config.GameplayFfb.SurfaceFeedback.MaxOutputPercent = Math.Clamp(SurfaceFeedbackMaxPercent, 0, 100);
         _config.GameplayFfb.SurfaceFeedback.Curve = SurfaceFeedbackCurve;
+        _config.GameplayFfb.SlipFeedback.Enabled = SlipFeedbackEnabled;
+        _config.GameplayFfb.SlipFeedback.StrengthPercent = Math.Clamp(SlipFeedbackStrengthPercent, 0, 100);
+        _config.GameplayFfb.SlipFeedback.MaxOutputPercent = Math.Clamp(SlipFeedbackMaxPercent, 0, 100);
+        _config.GameplayFfb.SlipFeedback.Curve = SlipFeedbackCurve;
+        _config.GameplayFfb.WetnessFeedback.Enabled = WetnessFeedbackEnabled;
+        _config.GameplayFfb.WetnessFeedback.StrengthPercent = Math.Clamp(WetnessFeedbackStrengthPercent, 0, 100);
+        _config.GameplayFfb.WetnessFeedback.MaxOutputPercent = Math.Clamp(WetnessFeedbackMaxPercent, 0, 100);
+        _config.GameplayFfb.WetnessFeedback.Curve = WetnessFeedbackCurve;
+        _config.GameplayFfb.MotionFeedback.Enabled = MotionFeedbackEnabled;
+        _config.GameplayFfb.MotionFeedback.StrengthPercent = Math.Clamp(MotionFeedbackStrengthPercent, 0, 100);
+        _config.GameplayFfb.MotionFeedback.MaxOutputPercent = Math.Clamp(MotionFeedbackMaxPercent, 0, 100);
+        _config.GameplayFfb.MotionFeedback.Curve = MotionFeedbackCurve;
+        _config.GameplayFfb.BumpFeedback.Enabled = BumpFeedbackEnabled;
+        _config.GameplayFfb.BumpFeedback.StrengthPercent = Math.Clamp(BumpFeedbackStrengthPercent, 0, 100);
+        _config.GameplayFfb.BumpFeedback.MaxOutputPercent = Math.Clamp(BumpFeedbackMaxPercent, 0, 100);
+        _config.GameplayFfb.BumpFeedback.Curve = BumpFeedbackCurve;
         _configStore.Save(_config);
         _log.Information("Gameplay FFB settings updated");
     }
@@ -490,11 +643,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             ActiveGameplayEffects = output.ActiveEffectsText;
             SpringOutput = $"{output.SpringPercent}%";
             DamperOutput = $"{output.DamperPercent}%";
+            FrictionOutput = $"{output.FrictionPercent}%";
             EngineVibrationOutput = output.EngineVibrationPercent > 0
                 ? $"{output.EngineVibrationPercent}% @ {output.EngineVibrationHz} Hz"
                 : "0%";
             SurfaceFeedbackOutput = output.SurfaceVibrationPercent > 0
                 ? $"{output.SurfaceVibrationPercent}% @ {output.SurfaceVibrationHz} Hz"
+                : "0%";
+            SlipFeedbackOutput = output.SlipVibrationPercent > 0
+                ? $"{output.SlipVibrationPercent}% @ {output.SlipVibrationHz} Hz"
+                : "0%";
+            BumpFeedbackOutput = output.BumpImpulsePercent != 0
+                ? $"{output.BumpImpulsePercent}% / {output.BumpDurationMs} ms"
                 : "0%";
             LoadFactor = output.LoadFactor.ToString("0.00");
             TelemetryFade = $"{output.TelemetryFade * 100:0}%";
@@ -545,6 +705,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             TotalMass = "-";
             MassAndTotal = "- / -";
             IsOnField = "-";
+            SurfaceType = "-";
+            SurfaceAttribute = "-";
+            WetnessAndRain = "- / -";
+            WheelSlip = "-";
+            GroundContactRatio = "-";
+            Attitude = "- / - / -";
+            LocalAcceleration = "- / - / -";
+            BumpImpulse = "-";
             GameState = "-";
         }
         else
@@ -559,6 +727,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             TotalMass = FormatNumber(packet.TotalMass, "0 kg");
             MassAndTotal = $"{Mass} / {TotalMass}";
             IsOnField = packet.IsOnField is null ? "-" : packet.IsOnField.Value ? "Yes" : "No";
+            SurfaceType = string.IsNullOrWhiteSpace(packet.SurfaceType) ? "-" : packet.SurfaceType;
+            SurfaceAttribute = FormatNumber(packet.SurfaceAttribute, "0");
+            WetnessAndRain = $"{FormatNumber(packet.GroundWetness, "0.00")} / {FormatNumber(packet.RainScale, "0.00")}";
+            WheelSlip = $"{FormatNumber(packet.WheelSlip, "0.00")} / {FormatNumber(packet.MaxWheelSlip, "0.00")}";
+            GroundContactRatio = FormatNumber(packet.GroundContactRatio, "0%");
+            Attitude = $"{FormatNumber(packet.PitchDeg, "0.0 deg")} / {FormatNumber(packet.RollDeg, "0.0 deg")} / {FormatNumber(packet.SlopeDeg, "0.0 deg")}";
+            LocalAcceleration = $"{FormatNumber(packet.LocalAccelerationX, "0.00")} / {FormatNumber(packet.LocalAccelerationY, "0.00")} / {FormatNumber(packet.LocalAccelerationZ, "0.00")}";
+            BumpImpulse = FormatNumber(packet.BumpImpulse, "0.00");
             GameState = string.IsNullOrWhiteSpace(packet.GameState) ? "-" : packet.GameState;
         }
 

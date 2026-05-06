@@ -25,12 +25,16 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private readonly List<IDirectInputEffect> _activeEffects = [];
     private IDirectInputEffect? _gameplaySpringEffect;
     private IDirectInputEffect? _gameplayDamperEffect;
+    private IDirectInputEffect? _gameplayFrictionEffect;
     private IDirectInputEffect? _gameplayEngineEffect;
     private IDirectInputEffect? _gameplaySurfaceEffect;
+    private IDirectInputEffect? _gameplaySlipEffect;
+    private IDirectInputEffect? _gameplayBumpEffect;
     private IDirectInputDevice8? _device;
     private int _primaryAxisOffset;
     private int _globalLimitPercent = 40;
     private int _deviceLimitPercent = 35;
+    private DateTimeOffset _lastBumpPulseAt = DateTimeOffset.MinValue;
     private GameplayFfbOutput _lastGameplayOutput = GameplayFfbOutput.Zero;
 
     public DirectInputFfbBackend(AppLogService log)
@@ -192,17 +196,24 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
             ApplyConditionEffect(ref _gameplaySpringEffect, EffectGuid.Spring, quantized.SpringPercent, deadBand: MomoSpringDeadBand, "spring");
             ApplyConditionEffect(ref _gameplayDamperEffect, EffectGuid.Damper, quantized.DamperPercent, deadBand: 0, "damper");
+            ApplyConditionEffect(ref _gameplayFrictionEffect, EffectGuid.Friction, quantized.FrictionPercent, deadBand: 0, "friction");
             ApplyPeriodicEffect(ref _gameplayEngineEffect, quantized.EngineVibrationPercent, quantized.EngineVibrationHz, "engine vibration");
             ApplyPeriodicEffect(ref _gameplaySurfaceEffect, quantized.SurfaceVibrationPercent, quantized.SurfaceVibrationHz, "surface feedback");
+            ApplyPeriodicEffect(ref _gameplaySlipEffect, quantized.SlipVibrationPercent, quantized.SlipVibrationHz, "slip feedback");
+            ApplyBumpEffect(quantized);
             _lastGameplayOutput = quantized;
             _log.Information(
-                "Gameplay FFB updated: spring={Spring}%, damper={Damper}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, load={Load:0.00}, fade={Fade:0.00}",
+                "Gameplay FFB updated: spring={Spring}%, damper={Damper}%, friction={Friction}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, slip={Slip}%/{SlipHz}Hz, bump={Bump}%, load={Load:0.00}, fade={Fade:0.00}",
                 quantized.SpringPercent,
                 quantized.DamperPercent,
+                quantized.FrictionPercent,
                 quantized.EngineVibrationPercent,
                 quantized.EngineVibrationHz,
                 quantized.SurfaceVibrationPercent,
                 quantized.SurfaceVibrationHz,
+                quantized.SlipVibrationPercent,
+                quantized.SlipVibrationHz,
+                quantized.BumpImpulsePercent,
                 quantized.LoadFactor,
                 quantized.TelemetryFade);
         }
@@ -268,8 +279,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     {
         if (_gameplaySpringEffect is null &&
             _gameplayDamperEffect is null &&
+            _gameplayFrictionEffect is null &&
             _gameplayEngineEffect is null &&
-            _gameplaySurfaceEffect is null)
+            _gameplaySurfaceEffect is null &&
+            _gameplaySlipEffect is null &&
+            _gameplayBumpEffect is null)
         {
             _lastGameplayOutput = GameplayFfbOutput.Zero;
             return;
@@ -277,8 +291,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
         StopAndDisposeEffect(ref _gameplaySpringEffect, "gameplay spring");
         StopAndDisposeEffect(ref _gameplayDamperEffect, "gameplay damper");
+        StopAndDisposeEffect(ref _gameplayFrictionEffect, "gameplay friction");
         StopAndDisposeEffect(ref _gameplayEngineEffect, "gameplay engine vibration");
         StopAndDisposeEffect(ref _gameplaySurfaceEffect, "gameplay surface feedback");
+        StopAndDisposeEffect(ref _gameplaySlipEffect, "gameplay slip feedback");
+        StopAndDisposeEffect(ref _gameplayBumpEffect, "gameplay bump feedback");
         _lastGameplayOutput = GameplayFfbOutput.Zero;
         _log.Information("Gameplay FFB stopped ({Reason})", reason);
     }
@@ -387,6 +404,41 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         }
     }
 
+    private void ApplyBumpEffect(GameplayFfbOutput output)
+    {
+        if (output.BumpImpulsePercent == 0)
+        {
+            StopAndDisposeEffect(ref _gameplayBumpEffect, "bump feedback");
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var cooldownMs = Math.Max(20, output.BumpCooldownMs);
+        if ((now - _lastBumpPulseAt).TotalMilliseconds < cooldownMs)
+        {
+            return;
+        }
+
+        StopAndDisposeEffect(ref _gameplayBumpEffect, "bump feedback");
+
+        try
+        {
+            var direction = output.BumpImpulsePercent < 0 ? DirectionNegative : DirectionPositive;
+            _gameplayBumpEffect = CreateConstantEffect(
+                PercentToDirectInputMagnitude(Math.Abs(output.BumpImpulsePercent)),
+                direction,
+                TimeSpan.FromMilliseconds(Math.Clamp(output.BumpDurationMs, 20, 250)));
+            _gameplayBumpEffect.Download().CheckError();
+            _gameplayBumpEffect.Start(1).CheckError();
+            _lastBumpPulseAt = now;
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Gameplay bump effect update failed");
+            StopAndDisposeEffect(ref _gameplayBumpEffect, "bump feedback");
+        }
+    }
+
     private void StopAndDisposeEffect(ref IDirectInputEffect? effect, string label)
     {
         if (effect is null)
@@ -447,10 +499,14 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         {
             SpringPercent = QuantizePercent(output.SpringPercent, 2),
             DamperPercent = QuantizePercent(output.DamperPercent, 2),
+            FrictionPercent = QuantizePercent(output.FrictionPercent, 2),
             EngineVibrationPercent = QuantizePercent(output.EngineVibrationPercent, 2),
             EngineVibrationHz = QuantizePercent(output.EngineVibrationHz, 2),
             SurfaceVibrationPercent = QuantizePercent(output.SurfaceVibrationPercent, 2),
-            SurfaceVibrationHz = QuantizePercent(output.SurfaceVibrationHz, 2)
+            SurfaceVibrationHz = QuantizePercent(output.SurfaceVibrationHz, 2),
+            SlipVibrationPercent = QuantizePercent(output.SlipVibrationPercent, 2),
+            SlipVibrationHz = QuantizePercent(output.SlipVibrationHz, 2),
+            BumpImpulsePercent = QuantizeSignedPercent(output.BumpImpulsePercent, 2)
         };
     }
 
@@ -459,14 +515,24 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return Math.Clamp((int)Math.Round(value / (double)step) * step, 0, 100);
     }
 
+    private static int QuantizeSignedPercent(int value, int step)
+    {
+        return Math.Clamp((int)Math.Round(value / (double)step) * step, -100, 100);
+    }
+
     private static bool IsSameGameplayOutput(GameplayFfbOutput left, GameplayFfbOutput right)
     {
         return left.SpringPercent == right.SpringPercent &&
                left.DamperPercent == right.DamperPercent &&
+               left.FrictionPercent == right.FrictionPercent &&
                left.EngineVibrationPercent == right.EngineVibrationPercent &&
                left.EngineVibrationHz == right.EngineVibrationHz &&
                left.SurfaceVibrationPercent == right.SurfaceVibrationPercent &&
-               left.SurfaceVibrationHz == right.SurfaceVibrationHz;
+               left.SurfaceVibrationHz == right.SurfaceVibrationHz &&
+               left.SlipVibrationPercent == right.SlipVibrationPercent &&
+               left.SlipVibrationHz == right.SlipVibrationHz &&
+               left.BumpImpulsePercent == 0 &&
+               right.BumpImpulsePercent == 0;
     }
 
     private void ReleaseDevice()

@@ -10,5 +10,20 @@
   "engineStarted": true,
   "mass": 6200,
   "totalMass": 8000,
-  "isOnField": false
+  "isOnField": false,
+  "surfaceType": "asphalt",
+  "surfaceAttribute": 0,
+  "groundWetness": 0.0,
+  "rainScale": 0.0,
+  "wheelSlip": 0.03,
+  "maxWheelSlip": 0.05,
+  "groundContactRatio": 1.0,
+  "pitchDeg": 1.2,
+  "rollDeg": -0.4,
+  "yawRateDegPerSec": 2.5,
+  "slopeDeg": 1.0,
+  "localAccelerationX": 0.1,
+  "localAccelerationY": 0.0,
+  "localAccelerationZ": -0.2,
+  "bumpImpulse": 0.0
 }

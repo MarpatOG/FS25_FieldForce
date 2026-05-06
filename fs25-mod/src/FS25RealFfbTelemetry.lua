@@ -24,6 +24,7 @@ function FS25RealFfbTelemetry.new()
     self.overlayEnabled = self.overlayConfig.enabled ~= false
     self.fileWarningLogged = false
     self.transportWarningLogged = false
+    self.lastVehicleMotion = {}
     return self
 end
 
@@ -187,6 +188,10 @@ end
 function FS25RealFfbTelemetry:collectTelemetry()
     local vehicle = self:getActiveVehicle()
     local inVehicle = vehicle ~= nil
+    local surface = inVehicle and self:getSurfaceTelemetry(vehicle) or {}
+    local wheel = inVehicle and self:getWheelTelemetry(vehicle) or {}
+    local motion = inVehicle and self:getMotionTelemetry(vehicle) or {}
+    local weather = inVehicle and self:getWeatherTelemetry() or {}
 
     return {
         timestamp = self:getTimestamp(),
@@ -200,7 +205,22 @@ function FS25RealFfbTelemetry:collectTelemetry()
         engineStarted = inVehicle and self:getEngineStarted(vehicle) or nil,
         mass = inVehicle and self:getMass(vehicle) or nil,
         totalMass = inVehicle and self:getTotalMass(vehicle) or nil,
-        isOnField = inVehicle and self:getIsOnField(vehicle) or nil
+        isOnField = inVehicle and self:getIsOnField(vehicle) or nil,
+        surfaceType = surface.surfaceType,
+        surfaceAttribute = surface.surfaceAttribute,
+        groundWetness = surface.groundWetness or weather.groundWetness,
+        rainScale = weather.rainScale,
+        wheelSlip = wheel.wheelSlip,
+        maxWheelSlip = wheel.maxWheelSlip,
+        groundContactRatio = wheel.groundContactRatio,
+        pitchDeg = motion.pitchDeg,
+        rollDeg = motion.rollDeg,
+        yawRateDegPerSec = motion.yawRateDegPerSec,
+        slopeDeg = motion.slopeDeg,
+        localAccelerationX = motion.localAccelerationX,
+        localAccelerationY = motion.localAccelerationY,
+        localAccelerationZ = motion.localAccelerationZ,
+        bumpImpulse = motion.bumpImpulse
     }
 end
 
@@ -415,6 +435,389 @@ function FS25RealFfbTelemetry:getIsOnField(vehicle)
     return nil
 end
 
+function FS25RealFfbTelemetry:getSurfaceTelemetry(vehicle)
+    local result = {
+        surfaceType = "unknown",
+        surfaceAttribute = nil,
+        groundWetness = nil
+    }
+
+    for _, wheel in ipairs(self:getVehicleWheels(vehicle)) do
+        local physics = wheel.physics
+        if physics ~= nil then
+            local surfaceName, terrainAttribute = self:getWheelSurface(physics)
+            if result.surfaceAttribute == nil and terrainAttribute ~= nil then
+                result.surfaceAttribute = terrainAttribute
+            end
+
+            if surfaceName ~= nil and surfaceName ~= "unknown" then
+                result.surfaceType = surfaceName
+                break
+            end
+        end
+    end
+
+    return result
+end
+
+function FS25RealFfbTelemetry:getWheelSurface(physics)
+    local terrainAttribute = self:getWheelTerrainAttribute(physics)
+
+    if physics.hasWaterContact == true then
+        return "shallowWater", terrainAttribute
+    end
+
+    if physics.hasSnowContact == true then
+        return "snow", terrainAttribute
+    end
+
+    if self:isGrassDensity(physics.densityType) then
+        return "grass", terrainAttribute
+    end
+
+    if physics.getSurfaceSoundAttributes ~= nil then
+        local ok, soundSurface, soundTerrainAttribute = pcall(function()
+            return physics:getSurfaceSoundAttributes()
+        end)
+        if ok then
+            if soundTerrainAttribute ~= nil then
+                terrainAttribute = soundTerrainAttribute
+            end
+
+            local exact = self:normalizeExactSurfaceName(soundSurface)
+            if exact ~= nil then
+                return exact, terrainAttribute
+            end
+        end
+    end
+
+    return "unknown", terrainAttribute
+end
+
+function FS25RealFfbTelemetry:normalizeExactSurfaceName(surfaceName)
+    if surfaceName == nil then
+        return nil
+    end
+
+    local value = string.lower(tostring(surfaceName))
+    if value == "asphalt" then
+        return "asphalt"
+    elseif value == "field" then
+        return "field"
+    elseif value == "wetfield" then
+        return "wetField"
+    elseif value == "grass" then
+        return "grass"
+    elseif value == "shallowwater" then
+        return "shallowWater"
+    elseif value == "snow" then
+        return "snow"
+    elseif value == "dirt" or value == "gravel" or value == "mud" then
+        return value
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:isGrassDensity(densityType)
+    if densityType == nil or FieldGroundType == nil then
+        return false
+    end
+
+    return densityType == FieldGroundType.GRASS or densityType == FieldGroundType.GRASS_CUT
+end
+
+function FS25RealFfbTelemetry:getWheelTerrainAttribute(physics)
+    if physics.lastTerrainAttribute ~= nil then
+        return physics.lastTerrainAttribute
+    end
+
+    if physics.getGroundAttributes ~= nil then
+        local ok, groundR, groundG, groundB, groundDepth, terrainAttribute = pcall(function()
+            return physics:getGroundAttributes()
+        end)
+        if ok then
+            return terrainAttribute
+        end
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
+    local wheels = self:getVehicleWheels(vehicle)
+    if #wheels == 0 then
+        return {}
+    end
+
+    local slipTotal = 0
+    local slipCount = 0
+    local maxSlip = 0
+    local contactCount = 0
+
+    for _, wheel in ipairs(wheels) do
+        local physics = wheel.physics
+        if physics ~= nil then
+            local slip = physics.netInfo ~= nil and physics.netInfo.slip or nil
+            if type(slip) == "number" then
+                slip = math.max(0, slip)
+                slipTotal = slipTotal + slip
+                slipCount = slipCount + 1
+                maxSlip = math.max(maxSlip, slip)
+            end
+
+            if physics.hasGroundContact == true or physics.hasWaterContact == true or physics.hasSnowContact == true then
+                contactCount = contactCount + 1
+            end
+        end
+    end
+
+    return {
+        wheelSlip = slipCount > 0 and (slipTotal / slipCount) or nil,
+        maxWheelSlip = slipCount > 0 and maxSlip or nil,
+        groundContactRatio = #wheels > 0 and (contactCount / #wheels) or nil
+    }
+end
+
+function FS25RealFfbTelemetry:getVehicleWheels(vehicle)
+    if vehicle == nil or vehicle.spec_wheels == nil or vehicle.spec_wheels.wheels == nil then
+        return {}
+    end
+
+    return vehicle.spec_wheels.wheels
+end
+
+function FS25RealFfbTelemetry:getWeatherTelemetry()
+    return {
+        groundWetness = self:getFirstWeatherValue({
+            "groundWetness",
+            "currentGroundWetness",
+            "wetness"
+        }, {
+            "getGroundWetness",
+            "getWetness"
+        }),
+        rainScale = self:getFirstWeatherValue({
+            "rainScale",
+            "currentRainScale",
+            "rainFallScale"
+        }, {
+            "getRainScale",
+            "getRainFallScale"
+        })
+    }
+end
+
+function FS25RealFfbTelemetry:getFirstWeatherValue(fieldNames, methodNames)
+    local environment = g_currentMission ~= nil and g_currentMission.environment or nil
+    local weather = environment ~= nil and environment.weather or nil
+    local candidates = {}
+    if environment ~= nil then
+        table.insert(candidates, environment)
+    end
+    if weather ~= nil then
+        table.insert(candidates, weather)
+    end
+    if g_currentMission ~= nil then
+        table.insert(candidates, g_currentMission)
+    end
+
+    for _, candidate in ipairs(candidates) do
+        for _, methodName in ipairs(methodNames) do
+            if type(candidate[methodName]) == "function" then
+                local ok, value = pcall(function()
+                    return candidate[methodName](candidate)
+                end)
+                if ok and type(value) == "number" then
+                    return math.max(0, math.min(1, value))
+                end
+            end
+        end
+
+        for _, fieldName in ipairs(fieldNames) do
+            local value = candidate[fieldName]
+            if type(value) == "number" then
+                return math.max(0, math.min(1, value))
+            end
+        end
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
+    local node = self:getVehicleNode(vehicle)
+    if node == nil then
+        return {}
+    end
+
+    local wx, wy, wz = self:getWorldTranslationSafe(node)
+    local rx, ry, rz = self:getWorldRotationSafe(node)
+    local pitchDeg = rx ~= nil and math.deg(rx) or nil
+    local rollDeg = rz ~= nil and math.deg(rz) or nil
+    local slopeDeg = wx ~= nil and self:getSlopeDeg(wx, wy or 0, wz) or nil
+    local now = self:getTimestamp()
+    local key = tostring(vehicle)
+    local previous = self.lastVehicleMotion[key]
+    local yawRateDegPerSec = nil
+    local localAccelerationX, localAccelerationY, localAccelerationZ = nil, nil, nil
+    local bumpImpulse = nil
+
+    if previous ~= nil and wx ~= nil and wy ~= nil and wz ~= nil and ry ~= nil then
+        local dtSec = self:getDeltaSeconds(now, previous.time)
+        if dtSec ~= nil and dtSec > 0.001 and dtSec < 2 then
+            local vx = (wx - previous.x) / dtSec
+            local vy = (wy - previous.y) / dtSec
+            local vz = (wz - previous.z) / dtSec
+            local ax = (vx - previous.vx) / dtSec
+            local ay = (vy - previous.vy) / dtSec
+            local az = (vz - previous.vz) / dtSec
+
+            localAccelerationX, localAccelerationY, localAccelerationZ = self:worldDirectionToLocalSafe(node, ax, ay, az)
+            if localAccelerationX == nil then
+                localAccelerationX, localAccelerationY, localAccelerationZ = ax, ay, az
+            end
+
+            yawRateDegPerSec = math.deg(self:angleDifference(ry, previous.yaw) / dtSec)
+            bumpImpulse = localAccelerationY ~= nil and math.min(math.abs(localAccelerationY) / 9.81, 2) or nil
+
+            self.lastVehicleMotion[key] = {
+                time = now,
+                x = wx,
+                y = wy,
+                z = wz,
+                yaw = ry,
+                vx = vx,
+                vy = vy,
+                vz = vz
+            }
+        end
+    elseif wx ~= nil and wy ~= nil and wz ~= nil and ry ~= nil then
+        self.lastVehicleMotion[key] = {
+            time = now,
+            x = wx,
+            y = wy,
+            z = wz,
+            yaw = ry,
+            vx = 0,
+            vy = 0,
+            vz = 0
+        }
+    end
+
+    return {
+        pitchDeg = pitchDeg,
+        rollDeg = rollDeg,
+        yawRateDegPerSec = yawRateDegPerSec,
+        slopeDeg = slopeDeg,
+        localAccelerationX = localAccelerationX,
+        localAccelerationY = localAccelerationY,
+        localAccelerationZ = localAccelerationZ,
+        bumpImpulse = bumpImpulse
+    }
+end
+
+function FS25RealFfbTelemetry:getVehicleNode(vehicle)
+    if vehicle.rootNode ~= nil then
+        return vehicle.rootNode
+    end
+
+    if vehicle.components ~= nil and vehicle.components[1] ~= nil and vehicle.components[1].node ~= nil then
+        return vehicle.components[1].node
+    end
+
+    if vehicle.componentNodes ~= nil and vehicle.componentNodes[1] ~= nil then
+        return vehicle.componentNodes[1]
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:getWorldTranslationSafe(node)
+    if type(getWorldTranslation) ~= "function" then
+        return nil, nil, nil
+    end
+
+    local ok, x, y, z = pcall(getWorldTranslation, node)
+    if ok then
+        return x, y, z
+    end
+
+    return nil, nil, nil
+end
+
+function FS25RealFfbTelemetry:getWorldRotationSafe(node)
+    if type(getWorldRotation) ~= "function" then
+        return nil, nil, nil
+    end
+
+    local ok, x, y, z = pcall(getWorldRotation, node)
+    if ok then
+        return x, y, z
+    end
+
+    return nil, nil, nil
+end
+
+function FS25RealFfbTelemetry:worldDirectionToLocalSafe(node, x, y, z)
+    if type(worldDirectionToLocal) ~= "function" then
+        return nil, nil, nil
+    end
+
+    local ok, lx, ly, lz = pcall(worldDirectionToLocal, node, x, y, z)
+    if ok then
+        return lx, ly, lz
+    end
+
+    return nil, nil, nil
+end
+
+function FS25RealFfbTelemetry:getSlopeDeg(x, y, z)
+    if type(getTerrainNormalAtWorldPos) ~= "function" then
+        return nil
+    end
+
+    local terrain = g_terrainNode or (g_currentMission ~= nil and g_currentMission.terrainRootNode) or nil
+    if terrain == nil then
+        return nil
+    end
+
+    local ok, _, ny, _ = pcall(getTerrainNormalAtWorldPos, terrain, x, y, z)
+    if ok and type(ny) == "number" then
+        return math.deg(math.acos(math.max(-1, math.min(1, ny))))
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:getDeltaSeconds(now, previous)
+    if type(now) ~= "number" or type(previous) ~= "number" then
+        return nil
+    end
+
+    local delta = now - previous
+    if delta < 0 then
+        return nil
+    end
+
+    if delta > 10 then
+        return delta / 1000
+    end
+
+    return delta
+end
+
+function FS25RealFfbTelemetry:angleDifference(current, previous)
+    local diff = current - previous
+    while diff > math.pi do
+        diff = diff - (math.pi * 2)
+    end
+    while diff < -math.pi do
+        diff = diff + (math.pi * 2)
+    end
+    return diff
+end
+
 function FS25RealFfbTelemetry:draw()
     if not self.overlayEnabled then
         return
@@ -487,6 +890,11 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
         table.insert(lines, "mass: -")
         table.insert(lines, "totalMass: -")
         table.insert(lines, "isOnField: -")
+        table.insert(lines, "surfaceType: -")
+        table.insert(lines, "wet/rain: - / -")
+        table.insert(lines, "slip/max: - / -")
+        table.insert(lines, "pitch/roll/slope: - / - / -")
+        table.insert(lines, "accel/bump: - / -")
         return lines
     end
 
@@ -502,6 +910,11 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
     table.insert(lines, "mass: " .. self:formatNumber(packet.mass, "", 0))
     table.insert(lines, "totalMass: " .. self:formatNumber(packet.totalMass, "", 0))
     table.insert(lines, "isOnField: " .. self:boolText(packet.isOnField))
+    table.insert(lines, "surfaceType: " .. tostring(packet.surfaceType or "-") .. " attr " .. self:formatNumber(packet.surfaceAttribute, "", 0))
+    table.insert(lines, "wet/rain: " .. self:formatNumber(packet.groundWetness, "", 2) .. " / " .. self:formatNumber(packet.rainScale, "", 2))
+    table.insert(lines, "slip/max: " .. self:formatNumber(packet.wheelSlip, "", 2) .. " / " .. self:formatNumber(packet.maxWheelSlip, "", 2))
+    table.insert(lines, "pitch/roll/slope: " .. self:formatNumber(packet.pitchDeg, "", 1) .. " / " .. self:formatNumber(packet.rollDeg, "", 1) .. " / " .. self:formatNumber(packet.slopeDeg, "", 1))
+    table.insert(lines, "accelY/bump: " .. self:formatNumber(packet.localAccelerationY, "", 2) .. " / " .. self:formatNumber(packet.bumpImpulse, "", 2))
 
     return lines
 end
@@ -626,7 +1039,22 @@ function FS25RealFfbTelemetry:encodeJson(packet)
         "engineStarted",
         "mass",
         "totalMass",
-        "isOnField"
+        "isOnField",
+        "surfaceType",
+        "surfaceAttribute",
+        "groundWetness",
+        "rainScale",
+        "wheelSlip",
+        "maxWheelSlip",
+        "groundContactRatio",
+        "pitchDeg",
+        "rollDeg",
+        "yawRateDegPerSec",
+        "slopeDeg",
+        "localAccelerationX",
+        "localAccelerationY",
+        "localAccelerationZ",
+        "bumpImpulse"
     }
 
     local parts = {}

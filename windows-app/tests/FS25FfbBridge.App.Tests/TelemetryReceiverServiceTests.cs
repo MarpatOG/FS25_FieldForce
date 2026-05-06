@@ -25,6 +25,38 @@ public sealed class TelemetryReceiverServiceTests
         }
         """;
 
+    private const string ExtendedPacket = """
+        {
+          "timestamp": 123456,
+          "gameState": "mission",
+          "isPlayerInVehicle": true,
+          "vehicleName": "Tractor",
+          "vehicleType": "tractor",
+          "speedKmh": 12.4,
+          "steeringAngle": 0.13,
+          "rpm": 850,
+          "engineStarted": true,
+          "mass": 6200,
+          "totalMass": 8800,
+          "isOnField": true,
+          "surfaceType": "field",
+          "surfaceAttribute": 1,
+          "groundWetness": 0.35,
+          "rainScale": 0.2,
+          "wheelSlip": 0.12,
+          "maxWheelSlip": 0.24,
+          "groundContactRatio": 1.0,
+          "pitchDeg": 3.1,
+          "rollDeg": -2.4,
+          "yawRateDegPerSec": 8.5,
+          "slopeDeg": 4.0,
+          "localAccelerationX": 0.3,
+          "localAccelerationY": 1.8,
+          "localAccelerationZ": -0.6,
+          "bumpImpulse": 0.42
+        }
+        """;
+
     [Fact]
     public async Task Receives_valid_udp_packet()
     {
@@ -42,7 +74,30 @@ public sealed class TelemetryReceiverServiceTests
 
         var state = await stateTask;
         Assert.Equal("Tractor", state.LastPacket?.VehicleName);
+        Assert.Null(state.LastPacket?.SurfaceType);
         Assert.StartsWith("Listening: udp://127.0.0.1:", state.UdpStatus);
+    }
+
+    [Fact]
+    public async Task Receives_extended_telemetry_packet()
+    {
+        using var log = new AppLogService();
+        using var receiver = new TelemetryReceiverService(log);
+        var port = GetFreeUdpPort();
+        var filePath = GetTempTelemetryPath();
+
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        var stateTask = WaitForStateAsync(receiver, state =>
+            state.Status == TelemetryStatus.Connected &&
+            state.LastPacket?.SurfaceType == "field");
+
+        await SendUdpAsync(port, ExtendedPacket);
+
+        var packet = (await stateTask).LastPacket;
+        Assert.Equal(0.35, packet?.GroundWetness);
+        Assert.Equal(0.24, packet?.MaxWheelSlip);
+        Assert.Equal(-2.4, packet?.RollDeg);
+        Assert.Equal(0.42, packet?.BumpImpulse);
     }
 
     [Fact]
