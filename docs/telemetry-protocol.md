@@ -56,7 +56,7 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 - `rpm`: best-effort motor RPM.
 - `mass` and `totalMass`: best-effort vehicle mass values.
 - `isOnField`: legacy compatibility field; new surface logic prefers `surfaceType`.
-- `surfaceType`: strict exact surface label. Supported exact labels are `asphalt`, `field`, `wetField`, `grass`, `shallowWater`, `snow`, `dirt`, `gravel`, `mud`, and `unknown`. `dirt`, `gravel`, and `mud` are emitted only if FS25 returns those exact names.
+- `surfaceType`: strict exact surface label. Supported exact labels are `asphalt`, `field`, `wetField`, `grass`, `shallowWater`, `snow`, `dirt`, `gravel`, `mud`, and `unknown`. `dirt`, `gravel`, and `mud` are emitted only if FS25 returns those exact names or an exact wheel surface sound mapping for the raw terrain attribute.
 - `surfaceAttribute`: raw terrain attribute number. It is not mapped to dirt/gravel/mud by guesswork.
 - `groundWetness` and `rainScale`: best-effort normalized `0..1` weather values when available.
 - `wheelSlip`, `maxWheelSlip`, and `groundContactRatio`: aggregated wheel physics values.

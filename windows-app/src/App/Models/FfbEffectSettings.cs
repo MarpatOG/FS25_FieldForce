@@ -41,7 +41,7 @@ public sealed class EngineVibrationSettings : FfbEffectSettings
 
 public sealed class SurfaceFeedbackSettings : FfbEffectSettings
 {
-    public double MinSpeedKmh { get; set; } = 1.5;
+    public double MinSpeedKmh { get; set; } = 0.2;
     public int FieldFrequencyMinHz { get; set; } = 8;
     public int FieldFrequencyMaxHz { get; set; } = 24;
     public int FieldSpringModifierPercent { get; set; } = -10;
@@ -53,7 +53,7 @@ public sealed class SlipFeedbackSettings : FfbEffectSettings
 {
     public double MinSlip { get; set; } = 0.12;
     public double FullSlip { get; set; } = 0.65;
-    public double MinSpeedKmh { get; set; } = 2.0;
+    public double MinSpeedKmh { get; set; } = 0.5;
     public int MinFrequencyHz { get; set; } = 18;
     public int MaxFrequencyHz { get; set; } = 38;
 }
@@ -150,7 +150,7 @@ public sealed class GameplayFfbSettings
         StrengthPercent = 45,
         MaxOutputPercent = 50,
         Curve = FfbCurveKind.Smooth,
-        MinSpeedKmh = 1.5,
+        MinSpeedKmh = 0.2,
         FieldFrequencyMinHz = 8,
         FieldFrequencyMaxHz = 24,
         FieldSpringModifierPercent = -10,
@@ -166,7 +166,7 @@ public sealed class GameplayFfbSettings
         Curve = FfbCurveKind.Smooth,
         MinSlip = 0.12,
         FullSlip = 0.65,
-        MinSpeedKmh = 2.0,
+        MinSpeedKmh = 0.5,
         MinFrequencyHz = 18,
         MaxFrequencyHz = 38
     };

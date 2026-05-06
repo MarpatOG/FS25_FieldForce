@@ -66,9 +66,20 @@ public sealed class ConfigStore
         config.GameplayFfb.WetnessFeedback ??= new WetnessFeedbackSettings();
         config.GameplayFfb.MotionFeedback ??= new MotionFeedbackSettings();
         config.GameplayFfb.BumpFeedback ??= new BumpFeedbackSettings();
+        if (config.EffectsProfileVersion < 4)
+        {
+            config.GameplayFfb.SurfaceFeedback.MinSpeedKmh = Math.Min(config.GameplayFfb.SurfaceFeedback.MinSpeedKmh, 0.2);
+            config.GameplayFfb.SlipFeedback.MinSpeedKmh = Math.Min(config.GameplayFfb.SlipFeedback.MinSpeedKmh, 0.5);
+        }
+
         if (config.EffectsProfileVersion < 3)
         {
             config.EffectsProfileVersion = 3;
+        }
+
+        if (config.EffectsProfileVersion < 4)
+        {
+            config.EffectsProfileVersion = 4;
         }
 
         return config;

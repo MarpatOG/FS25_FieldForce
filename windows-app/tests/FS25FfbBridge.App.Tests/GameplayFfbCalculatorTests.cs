@@ -66,7 +66,7 @@ public sealed class GameplayFfbCalculatorTests
     public void Field_surface_waits_for_minimum_speed()
     {
         var settings = new GameplayFfbSettings();
-        var output = _calculator.Calculate(State(Packet(speedKmh: 1.0, isOnField: true)), settings);
+        var output = _calculator.Calculate(State(Packet(speedKmh: 0.1, isOnField: true)), settings);
 
         Assert.Equal(0, output.SurfaceVibrationPercent);
         Assert.Equal(0, output.SurfaceVibrationHz);

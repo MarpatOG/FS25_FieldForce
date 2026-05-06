@@ -10,7 +10,7 @@ public sealed class AppConfigTests
     {
         var config = new AppConfig();
 
-        Assert.Equal(3, config.EffectsProfileVersion);
+        Assert.Equal(4, config.EffectsProfileVersion);
         Assert.Equal("Logitech MOMO Racing Wheel", config.DeviceProfileName);
         Assert.Equal(270, config.RotationDegrees);
         Assert.Equal(40, config.GlobalForceLimitPercent);
@@ -34,11 +34,13 @@ public sealed class AppConfigTests
         Assert.Equal(12, config.GameplayFfb.EngineVibration.MinFrequencyHz);
         Assert.Equal(30, config.GameplayFfb.EngineVibration.MaxFrequencyHz);
         Assert.Equal(45, config.GameplayFfb.SurfaceFeedback.StrengthPercent);
+        Assert.Equal(0.2, config.GameplayFfb.SurfaceFeedback.MinSpeedKmh);
         Assert.Equal(8, config.GameplayFfb.SurfaceFeedback.FieldFrequencyMinHz);
         Assert.Equal(24, config.GameplayFfb.SurfaceFeedback.FieldFrequencyMaxHz);
         Assert.True(config.GameplayFfb.SlipFeedback.Enabled);
         Assert.Equal(45, config.GameplayFfb.SlipFeedback.StrengthPercent);
         Assert.Equal(0.12, config.GameplayFfb.SlipFeedback.MinSlip);
+        Assert.Equal(0.5, config.GameplayFfb.SlipFeedback.MinSpeedKmh);
         Assert.True(config.GameplayFfb.WetnessFeedback.Enabled);
         Assert.Equal(35, config.GameplayFfb.WetnessFeedback.StrengthPercent);
         Assert.True(config.GameplayFfb.MotionFeedback.Enabled);

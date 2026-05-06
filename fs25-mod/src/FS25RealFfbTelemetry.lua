@@ -445,7 +445,7 @@ function FS25RealFfbTelemetry:getSurfaceTelemetry(vehicle)
     for _, wheel in ipairs(self:getVehicleWheels(vehicle)) do
         local physics = wheel.physics
         if physics ~= nil then
-            local surfaceName, terrainAttribute = self:getWheelSurface(physics)
+            local surfaceName, terrainAttribute = self:getWheelSurface(vehicle, physics)
             if result.surfaceAttribute == nil and terrainAttribute ~= nil then
                 result.surfaceAttribute = terrainAttribute
             end
@@ -457,10 +457,17 @@ function FS25RealFfbTelemetry:getSurfaceTelemetry(vehicle)
         end
     end
 
+    if result.surfaceType == "unknown" then
+        local vehicleOnField = self:getIsOnField(vehicle)
+        if vehicleOnField == true then
+            result.surfaceType = "field"
+        end
+    end
+
     return result
 end
 
-function FS25RealFfbTelemetry:getWheelSurface(physics)
+function FS25RealFfbTelemetry:getWheelSurface(vehicle, physics)
     local terrainAttribute = self:getWheelTerrainAttribute(physics)
 
     if physics.hasWaterContact == true then
@@ -491,6 +498,15 @@ function FS25RealFfbTelemetry:getWheelSurface(physics)
         end
     end
 
+    local specSurface = self:getSurfaceFromVehicleSoundMap(vehicle, terrainAttribute)
+    if specSurface ~= nil then
+        return specSurface, terrainAttribute
+    end
+
+    if self:getWheelIsOnField(physics) == true then
+        return "field", terrainAttribute
+    end
+
     return "unknown", terrainAttribute
 end
 
@@ -514,6 +530,52 @@ function FS25RealFfbTelemetry:normalizeExactSurfaceName(surfaceName)
         return "snow"
     elseif value == "dirt" or value == "gravel" or value == "mud" then
         return value
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:getSurfaceFromVehicleSoundMap(vehicle, terrainAttribute)
+    if terrainAttribute == nil or vehicle == nil or vehicle.spec_wheels == nil then
+        return nil
+    end
+
+    local sound = vehicle.spec_wheels.surfaceIdToSound ~= nil and vehicle.spec_wheels.surfaceIdToSound[terrainAttribute] or nil
+    if sound == nil then
+        return nil
+    end
+
+    local candidates = {
+        sound.sampleName,
+        sound.name,
+        sound.filename,
+        sound.fileName
+    }
+
+    for _, candidate in ipairs(candidates) do
+        local exact = self:normalizeExactSurfaceName(candidate)
+        if exact ~= nil then
+            return exact
+        end
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:getWheelIsOnField(physics)
+    if physics.getIsOnField ~= nil then
+        local ok, isOnField = pcall(function()
+            return physics:getIsOnField()
+        end)
+        if ok then
+            return isOnField == true
+        end
+    end
+
+    if physics.densityType ~= nil and FieldGroundType ~= nil then
+        return physics.densityType ~= FieldGroundType.NONE and
+            physics.densityType ~= FieldGroundType.GRASS and
+            physics.densityType ~= FieldGroundType.GRASS_CUT
     end
 
     return nil

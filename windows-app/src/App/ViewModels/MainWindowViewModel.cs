@@ -647,12 +647,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             EngineVibrationOutput = output.EngineVibrationPercent > 0
                 ? $"{output.EngineVibrationPercent}% @ {output.EngineVibrationHz} Hz"
                 : "0%";
-            SurfaceFeedbackOutput = output.SurfaceVibrationPercent > 0
-                ? $"{output.SurfaceVibrationPercent}% @ {output.SurfaceVibrationHz} Hz"
-                : "0%";
+                            SurfaceFeedbackOutput = output.SurfaceVibrationPercent > 0
+                                ? $"{output.SurfaceVibrationPercent}% @ {output.SurfaceVibrationHz} Hz"
+                                : "0%";
+            if (output.SurfaceVibrationPercent == 0 && output.IsActive)
+            {
+                SurfaceFeedbackOutput = $"{SurfaceFeedbackOutput} ({SurfaceType}, {SpeedKmh})";
+            }
             SlipFeedbackOutput = output.SlipVibrationPercent > 0
                 ? $"{output.SlipVibrationPercent}% @ {output.SlipVibrationHz} Hz"
                 : "0%";
+            if (output.SlipVibrationPercent == 0 && output.IsActive)
+            {
+                SlipFeedbackOutput = $"{SlipFeedbackOutput} (slip {WheelSlip})";
+            }
             BumpFeedbackOutput = output.BumpImpulsePercent != 0
                 ? $"{output.BumpImpulsePercent}% / {output.BumpDurationMs} ms"
                 : "0%";

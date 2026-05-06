@@ -44,8 +44,8 @@ Surface detection is strict exact. The bridge recognizes exact labels from FS25 
 - `Mechanical Friction`: DirectInput Friction condition; baseline steering friction, increased by load and field modifiers.
 - `Load Resistance`: modifier over spring, damper, and friction using `totalMass / mass`, clamped to a load factor range of `1..4`.
 - `RPM Vibration`: DirectInput Sine periodic effect; intensity and frequency increase between configured min/max RPM.
-- `Surface Feedback`: DirectInput Sine periodic effect on exact field/wet-field surfaces above minimum speed; also modifies spring, damper, and friction.
-- `Slip Feedback`: DirectInput Sine periodic effect when `maxWheelSlip` or `wheelSlip` exceeds `SlipFeedback.MinSlip`; frequency rises toward `MaxFrequencyHz`.
+- `Surface Feedback`: DirectInput Sine periodic effect on exact field/wet-field surfaces above minimum speed; also modifies spring, damper, and friction. Profile version 4 lowers the default field activation threshold to `0.2 km/h`.
+- `Slip Feedback`: DirectInput Sine periodic effect when `maxWheelSlip` or `wheelSlip` exceeds `SlipFeedback.MinSlip`; frequency rises toward `MaxFrequencyHz`. Profile version 4 lowers the default speed gate to `0.5 km/h`.
 - `Wetness`: modifier, not a standalone effect; when `groundWetness` or `rainScale` is present, it increases damper and field surface vibration.
 - `Motion`: modifier, not a standalone effect; pitch, roll, slope, yaw rate, and local acceleration lightly increase spring and damper within configured caps.
 - `Bump Feedback`: short DirectInput ConstantForce pulse from signed `bumpImpulse`; direction comes from local lateral acceleration or steering fallback, with duration/cooldown settings.
