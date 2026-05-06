@@ -183,25 +183,55 @@ function FS25RealFfbTelemetry:collectTelemetry()
 end
 
 function FS25RealFfbTelemetry:getActiveVehicle()
+    if g_localPlayer ~= nil and g_localPlayer.getCurrentVehicle ~= nil then
+        local ok, vehicle = pcall(function()
+            return g_localPlayer:getCurrentVehicle()
+        end)
+        if ok and vehicle ~= nil then
+            return self:getSelectedVehicleOrSelf(vehicle)
+        end
+    end
+
     local mission = g_currentMission
     if mission == nil then
         return nil
     end
 
     if mission.controlledVehicle ~= nil then
-        return mission.controlledVehicle
+        return self:getSelectedVehicleOrSelf(mission.controlledVehicle)
+    end
+
+    if mission.controlledVehicles ~= nil then
+        for _, vehicle in pairs(mission.controlledVehicles) do
+            if vehicle ~= nil then
+                return self:getSelectedVehicleOrSelf(vehicle)
+            end
+        end
     end
 
     if mission.player ~= nil and mission.player.getCurrentVehicle ~= nil then
         local ok, vehicle = pcall(function()
             return mission.player:getCurrentVehicle()
         end)
-        if ok then
-            return vehicle
+        if ok and vehicle ~= nil then
+            return self:getSelectedVehicleOrSelf(vehicle)
         end
     end
 
     return nil
+end
+
+function FS25RealFfbTelemetry:getSelectedVehicleOrSelf(vehicle)
+    if vehicle ~= nil and vehicle.getSelectedVehicle ~= nil then
+        local ok, selectedVehicle = pcall(function()
+            return vehicle:getSelectedVehicle()
+        end)
+        if ok and selectedVehicle ~= nil then
+            return selectedVehicle
+        end
+    end
+
+    return vehicle
 end
 
 function FS25RealFfbTelemetry:getTimestamp()
