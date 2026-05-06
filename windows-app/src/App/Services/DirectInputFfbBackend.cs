@@ -181,6 +181,10 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         {
             _device?.SendForceFeedbackCommand(ForceFeedbackCommand.StopAll);
         }
+        catch (SharpGenException ex) when (IsNotExclusiveAcquired(ex))
+        {
+            _log.Warning("StopAll command skipped because the DirectInput device is not exclusively acquired");
+        }
         catch (Exception ex)
         {
             _log.Error(ex, "StopAll command failed");
@@ -314,5 +318,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     {
         var product = string.IsNullOrWhiteSpace(instance.ProductName) ? "unknown" : instance.ProductName.Trim();
         return $"{instance.ProductGuid:N}:{instance.InstanceGuid:N}:{product}";
+    }
+
+    private static bool IsNotExclusiveAcquired(SharpGenException ex)
+    {
+        return ex.Message.Contains("DIERR_NOTEXCLUSIVEACQUIRED", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("NotExclusiveAcquired", StringComparison.OrdinalIgnoreCase);
     }
 }
