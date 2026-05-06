@@ -34,7 +34,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Speed Spring`: centering is very weak at standstill, soft at low speed, and stronger around 20-30 km/h.
 - `Speed Damper`: wheel movement gets less twitchy as speed increases, without becoming stiff at standstill.
 - `Load Resistance`: attaching heavier equipment increases the displayed load factor and resistance if enabled.
-- `Engine Vibration`: no vibration when the engine is off; low vibration appears when RPM rises.
+- `RPM Vibration`: no vibration when the engine is off; vibration appears when RPM rises.
 - `Surface Feedback`: field state enables soft low-frequency vibration when `isOnField=true`.
 - Each effect can be enabled/disabled independently and each strength slider changes the live output value.
 - Stop the engine, leave the vehicle, or stop telemetry; gameplay outputs fade or stop safely.

@@ -16,12 +16,17 @@
             <Setter Property="FontSize" Value="13"/>
         </Style>
         <Style Selector="TextBlock.title">
+            <Setter Property="Foreground" Value="#050807"/>
             <Setter Property="FontSize" Value="24"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <Style Selector="TextBlock.section">
+            <Setter Property="Foreground" Value="#050807"/>
             <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TabItem TextBlock">
+            <Setter Property="Foreground" Value="#050807"/>
         </Style>
         <Style Selector="TextBlock.muted">
             <Setter Property="Foreground" Value="#69706B"/>
@@ -53,12 +58,12 @@
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*">
-        <Border Background="#243E36" Padding="18,14">
+        <Border Background="#FAF9F5" BorderBrush="#D8D4CA" BorderThickness="0,0,0,1" Padding="18,14">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <StackPanel Spacing="2">
-                    <TextBlock Classes="title" Text="FS25 FFB Bridge" Foreground="#FFF9F1"/>
-                    <TextBlock Text="Milestone 2: DirectInput FFB baseline plus FS25 UDP telemetry"
-                               Foreground="#DCE5D7"/>
+                    <TextBlock Classes="title" Text="FS25 FFB Bridge"/>
+                    <TextBlock Text="MVP: DirectInput gameplay effects plus FS25 telemetry"
+                               Foreground="#1D211F"/>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="10" Grid.Column="1" VerticalAlignment="Center">
                     <Border Background="#E7EEE2" CornerRadius="4" Padding="10,6">
@@ -107,7 +112,7 @@
                                 <TextBlock Grid.Row="8" Classes="muted" Text="Vibration"/>
                                 <TextBlock Grid.Row="8" Grid.Column="1">
                                     <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}Engine {0}, Surface {1}">
+                                        <MultiBinding StringFormat="{}RPM {0}, Surface {1}">
                                             <Binding Path="EngineVibrationOutput"/>
                                             <Binding Path="SurfaceFeedbackOutput"/>
                                         </MultiBinding>
@@ -289,7 +294,7 @@
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="section" Text="Gameplay Effects"/>
-                                <TextBlock Classes="muted" Text="Conservative Logitech MOMO defaults. Emergency Stop disables gameplay FFB until re-enabled here."/>
+                                <TextBlock Classes="muted" Text="Logitech MOMO MVP defaults. Emergency Stop disables gameplay FFB until re-enabled here."/>
                             </StackPanel>
                             <CheckBox Grid.Column="1"
                                       VerticalAlignment="Center"
@@ -347,7 +352,7 @@
                                       SelectedItem="{Binding LoadResistanceCurve, Mode=TwoWay}"/>
                             <TextBlock Grid.Row="3" Grid.Column="5" Text="{Binding LoadFactor}" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="4" Text="Engine Vibration" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="4" Text="RPM Vibration" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding EngineVibrationEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="4" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
                                     IsSnapToTickEnabled="True"

@@ -26,7 +26,15 @@ public sealed class ConfigStore
             }
 
             var json = File.ReadAllText(ConfigPath);
-            return Normalize(JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig());
+            var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig();
+            var previousEffectsProfileVersion = config.EffectsProfileVersion;
+            config = Normalize(config);
+            if (previousEffectsProfileVersion < config.EffectsProfileVersion)
+            {
+                Save(config);
+            }
+
+            return config;
         }
         catch
         {
@@ -53,6 +61,28 @@ public sealed class ConfigStore
         config.GameplayFfb.LoadResistance ??= new LoadResistanceSettings();
         config.GameplayFfb.EngineVibration ??= new EngineVibrationSettings();
         config.GameplayFfb.SurfaceFeedback ??= new SurfaceFeedbackSettings();
+        if (config.EffectsProfileVersion < 2)
+        {
+            ApplyMvpMomoDefaults(config);
+        }
+
         return config;
+    }
+
+    private static void ApplyMvpMomoDefaults(AppConfig config)
+    {
+        config.EffectsProfileVersion = 2;
+        config.GlobalForceLimitPercent = Math.Max(config.GlobalForceLimitPercent, 45);
+        config.DeviceForceLimitPercent = Math.Max(config.DeviceForceLimitPercent, 45);
+        config.GameplayFfb.SpeedSpring.StrengthPercent = 85;
+        config.GameplayFfb.SpeedSpring.MaxOutputPercent = 90;
+        config.GameplayFfb.SpeedDamper.StrengthPercent = 90;
+        config.GameplayFfb.SpeedDamper.MaxOutputPercent = 95;
+        config.GameplayFfb.LoadResistance.StrengthPercent = 65;
+        config.GameplayFfb.LoadResistance.MaxOutputPercent = 65;
+        config.GameplayFfb.EngineVibration.StrengthPercent = 55;
+        config.GameplayFfb.EngineVibration.MaxOutputPercent = 55;
+        config.GameplayFfb.SurfaceFeedback.StrengthPercent = 60;
+        config.GameplayFfb.SurfaceFeedback.MaxOutputPercent = 60;
     }
 }

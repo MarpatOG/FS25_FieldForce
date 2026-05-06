@@ -6,7 +6,7 @@ namespace FS25FfbBridge.App.Tests;
 public sealed class AppConfigTests
 {
     [Fact]
-    public void Defaults_use_conservative_logitech_momo_profile()
+    public void Defaults_use_stronger_logitech_momo_mvp_profile()
     {
         var config = new AppConfig();
 
@@ -17,7 +17,9 @@ public sealed class AppConfigTests
         Assert.True(config.GameplayFfb.Enabled);
         Assert.True(config.GameplayFfb.SpeedSpring.Enabled);
         Assert.True(config.GameplayFfb.SpeedDamper.Enabled);
-        Assert.True(config.GameplayFfb.EngineVibration.StrengthPercent <= 25);
+        Assert.True(config.GameplayFfb.SpeedSpring.StrengthPercent >= 80);
+        Assert.True(config.GameplayFfb.SpeedDamper.StrengthPercent >= 80);
+        Assert.True(config.GameplayFfb.EngineVibration.StrengthPercent >= 50);
     }
 
     [Fact]

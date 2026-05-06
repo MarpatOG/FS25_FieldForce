@@ -9,7 +9,7 @@ Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a
 - Windows app: DirectInput FFB test baseline physically confirmed on Logitech MOMO Racing Wheel.
 - FS25 Lua telemetry mod: implemented for Milestone 2 as a defensive UDP sender.
 - Telemetry receiver: implemented in the Windows app with UDP and file fallback.
-- Gameplay-driven FFB effects: Speed Spring, Speed Damper, Load Resistance, Engine Vibration, and Surface Feedback are implemented with conservative Logitech MOMO defaults.
+- Gameplay-driven FFB effects: Speed Spring, Speed Damper, Load Resistance, RPM Vibration, and Surface Feedback are implemented with stronger Logitech MOMO MVP defaults.
 - FS25 overlay: displays a compact vertical diagnostic panel with every transmitted telemetry field.
 
 ## Requirements
@@ -70,7 +70,7 @@ The `Effects` tab controls gameplay FFB. Strength controls the requested effect 
 - `Speed Spring`: centers the wheel more strongly as speed increases.
 - `Speed Damper`: adds viscous resistance as speed increases.
 - `Load Resistance`: uses `totalMass / mass` to increase spring and damper influence for heavier setups.
-- `Engine Vibration`: low capped sine vibration from RPM while the engine is started.
+- `RPM Vibration`: capped sine vibration from RPM while the engine is started.
 - `Surface Feedback`: low-frequency field vibration when `isOnField=true`, with conservative spring/damper modifiers.
 
 `Emergency Stop` disables gameplay FFB until `FFB Enabled` is checked again in the `Effects` tab.

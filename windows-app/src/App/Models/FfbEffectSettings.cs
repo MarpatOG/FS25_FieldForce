@@ -34,24 +34,24 @@ public sealed class GameplayFfbSettings
     public FfbEffectSettings SpeedSpring { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 55,
-        MaxOutputPercent = 50,
+        StrengthPercent = 85,
+        MaxOutputPercent = 90,
         Curve = FfbCurveKind.Smooth
     };
 
     public FfbEffectSettings SpeedDamper { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 60,
-        MaxOutputPercent = 55,
+        StrengthPercent = 90,
+        MaxOutputPercent = 95,
         Curve = FfbCurveKind.Smooth
     };
 
     public LoadResistanceSettings LoadResistance { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 35,
-        MaxOutputPercent = 30,
+        StrengthPercent = 65,
+        MaxOutputPercent = 65,
         Curve = FfbCurveKind.Smooth,
         AffectsSpring = true,
         AffectsDamper = true
@@ -60,8 +60,8 @@ public sealed class GameplayFfbSettings
     public EngineVibrationSettings EngineVibration { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 20,
-        MaxOutputPercent = 18,
+        StrengthPercent = 55,
+        MaxOutputPercent = 55,
         Curve = FfbCurveKind.Smooth,
         MinFrequencyHz = 16,
         MaxFrequencyHz = 34
@@ -70,8 +70,8 @@ public sealed class GameplayFfbSettings
     public SurfaceFeedbackSettings SurfaceFeedback { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 28,
-        MaxOutputPercent = 24,
+        StrengthPercent = 60,
+        MaxOutputPercent = 60,
         Curve = FfbCurveKind.Smooth,
         FieldFrequencyHz = 18,
         FieldSpringModifierPercent = -10,
