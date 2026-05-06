@@ -387,7 +387,7 @@
                     <Border Grid.Column="1" Classes="panel">
                         <StackPanel Spacing="12">
                             <TextBlock Classes="section" Text="Vehicle"/>
-                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                 <TextBlock Classes="muted" Text="Vehicle"/>
                                 <TextBlock Grid.Column="1" Text="{Binding CurrentVehicle}"/>
                                 <TextBlock Grid.Row="1" Classes="muted" Text="Type"/>
@@ -429,6 +429,10 @@
                                 <TextBlock Grid.Row="15" Grid.Column="1" Text="{Binding LocalAcceleration}"/>
                                 <TextBlock Grid.Row="16" Classes="muted" Text="Bump impulse"/>
                                 <TextBlock Grid.Row="16" Grid.Column="1" Text="{Binding BumpImpulse}"/>
+                                <TextBlock Grid.Row="17" Classes="muted" Text="Tire types"/>
+                                <TextBlock Grid.Row="17" Grid.Column="1" Text="{Binding WheelTireTypes}"/>
+                                <TextBlock Grid.Row="18" Classes="muted" Text="Tire profile"/>
+                                <TextBlock Grid.Row="18" Grid.Column="1" Text="{Binding WheelTireProfile}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -470,6 +474,28 @@
                                       VerticalAlignment="Center"
                                       Content="FFB Enabled"
                                       IsChecked="{Binding GameplayFfbEnabled, Mode=TwoWay}"/>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <Button Content="&lt;"
+                                    MinWidth="36"
+                                    Padding="0,7"
+                                    Command="{Binding PreviousEffectCategoryCommand}"/>
+                            <ScrollViewer x:Name="EffectCategoryScroller"
+                                          Grid.Column="1"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled">
+                                <TabControl x:Name="EffectCategoryTabs"
+                                            ItemsSource="{Binding EffectCategories}"
+                                            SelectedItem="{Binding SelectedEffectCategory, Mode=TwoWay}"
+                                            SelectionChanged="OnEffectCategorySelectionChanged"
+                                            Height="48"/>
+                            </ScrollViewer>
+                            <Button Grid.Column="2"
+                                    Content="&gt;"
+                                    MinWidth="36"
+                                    Padding="0,7"
+                                    Command="{Binding NextEffectCategoryCommand}"/>
                         </Grid>
 
                         <Grid ColumnDefinitions="145,72,*,*,112,130"

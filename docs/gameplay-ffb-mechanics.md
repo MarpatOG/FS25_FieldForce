@@ -30,12 +30,19 @@ The Lua mod sends the original vehicle fields plus:
 ```text
 surfaceType, surfaceAttribute, groundWetness, rainScale
 wheelSlip, maxWheelSlip, groundContactRatio
+wheelTireTypes, wheelTireProfile
 pitchDeg, rollDeg, yawRateDegPerSec, slopeDeg
 localAccelerationX, localAccelerationY, localAccelerationZ
 bumpImpulse
 ```
 
 Surface detection is strict exact. The bridge recognizes exact labels from FS25 wheel physics such as `asphalt`, `field`, `wetField`, `grass`, `shallowWater`, and `snow`. It emits `dirt`, `gravel`, or `mud` only if FS25 returns those exact names. Raw `surfaceAttribute` is preserved but not guessed into a named surface.
+
+Tire profile detection reads FS25 `wheel.physics.tireType` and normalizes unique tire names into `street`, `agricultural`, `mixed`, `tracked`, or `unknown`. Raw truck categories with agricultural or tracked tire profiles are routed to tractor profiles by the Lua mod.
+
+## Category Profiles
+
+Effects profile version `6` stores full per-category effect profiles in `GameplayFfbSettings.VehicleCategoryEffectProfiles`. The Windows app uses `packet.VehicleCategory` to select a profile, falls back to `Unknown`, then to the base profile. Version 5 `VehicleCategoryProfiles` multipliers are legacy migration input only; v5 configs are migrated by cloning the current base profile per category and applying those multipliers once.
 
 ## Effects
 
@@ -53,3 +60,5 @@ Surface detection is strict exact. The bridge recognizes exact labels from FS25 
 ## Stop Behavior
 
 The controller stops gameplay effects when telemetry is lost, the player leaves the vehicle, gameplay FFB is disabled, the backend/device is disposed, or Emergency Stop/Stop All is triggered. Periodic and condition effects are disposed when their output reaches zero. Bump pulses are finite-duration effects and are also disposed during stop-all handling.
+
+The Windows app also writes `effectStatus.json` under the FS25 modSettings folder at up to 10 Hz. Zero-status is written immediately when effects are stopped due to Stop All, telemetry loss, or disposal so the in-game overlay can show real output state.

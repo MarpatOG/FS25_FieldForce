@@ -25,6 +25,10 @@ function FS25RealFfbTelemetry.new()
     self.fileWarningLogged = false
     self.transportWarningLogged = false
     self.lastVehicleMotion = {}
+    self.effectStatusPath = nil
+    self.lastEffectStatusContent = nil
+    self.lastEffectStatusReadTime = nil
+    self.overlayEffectLampRows = {}
     return self
 end
 
@@ -62,6 +66,7 @@ end
 
 function FS25RealFfbTelemetry:initTransport()
     print(string.format("[FS25 Real FFB] Initializing telemetry transport: udp://%s:%d", tostring(self.host), self.port))
+    self:initEffectStatusPath()
 
     local okSocket, socketLib = pcall(require, "socket")
     if not okSocket or socketLib == nil then
@@ -199,7 +204,9 @@ function FS25RealFfbTelemetry:collectTelemetry()
         isPlayerInVehicle = inVehicle,
         vehicleName = inVehicle and self:getVehicleName(vehicle) or nil,
         vehicleType = inVehicle and self:getVehicleType(vehicle) or nil,
-        vehicleCategory = inVehicle and self:getVehicleCategory(vehicle) or nil,
+        vehicleCategory = inVehicle and self:getVehicleCategory(vehicle, wheel.wheelTireProfile) or nil,
+        wheelTireTypes = wheel.wheelTireTypes,
+        wheelTireProfile = wheel.wheelTireProfile,
         speedKmh = inVehicle and self:getSpeedKmh(vehicle) or nil,
         steeringAngle = inVehicle and self:getSteeringAngle(vehicle) or nil,
         rpm = inVehicle and self:getRpm(vehicle) or nil,
@@ -343,7 +350,7 @@ function FS25RealFfbTelemetry:getVehicleType(vehicle)
     return "Unknown"
 end
 
-function FS25RealFfbTelemetry:getVehicleCategory(vehicle)
+function FS25RealFfbTelemetry:getVehicleCategory(vehicle, wheelTireProfile)
     if vehicle == nil then
         return "Unknown"
     end
@@ -358,6 +365,12 @@ function FS25RealFfbTelemetry:getVehicleCategory(vehicle)
     end
 
     if self:isTruckType(rawType) then
+        if wheelTireProfile == "tracked" or self:hasActiveCrawlers(vehicle) then
+            return "TractorTracked"
+        elseif wheelTireProfile == "agricultural" then
+            return "TractorWheeled"
+        end
+
         return "Truck"
     end
 
@@ -372,6 +385,10 @@ function FS25RealFfbTelemetry:getVehicleCategory(vehicle)
     if self:isTractorType(rawType) then
         local heavy = self:isHeavyTractorType(rawType)
         local tracked = self:hasActiveCrawlers(vehicle)
+
+        if wheelTireProfile == "street" and not heavy and not tracked then
+            return "Truck"
+        end
 
         if heavy and tracked then
             return "HeavyTractorTracked"
@@ -400,11 +417,11 @@ function FS25RealFfbTelemetry:getVehicleTypeText(vehicle)
         return nil
     end
 
-    return string.lower(table.concat(parts, " "))
+    return table.concat(parts, " ")
 end
 
 function FS25RealFfbTelemetry:isTractorType(value)
-    return self:textHasAny(value, {
+    return self:textHasAnyAlias(value, {
         "tractor",
         "tractors",
         "traktor",
@@ -413,7 +430,7 @@ function FS25RealFfbTelemetry:isTractorType(value)
 end
 
 function FS25RealFfbTelemetry:isHeavyTractorType(value)
-    return self:textHasAny(value, {
+    return self:textHasAnyAlias(value, {
         "tractorlarge",
         "tractor large",
         "large tractor",
@@ -427,7 +444,7 @@ function FS25RealFfbTelemetry:isHeavyTractorType(value)
 end
 
 function FS25RealFfbTelemetry:isHarvesterType(value)
-    return self:textHasAny(value, {
+    return self:textHasAnyAlias(value, {
         "combine",
         "combineharvester",
         "combine harvester",
@@ -440,16 +457,20 @@ function FS25RealFfbTelemetry:isHarvesterType(value)
 end
 
 function FS25RealFfbTelemetry:isTruckType(value)
-    return self:textHasAny(value, {
+    return self:textHasAnyAlias(value, {
         "truck",
         "trucks",
+        "semiTruck",
+        "semi truck",
+        "roadTractor",
+        "road tractor",
         "lkw",
-        "semi truck"
+        "lastkraftwagen"
     })
 end
 
 function FS25RealFfbTelemetry:isLoaderTelehandlerType(value)
-    return self:textHasAny(value, {
+    return self:textHasAnyAlias(value, {
         "telehandler",
         "wheel loader",
         "wheelloader",
@@ -462,7 +483,7 @@ function FS25RealFfbTelemetry:isLoaderTelehandlerType(value)
 end
 
 function FS25RealFfbTelemetry:isLightVehicleType(value)
-    return self:textHasAny(value, {
+    return self:textHasAnyAlias(value, {
         "car",
         "cars",
         "pickup",
@@ -476,18 +497,31 @@ function FS25RealFfbTelemetry:isLightVehicleType(value)
     })
 end
 
-function FS25RealFfbTelemetry:textHasAny(value, patterns)
+function FS25RealFfbTelemetry:textHasAnyAlias(value, patterns)
     if value == nil then
         return false
     end
 
+    local normalized = " " .. self:normalizeAliasText(value) .. " "
     for _, pattern in ipairs(patterns) do
-        if string.find(value, pattern, 1, true) ~= nil then
+        local needle = " " .. self:normalizeAliasText(pattern) .. " "
+        if string.find(normalized, needle, 1, true) ~= nil then
             return true
         end
     end
 
     return false
+end
+
+function FS25RealFfbTelemetry:normalizeAliasText(value)
+    value = tostring(value or "")
+    value = string.gsub(value, "([a-z])([A-Z])", "%1 %2")
+    value = string.lower(value)
+    value = string.gsub(value, "[^%w]+", " ")
+    value = string.gsub(value, "%s+", " ")
+    value = string.gsub(value, "^%s+", "")
+    value = string.gsub(value, "%s+$", "")
+    return value
 end
 
 function FS25RealFfbTelemetry:hasActiveCrawlers(vehicle)
@@ -874,10 +908,18 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
     local slipCount = 0
     local maxSlip = 0
     local contactCount = 0
+    local tireTypes = {}
+    local tireTypeSet = {}
 
     for _, wheel in ipairs(wheels) do
         local physics = wheel.physics
         if physics ~= nil then
+            local tireType = self:getWheelTireTypeName(physics)
+            if tireType ~= nil and tireType ~= "" and tireTypeSet[tireType] ~= true then
+                tireTypeSet[tireType] = true
+                table.insert(tireTypes, tireType)
+            end
+
             local slip = physics.netInfo ~= nil and physics.netInfo.slip or nil
             if type(slip) == "number" then
                 slip = math.max(0, slip)
@@ -895,8 +937,95 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
     return {
         wheelSlip = slipCount > 0 and (slipTotal / slipCount) or nil,
         maxWheelSlip = slipCount > 0 and maxSlip or nil,
-        groundContactRatio = #wheels > 0 and (contactCount / #wheels) or nil
+        groundContactRatio = #wheels > 0 and (contactCount / #wheels) or nil,
+        wheelTireTypes = #tireTypes > 0 and table.concat(tireTypes, ",") or nil,
+        wheelTireProfile = self:getWheelTireProfile(tireTypes)
     }
+end
+
+function FS25RealFfbTelemetry:getWheelTireTypeName(physics)
+    if physics == nil or physics.tireType == nil then
+        return nil
+    end
+
+    local name = nil
+    if WheelsUtil ~= nil and type(WheelsUtil.getTireTypeName) == "function" then
+        local ok, result = pcall(function()
+            return WheelsUtil.getTireTypeName(physics.tireType)
+        end)
+        if ok and result ~= nil then
+            name = result
+        end
+    end
+
+    if name == nil then
+        name = physics.tireType
+    end
+
+    return self:normalizeTireTypeName(name)
+end
+
+function FS25RealFfbTelemetry:normalizeTireTypeName(value)
+    value = string.lower(tostring(value or ""))
+    value = string.gsub(value, "[^%w]+", "")
+
+    if value == "street" or value == "road" or value == "asphalt" or
+        string.find(value, "street", 1, true) ~= nil or
+        string.find(value, "road", 1, true) ~= nil or
+        string.find(value, "asphalt", 1, true) ~= nil then
+        return "street"
+    elseif value == "offroad" or value == "offroadtires" or string.find(value, "offroad", 1, true) ~= nil then
+        return "offRoad"
+    elseif value == "mud" or value == "muds" or string.find(value, "mud", 1, true) ~= nil then
+        return "mud"
+    elseif value == "crawler" or value == "crawlers" or value == "tracked" or value == "track" or
+        string.find(value, "crawler", 1, true) ~= nil or
+        string.find(value, "track", 1, true) ~= nil then
+        return "crawler"
+    elseif value == "field" or value == "agricultural" or value == "agriculture" or
+        string.find(value, "field", 1, true) ~= nil or
+        string.find(value, "agric", 1, true) ~= nil then
+        return "agricultural"
+    elseif value == "" then
+        return nil
+    end
+
+    return value
+end
+
+function FS25RealFfbTelemetry:getWheelTireProfile(tireTypes)
+    if tireTypes == nil or #tireTypes == 0 then
+        return "unknown"
+    end
+
+    local hasStreet = false
+    local hasAgricultural = false
+    local hasTracked = false
+    local hasUnknown = false
+
+    for _, tireType in ipairs(tireTypes) do
+        if tireType == "street" then
+            hasStreet = true
+        elseif tireType == "mud" or tireType == "offRoad" or tireType == "agricultural" then
+            hasAgricultural = true
+        elseif tireType == "crawler" then
+            hasTracked = true
+        else
+            hasUnknown = true
+        end
+    end
+
+    if hasTracked then
+        return "tracked"
+    elseif hasStreet and hasAgricultural then
+        return "mixed"
+    elseif hasAgricultural then
+        return "agricultural"
+    elseif hasStreet and not hasUnknown then
+        return "street"
+    end
+
+    return "unknown"
 end
 
 function FS25RealFfbTelemetry:getVehicleWheels(vehicle)
@@ -1158,13 +1287,14 @@ end
 
 function FS25RealFfbTelemetry:drawDebugOverlay()
     local packet = self.lastPacket
+    local effectStatus = self:readEffectStatus()
     local x = tonumber(self.overlayConfig.x) or 0.015
     local y = tonumber(self.overlayConfig.y) or 0.965
     local width = tonumber(self.overlayConfig.width) or 0.32
     local padding = tonumber(self.overlayConfig.padding) or 0.008
     local fontSize = tonumber(self.overlayConfig.fontSize) or 0.014
     local lineHeight = tonumber(self.overlayConfig.lineHeight) or 0.018
-    local lines = self:getOverlayLines(packet)
+    local lines = self:getOverlayLines(packet, effectStatus)
 
     self:drawOverlayContainer(x, y, width, padding, lineHeight, #lines)
     self:setOverlayTextStyle(false)
@@ -1176,15 +1306,24 @@ function FS25RealFfbTelemetry:drawDebugOverlay()
             self:setOverlayTextStyle(false)
         end
 
-        renderText(x + padding, y - padding - ((index - 1) * lineHeight), fontSize, line)
+        local textX = x + padding
+        local textY = y - padding - ((index - 1) * lineHeight)
+        local lamp = self.overlayEffectLampRows[index]
+        if lamp ~= nil then
+            self:drawEffectLamp(textX, textY, lineHeight, lamp.active)
+            textX = textX + (lineHeight * 0.95)
+        end
+
+        renderText(textX, textY, fontSize, line)
     end
 
     self:resetOverlayTextStyle()
 end
 
-function FS25RealFfbTelemetry:getOverlayLines(packet)
+function FS25RealFfbTelemetry:getOverlayLines(packet, effectStatus)
     local transport = self:getTransportLabel(false)
     local age = self:getPacketAgeText()
+    self.overlayEffectLampRows = {}
     local lines = {
         "FS25 Real FFB Telemetry",
         "transport: " .. transport,
@@ -1192,6 +1331,8 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
         "age: " .. age,
         "rate: " .. tostring(self.updateRateHz) .. " Hz"
     }
+
+    self:addEffectStatusOverlayLines(lines, effectStatus)
 
     if self.lastWriteError ~= nil then
         table.insert(lines, "fileError: " .. self:truncateText(self.lastWriteError, 90))
@@ -1204,6 +1345,8 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
         table.insert(lines, "vehicleName: -")
         table.insert(lines, "vehicleType: -")
         table.insert(lines, "vehicleCategory: -")
+        table.insert(lines, "wheelTireTypes: -")
+        table.insert(lines, "wheelTireProfile: -")
         table.insert(lines, "speedKmh: -")
         table.insert(lines, "steeringAngle: -")
         table.insert(lines, "rpm: -")
@@ -1225,6 +1368,8 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
     table.insert(lines, "vehicleName: " .. tostring(packet.vehicleName or "-"))
     table.insert(lines, "vehicleType: " .. tostring(packet.vehicleType or "-"))
     table.insert(lines, "vehicleCategory: " .. tostring(packet.vehicleCategory or "-"))
+    table.insert(lines, "wheelTireTypes: " .. tostring(packet.wheelTireTypes or "-"))
+    table.insert(lines, "wheelTireProfile: " .. tostring(packet.wheelTireProfile or "-"))
     table.insert(lines, "speedKmh: " .. self:formatNumber(packet.speedKmh, "", 1))
     table.insert(lines, "steeringAngle: " .. self:formatNumber(packet.steeringAngle, "", 3))
     table.insert(lines, "rpm: " .. self:formatNumber(packet.rpm, "", 0))
@@ -1239,6 +1384,43 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
     table.insert(lines, "accelY/bump: " .. self:formatNumber(packet.localAccelerationY, "", 2) .. " / " .. self:formatNumber(packet.bumpImpulse, "", 2))
 
     return lines
+end
+
+function FS25RealFfbTelemetry:addEffectStatusOverlayLines(lines, effectStatus)
+    local staleText = effectStatus.stale and " stale" or ""
+    table.insert(lines, "effectStatus: " .. tostring(effectStatus.activeCategory or "Unknown") .. staleText)
+    table.insert(lines, "activeEffects: " .. tostring(effectStatus.activeEffectsText or "None"))
+
+    self:addEffectLampLine(lines, "Speed Spring", effectStatus.speedSpring == true and not effectStatus.stale)
+    self:addEffectLampLine(lines, "Speed Damper", effectStatus.speedDamper == true and not effectStatus.stale)
+    self:addEffectLampLine(lines, "Friction", effectStatus.friction == true and not effectStatus.stale)
+    self:addEffectLampLine(lines, "RPM Vibration", effectStatus.rpmVibration == true and not effectStatus.stale)
+    self:addEffectLampLine(lines, "Surface Feedback", effectStatus.surfaceFeedback == true and not effectStatus.stale)
+    self:addEffectLampLine(lines, "Slip Feedback", effectStatus.slipFeedback == true and not effectStatus.stale)
+    self:addEffectLampLine(lines, "Bump", effectStatus.bump == true and not effectStatus.stale)
+end
+
+function FS25RealFfbTelemetry:addEffectLampLine(lines, label, active)
+    table.insert(lines, label)
+    self.overlayEffectLampRows[#lines] = {
+        active = active == true
+    }
+end
+
+function FS25RealFfbTelemetry:drawEffectLamp(x, textY, lineHeight, active)
+    local size = lineHeight * 0.55
+    local y = textY - (lineHeight * 0.52)
+    local color = active and { 0.10, 0.80, 0.25, 0.95 } or { 0.85, 0.08, 0.08, 0.95 }
+
+    if type(drawFilledRect) == "function" then
+        pcall(function()
+            drawFilledRect(x, y, size, size, color[1], color[2], color[3], color[4])
+        end)
+    elseif type(renderFilledRect) == "function" then
+        pcall(function()
+            renderFilledRect(x, y, size, size, color[1], color[2], color[3], color[4])
+        end)
+    end
 end
 
 function FS25RealFfbTelemetry:drawOverlayContainer(x, y, width, padding, lineHeight, lineCount)
@@ -1430,6 +1612,112 @@ function FS25RealFfbTelemetry:getFileApiError()
     end
 
     return nil
+end
+
+function FS25RealFfbTelemetry:initEffectStatusPath()
+    local basePath = self:getModSettingsPath()
+    if basePath ~= nil then
+        self.effectStatusPath = basePath .. "/effectStatus.json"
+    end
+end
+
+function FS25RealFfbTelemetry:readEffectStatus()
+    local zero = self:getZeroEffectStatus(true)
+    if self.effectStatusPath == nil then
+        return zero
+    end
+
+    if io == nil or type(io.open) ~= "function" then
+        return zero
+    end
+
+    local file = io.open(self.effectStatusPath, "r")
+    if file == nil then
+        return zero
+    end
+
+    local content = file:read("*a")
+    file:close()
+    if content == nil or content == "" then
+        return zero
+    end
+
+    local now = self:getTimestamp()
+    if content ~= self.lastEffectStatusContent then
+        self.lastEffectStatusContent = content
+        self.lastEffectStatusReadTime = now
+    end
+
+    local status = {
+        activeCategory = self:parseJsonStringField(content, "activeCategory") or "Unknown",
+        activeEffectsText = self:parseJsonStringField(content, "activeEffectsText") or "None",
+        speedSpring = self:parseJsonBoolField(content, "speedSpring"),
+        speedDamper = self:parseJsonBoolField(content, "speedDamper"),
+        friction = self:parseJsonBoolField(content, "friction"),
+        rpmVibration = self:parseJsonBoolField(content, "rpmVibration"),
+        surfaceFeedback = self:parseJsonBoolField(content, "surfaceFeedback"),
+        slipFeedback = self:parseJsonBoolField(content, "slipFeedback"),
+        bump = self:parseJsonBoolField(content, "bump"),
+        stale = true
+    }
+
+    local contentFresh = false
+    if type(now) == "number" and type(self.lastEffectStatusReadTime) == "number" then
+        contentFresh = self:normalizeDeltaSeconds(now - self.lastEffectStatusReadTime) <= 1.0
+    end
+
+    local timestampMs = self:parseJsonNumberField(content, "timestampMs")
+    if timestampMs ~= nil and os ~= nil and type(os.time) == "function" then
+        local ageMs = (os.time() * 1000) - timestampMs
+        status.stale = not ((ageMs >= 0 and ageMs <= 1000) or contentFresh)
+    else
+        status.stale = not contentFresh
+    end
+
+    return status
+end
+
+function FS25RealFfbTelemetry:getZeroEffectStatus(stale)
+    return {
+        activeCategory = "Unknown",
+        activeEffectsText = "None",
+        speedSpring = false,
+        speedDamper = false,
+        friction = false,
+        rpmVibration = false,
+        surfaceFeedback = false,
+        slipFeedback = false,
+        bump = false,
+        stale = stale == true
+    }
+end
+
+function FS25RealFfbTelemetry:parseJsonStringField(content, fieldName)
+    local pattern = '"' .. fieldName .. '"%s*:%s*"([^"]*)"'
+    local value = string.match(content, pattern)
+    if value == nil then
+        return nil
+    end
+
+    value = string.gsub(value, '\\"', '"')
+    value = string.gsub(value, "\\\\", "\\")
+    return value
+end
+
+function FS25RealFfbTelemetry:parseJsonBoolField(content, fieldName)
+    if string.match(content, '"' .. fieldName .. '"%s*:%s*true') ~= nil then
+        return true
+    elseif string.match(content, '"' .. fieldName .. '"%s*:%s*false') ~= nil then
+        return false
+    end
+
+    return false
+end
+
+function FS25RealFfbTelemetry:parseJsonNumberField(content, fieldName)
+    local pattern = '"' .. fieldName .. '"%s*:%s*(-?%d+%.?%d*)'
+    local value = string.match(content, pattern)
+    return value ~= nil and tonumber(value) or nil
 end
 
 function FS25RealFfbTelemetry:logTransportWarning(message)

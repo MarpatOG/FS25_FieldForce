@@ -11,7 +11,7 @@ public sealed class AppConfigTests
     {
         var config = new AppConfig();
 
-        Assert.Equal(5, config.EffectsProfileVersion);
+        Assert.Equal(6, config.EffectsProfileVersion);
         Assert.Equal("Logitech MOMO Racing Wheel", config.DeviceProfileName);
         Assert.Equal(270, config.RotationDegrees);
         Assert.Equal(40, config.GlobalForceLimitPercent);
@@ -49,8 +49,9 @@ public sealed class AppConfigTests
         Assert.True(config.GameplayFfb.BumpFeedback.Enabled);
         Assert.Equal(55, config.GameplayFfb.BumpFeedback.StrengthPercent);
         Assert.Equal(80, config.GameplayFfb.BumpFeedback.DurationMs);
-        Assert.Contains(VehicleCategoryFfbProfile.TractorWheeled, config.GameplayFfb.VehicleCategoryProfiles.Keys);
-        Assert.Contains(VehicleCategoryFfbProfile.HeavyTractorTracked, config.GameplayFfb.VehicleCategoryProfiles.Keys);
+        Assert.Contains(VehicleCategoryFfbProfile.TractorWheeled, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
+        Assert.Contains(VehicleCategoryFfbProfile.HeavyTractorTracked, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
+        Assert.Equal(78, config.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorTracked].SpeedDamper.StrengthPercent);
     }
 
     [Fact]
@@ -75,7 +76,7 @@ public sealed class AppConfigTests
     }
 
     [Fact]
-    public void Config_v4_migration_preserves_user_effect_settings_and_adds_category_profiles()
+    public void Config_v4_migration_preserves_user_effect_settings_and_adds_category_effect_profiles()
     {
         var path = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"), "config.json");
         var store = new ConfigStore(path);
@@ -92,10 +93,35 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(5, migrated.EffectsProfileVersion);
+        Assert.Equal(6, migrated.EffectsProfileVersion);
         Assert.Equal(42, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
         Assert.Equal(51, migrated.GameplayFfb.SpeedDamper.MaxOutputPercent);
-        Assert.Contains(VehicleCategoryFfbProfile.TractorTracked, migrated.GameplayFfb.VehicleCategoryProfiles.Keys);
-        Assert.Contains(VehicleCategoryFfbProfile.Unknown, migrated.GameplayFfb.VehicleCategoryProfiles.Keys);
+        Assert.Contains(VehicleCategoryFfbProfile.TractorTracked, migrated.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
+        Assert.Contains(VehicleCategoryFfbProfile.Unknown, migrated.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
+        Assert.Equal(42, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring.StrengthPercent);
+    }
+
+    [Fact]
+    public void Config_v5_migration_applies_legacy_category_multipliers_once()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"), "config.json");
+        var store = new ConfigStore(path);
+        var oldConfig = new AppConfig
+        {
+            EffectsProfileVersion = 5
+        };
+        oldConfig.GameplayFfb.SpeedDamper.StrengthPercent = 50;
+        oldConfig.GameplayFfb.VehicleCategoryProfiles[VehicleCategoryFfbProfile.Truck].SpeedDamperStrengthMultiplier = 1.4;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(oldConfig));
+
+        var migrated = store.Load();
+        store.Save(migrated);
+        var loadedAgain = store.Load();
+
+        Assert.Equal(6, loadedAgain.EffectsProfileVersion);
+        Assert.Equal(70, loadedAgain.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedDamper.StrengthPercent);
+        Assert.Equal(50, loadedAgain.GameplayFfb.SpeedDamper.StrengthPercent);
     }
 }

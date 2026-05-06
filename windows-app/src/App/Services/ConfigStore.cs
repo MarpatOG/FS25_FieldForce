@@ -66,16 +66,7 @@ public sealed class ConfigStore
     private static AppConfig Normalize(AppConfig config)
     {
         config.GameplayFfb ??= new GameplayFfbSettings();
-        config.GameplayFfb.SpeedSpring ??= new SpeedConditionSettings();
-        config.GameplayFfb.SpeedDamper ??= new SpeedConditionSettings();
-        config.GameplayFfb.MechanicalFriction ??= new MechanicalFrictionSettings();
-        config.GameplayFfb.LoadResistance ??= new LoadResistanceSettings();
-        config.GameplayFfb.EngineVibration ??= new EngineVibrationSettings();
-        config.GameplayFfb.SurfaceFeedback ??= new SurfaceFeedbackSettings();
-        config.GameplayFfb.SlipFeedback ??= new SlipFeedbackSettings();
-        config.GameplayFfb.WetnessFeedback ??= new WetnessFeedbackSettings();
-        config.GameplayFfb.MotionFeedback ??= new MotionFeedbackSettings();
-        config.GameplayFfb.BumpFeedback ??= new BumpFeedbackSettings();
+        GameplayFfbEffectProfile.NormalizeEffectSettings(config.GameplayFfb);
         config.GameplayFfb.VehicleCategoryProfiles = NormalizeVehicleCategoryProfiles(config.GameplayFfb.VehicleCategoryProfiles);
         if (config.EffectsProfileVersion < 4)
         {
@@ -98,6 +89,21 @@ public sealed class ConfigStore
             config.EffectsProfileVersion = 5;
         }
 
+        if (config.EffectsProfileVersion < 6)
+        {
+            config.GameplayFfb.VehicleCategoryEffectProfiles =
+                GameplayFfbEffectProfile.CreateCategoryProfiles(
+                    config.GameplayFfb,
+                    config.GameplayFfb.VehicleCategoryProfiles,
+                    applyLegacyMultipliers: true);
+            config.EffectsProfileVersion = 6;
+        }
+        else
+        {
+            config.GameplayFfb.VehicleCategoryEffectProfiles =
+                NormalizeVehicleCategoryEffectProfiles(config.GameplayFfb.VehicleCategoryEffectProfiles, config.GameplayFfb);
+        }
+
         return config;
     }
 
@@ -114,6 +120,31 @@ public sealed class ConfigStore
         {
             if (!string.IsNullOrWhiteSpace(key) && profile is not null)
             {
+                normalized[key] = profile;
+            }
+        }
+
+        return normalized;
+    }
+
+    private static Dictionary<string, GameplayFfbEffectProfile> NormalizeVehicleCategoryEffectProfiles(
+        Dictionary<string, GameplayFfbEffectProfile>? profiles,
+        GameplayFfbEffectProfile baseProfile)
+    {
+        var normalized = GameplayFfbEffectProfile.CreateCategoryProfiles(
+            baseProfile,
+            VehicleCategoryFfbProfile.CreateDefaults(),
+            applyLegacyMultipliers: false);
+        if (profiles is null)
+        {
+            return normalized;
+        }
+
+        foreach (var (key, profile) in profiles)
+        {
+            if (!string.IsNullOrWhiteSpace(key) && profile is not null)
+            {
+                GameplayFfbEffectProfile.NormalizeEffectSettings(profile);
                 normalized[key] = profile;
             }
         }

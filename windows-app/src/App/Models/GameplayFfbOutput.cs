@@ -15,7 +15,8 @@ public sealed record GameplayFfbOutput(
     int BumpCooldownMs,
     double LoadFactor,
     double TelemetryFade,
-    bool IsActive)
+    bool IsActive,
+    string ActiveCategory = VehicleCategoryFfbProfile.Unknown)
 {
     public static GameplayFfbOutput Zero { get; } = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, false);
 

@@ -62,16 +62,44 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
-    public void Unknown_vehicle_category_keeps_current_output_unchanged()
+    public void Truck_category_uses_truck_effect_profile()
     {
         var settings = new GameplayFfbSettings();
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedSpring.StrengthPercent = 20;
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring.StrengthPercent = 80;
+
+        var truck = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.Truck)), settings);
+        var tractor = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorWheeled)), settings);
+
+        Assert.Equal(VehicleCategoryFfbProfile.Truck, truck.ActiveCategory);
+        Assert.True(truck.SpringPercent < tractor.SpringPercent);
+    }
+
+    [Fact]
+    public void Different_category_effect_profiles_change_output()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedDamper.StrengthPercent = 20;
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Harvester].SpeedDamper.StrengthPercent = 90;
+
+        var tractor = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorWheeled)), settings);
+        var harvester = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.Harvester)), settings);
+
+        Assert.True(harvester.DamperPercent > tractor.DamperPercent);
+    }
+
+    [Fact]
+    public void Unknown_vehicle_category_uses_unknown_effect_profile()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring.StrengthPercent = 90;
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Unknown].SpeedSpring.StrengthPercent = 15;
         var missing = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: null)), settings);
         var unknown = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.Unknown)), settings);
+        var tractor = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorWheeled)), settings);
 
         Assert.Equal(missing.SpringPercent, unknown.SpringPercent);
-        Assert.Equal(missing.DamperPercent, unknown.DamperPercent);
-        Assert.Equal(missing.FrictionPercent, unknown.FrictionPercent);
-        Assert.Equal(missing.EngineVibrationPercent, unknown.EngineVibrationPercent);
+        Assert.True(unknown.SpringPercent < tractor.SpringPercent);
     }
 
     [Fact]

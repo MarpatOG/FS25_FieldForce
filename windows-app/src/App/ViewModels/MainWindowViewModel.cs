@@ -14,6 +14,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly IFfbBackend _backend;
     private readonly TelemetryReceiverService _telemetryReceiver;
     private readonly GameplayFfbController _gameplayFfb;
+    private readonly EffectStatusWriter _effectStatusWriter;
     private readonly SafetyManager _safety;
     private readonly AppLogService _log;
     private readonly PanicHotkeyService _panicHotkey;
@@ -118,6 +119,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string _groundContactRatio = "-";
+
+    [ObservableProperty]
+    private string _wheelTireTypes = "-";
+
+    [ObservableProperty]
+    private string _wheelTireProfile = "-";
 
     [ObservableProperty]
     private string _attitude = "- / - / -";
@@ -296,6 +303,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private string _telemetryFade = "0%";
 
+    [ObservableProperty]
+    private string _selectedEffectCategory = VehicleCategoryFfbProfile.TractorWheeled;
+
     public MainWindowViewModel()
         : this(new ConfigStore(), null, null, null)
     {
@@ -308,6 +318,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _backend = backend ?? new DirectInputFfbBackend(_log);
         _telemetryReceiver = telemetryReceiver ?? new TelemetryReceiverService(_log);
         _safety = new SafetyManager(_backend, _log);
+        _effectStatusWriter = new EffectStatusWriter(_log);
         _panicHotkey = new PanicHotkeyService(_log);
         _panicHotkey.Pressed += HandlePanicHotkey;
         _panicHotkey.Register();
@@ -315,7 +326,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _loadingConfig = true;
         _globalForceLimitPercent = _config.GlobalForceLimitPercent;
         _deviceForceLimitPercent = _config.DeviceForceLimitPercent;
-        LoadGameplaySettingsIntoUi(_config.GameplayFfb);
+        GameplayFfbEnabled = _config.GameplayFfb.Enabled;
+        LoadGameplaySettingsIntoUi(GetSelectedCategoryProfile(SelectedEffectCategory));
         _loadingConfig = false;
         _configPath = _configStore.ConfigPath;
         _logPath = _log.LogPath;
@@ -324,12 +336,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _backend.UpdateForceLimits(GlobalForceLimitPercent, DeviceForceLimitPercent);
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
         _telemetryReceiver.Start(_config.TelemetryHost, _config.TelemetryPort, _config.TelemetryLostTimeoutMs, _config.TelemetryFilePath);
-        _gameplayFfb = new GameplayFfbController(_telemetryReceiver, _backend, _log, GetRuntimeGameplaySettings, OnGameplayOutputChanged, OnGameplayApplyResultChanged);
+        _gameplayFfb = new GameplayFfbController(_telemetryReceiver, _backend, _log, GetRuntimeGameplaySettings, OnGameplayOutputChanged, OnGameplayApplyResultChanged, _effectStatusWriter);
         _log.Information("Application initialized. Config={ConfigPath}", ConfigPath);
     }
 
     public ObservableCollection<DeviceInfo> Devices { get; } = [];
     public ObservableCollection<string> Logs { get; }
+    public IReadOnlyList<string> EffectCategories => VehicleCategoryFfbProfile.Categories;
     public IReadOnlyList<FfbCurveKind> CurveKinds { get; } =
     [
         FfbCurveKind.Smooth,
@@ -358,6 +371,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _gameplayFfbPausedByStopAll = true;
         _safety.OnPanicHotkey();
         OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+        _effectStatusWriter.WriteZero(ActiveVehicleCategory);
         GameplayFfbRuntimeStatus = "Paused by emergency stop";
         BackendStatus = "Emergency stop active";
         StopAllEffectsCommand.NotifyCanExecuteChanged();
@@ -366,6 +380,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public void HandleClosing()
     {
         _safety.OnAppClosing();
+        _effectStatusWriter.WriteZero(ActiveVehicleCategory);
     }
 
     partial void OnSelectedDeviceChanged(DeviceInfo? value)
@@ -440,12 +455,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void LowVibration() => StartEffect(FfbEffectKind.LowVibration);
 
     [RelayCommand]
+    private void PreviousEffectCategory() => MoveEffectCategory(-1);
+
+    [RelayCommand]
+    private void NextEffectCategory() => MoveEffectCategory(1);
+
+    [RelayCommand]
     private void StopAllEffects()
     {
         _gameplayFfbPausedByStopAll = true;
         _log.Information("Stop All requested: reason={Reason}, persistentGameplayConfigChanged={PersistentConfigChanged}", "user stop", false);
         _safety.StopAll("user stop");
         OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+        _effectStatusWriter.WriteZero(ActiveVehicleCategory);
         GameplayFfbRuntimeStatus = "Paused by Stop All";
         BackendStatus = "All effects stopped";
     }
@@ -454,6 +476,37 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         _safety.StartTestEffect(kind);
         BackendStatus = $"{kind} test running";
+    }
+
+    private void MoveEffectCategory(int direction)
+    {
+        if (EffectCategories.Count == 0)
+        {
+            return;
+        }
+
+        var index = -1;
+        for (var i = 0; i < EffectCategories.Count; i++)
+        {
+            if (EffectCategories[i] == SelectedEffectCategory)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        if (index < 0)
+        {
+            index = 0;
+        }
+
+        var next = (index + direction) % EffectCategories.Count;
+        if (next < 0)
+        {
+            next += EffectCategories.Count;
+        }
+
+        SelectedEffectCategory = EffectCategories[next];
     }
 
     private void SelectDevice(DeviceInfo? device)
@@ -521,8 +574,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             _backend.StopGameplayEffects("gameplay ffb disabled");
             OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+            _effectStatusWriter.WriteZero(ActiveVehicleCategory);
             GameplayFfbRuntimeStatus = "FFB disabled";
         }
+    }
+    partial void OnSelectedEffectCategoryChanged(string value)
+    {
+        if (_loadingConfig)
+        {
+            return;
+        }
+
+        _loadingConfig = true;
+        LoadGameplaySettingsIntoUi(GetSelectedCategoryProfile(value));
+        _loadingConfig = false;
     }
     partial void OnSpeedSpringEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedSpringStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
@@ -568,6 +633,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void LoadGameplaySettingsIntoUi(GameplayFfbSettings settings)
     {
         GameplayFfbEnabled = settings.Enabled;
+        LoadGameplaySettingsIntoUi(GetSelectedCategoryProfile(SelectedEffectCategory));
+    }
+
+    private void LoadGameplaySettingsIntoUi(GameplayFfbEffectProfile settings)
+    {
         SpeedSpringEnabled = settings.SpeedSpring.Enabled;
         SpeedSpringStrengthPercent = settings.SpeedSpring.StrengthPercent;
         SpeedSpringMaxPercent = settings.SpeedSpring.MaxOutputPercent;
@@ -618,48 +688,72 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         _config.GameplayFfb.Enabled = GameplayFfbEnabled;
-        _config.GameplayFfb.SpeedSpring.Enabled = SpeedSpringEnabled;
-        _config.GameplayFfb.SpeedSpring.StrengthPercent = Math.Clamp(SpeedSpringStrengthPercent, 0, 100);
-        _config.GameplayFfb.SpeedSpring.MaxOutputPercent = Math.Clamp(SpeedSpringMaxPercent, 0, 100);
-        _config.GameplayFfb.SpeedSpring.Curve = SpeedSpringCurve;
-        _config.GameplayFfb.SpeedDamper.Enabled = SpeedDamperEnabled;
-        _config.GameplayFfb.SpeedDamper.StrengthPercent = Math.Clamp(SpeedDamperStrengthPercent, 0, 100);
-        _config.GameplayFfb.SpeedDamper.MaxOutputPercent = Math.Clamp(SpeedDamperMaxPercent, 0, 100);
-        _config.GameplayFfb.SpeedDamper.Curve = SpeedDamperCurve;
-        _config.GameplayFfb.MechanicalFriction.Enabled = MechanicalFrictionEnabled;
-        _config.GameplayFfb.MechanicalFriction.StrengthPercent = Math.Clamp(MechanicalFrictionStrengthPercent, 0, 100);
-        _config.GameplayFfb.MechanicalFriction.MaxOutputPercent = Math.Clamp(MechanicalFrictionMaxPercent, 0, 100);
-        _config.GameplayFfb.MechanicalFriction.Curve = MechanicalFrictionCurve;
-        _config.GameplayFfb.LoadResistance.Enabled = LoadResistanceEnabled;
-        _config.GameplayFfb.LoadResistance.StrengthPercent = Math.Clamp(LoadResistanceStrengthPercent, 0, 100);
-        _config.GameplayFfb.LoadResistance.MaxOutputPercent = Math.Clamp(LoadResistanceMaxPercent, 0, 100);
-        _config.GameplayFfb.LoadResistance.Curve = LoadResistanceCurve;
-        _config.GameplayFfb.EngineVibration.Enabled = EngineVibrationEnabled;
-        _config.GameplayFfb.EngineVibration.StrengthPercent = Math.Clamp(EngineVibrationStrengthPercent, 0, 100);
-        _config.GameplayFfb.EngineVibration.MaxOutputPercent = Math.Clamp(EngineVibrationMaxPercent, 0, 100);
-        _config.GameplayFfb.EngineVibration.Curve = EngineVibrationCurve;
-        _config.GameplayFfb.SurfaceFeedback.Enabled = SurfaceFeedbackEnabled;
-        _config.GameplayFfb.SurfaceFeedback.StrengthPercent = Math.Clamp(SurfaceFeedbackStrengthPercent, 0, 100);
-        _config.GameplayFfb.SurfaceFeedback.MaxOutputPercent = Math.Clamp(SurfaceFeedbackMaxPercent, 0, 100);
-        _config.GameplayFfb.SurfaceFeedback.Curve = SurfaceFeedbackCurve;
-        _config.GameplayFfb.SlipFeedback.Enabled = SlipFeedbackEnabled;
-        _config.GameplayFfb.SlipFeedback.StrengthPercent = Math.Clamp(SlipFeedbackStrengthPercent, 0, 100);
-        _config.GameplayFfb.SlipFeedback.MaxOutputPercent = Math.Clamp(SlipFeedbackMaxPercent, 0, 100);
-        _config.GameplayFfb.SlipFeedback.Curve = SlipFeedbackCurve;
-        _config.GameplayFfb.WetnessFeedback.Enabled = WetnessFeedbackEnabled;
-        _config.GameplayFfb.WetnessFeedback.StrengthPercent = Math.Clamp(WetnessFeedbackStrengthPercent, 0, 100);
-        _config.GameplayFfb.WetnessFeedback.MaxOutputPercent = Math.Clamp(WetnessFeedbackMaxPercent, 0, 100);
-        _config.GameplayFfb.WetnessFeedback.Curve = WetnessFeedbackCurve;
-        _config.GameplayFfb.MotionFeedback.Enabled = MotionFeedbackEnabled;
-        _config.GameplayFfb.MotionFeedback.StrengthPercent = Math.Clamp(MotionFeedbackStrengthPercent, 0, 100);
-        _config.GameplayFfb.MotionFeedback.MaxOutputPercent = Math.Clamp(MotionFeedbackMaxPercent, 0, 100);
-        _config.GameplayFfb.MotionFeedback.Curve = MotionFeedbackCurve;
-        _config.GameplayFfb.BumpFeedback.Enabled = BumpFeedbackEnabled;
-        _config.GameplayFfb.BumpFeedback.StrengthPercent = Math.Clamp(BumpFeedbackStrengthPercent, 0, 100);
-        _config.GameplayFfb.BumpFeedback.MaxOutputPercent = Math.Clamp(BumpFeedbackMaxPercent, 0, 100);
-        _config.GameplayFfb.BumpFeedback.Curve = BumpFeedbackCurve;
+        SaveGameplaySettingsToProfile(GetSelectedCategoryProfile(SelectedEffectCategory));
         _configStore.Save(_config);
         _log.Information("Gameplay FFB settings updated");
+    }
+
+    private GameplayFfbEffectProfile GetSelectedCategoryProfile(string category)
+    {
+        if (string.IsNullOrWhiteSpace(category) ||
+            !VehicleCategoryFfbProfile.Categories.Contains(category))
+        {
+            category = VehicleCategoryFfbProfile.Unknown;
+        }
+
+        if (!_config.GameplayFfb.VehicleCategoryEffectProfiles.TryGetValue(category, out var profile) ||
+            profile is null)
+        {
+            profile = GameplayFfbEffectProfile.Clone(_config.GameplayFfb);
+            _config.GameplayFfb.VehicleCategoryEffectProfiles[category] = profile;
+        }
+
+        GameplayFfbEffectProfile.NormalizeEffectSettings(profile);
+        return profile;
+    }
+
+    private void SaveGameplaySettingsToProfile(GameplayFfbEffectProfile profile)
+    {
+        profile.SpeedSpring.Enabled = SpeedSpringEnabled;
+        profile.SpeedSpring.StrengthPercent = Math.Clamp(SpeedSpringStrengthPercent, 0, 100);
+        profile.SpeedSpring.MaxOutputPercent = Math.Clamp(SpeedSpringMaxPercent, 0, 100);
+        profile.SpeedSpring.Curve = SpeedSpringCurve;
+        profile.SpeedDamper.Enabled = SpeedDamperEnabled;
+        profile.SpeedDamper.StrengthPercent = Math.Clamp(SpeedDamperStrengthPercent, 0, 100);
+        profile.SpeedDamper.MaxOutputPercent = Math.Clamp(SpeedDamperMaxPercent, 0, 100);
+        profile.SpeedDamper.Curve = SpeedDamperCurve;
+        profile.MechanicalFriction.Enabled = MechanicalFrictionEnabled;
+        profile.MechanicalFriction.StrengthPercent = Math.Clamp(MechanicalFrictionStrengthPercent, 0, 100);
+        profile.MechanicalFriction.MaxOutputPercent = Math.Clamp(MechanicalFrictionMaxPercent, 0, 100);
+        profile.MechanicalFriction.Curve = MechanicalFrictionCurve;
+        profile.LoadResistance.Enabled = LoadResistanceEnabled;
+        profile.LoadResistance.StrengthPercent = Math.Clamp(LoadResistanceStrengthPercent, 0, 100);
+        profile.LoadResistance.MaxOutputPercent = Math.Clamp(LoadResistanceMaxPercent, 0, 100);
+        profile.LoadResistance.Curve = LoadResistanceCurve;
+        profile.EngineVibration.Enabled = EngineVibrationEnabled;
+        profile.EngineVibration.StrengthPercent = Math.Clamp(EngineVibrationStrengthPercent, 0, 100);
+        profile.EngineVibration.MaxOutputPercent = Math.Clamp(EngineVibrationMaxPercent, 0, 100);
+        profile.EngineVibration.Curve = EngineVibrationCurve;
+        profile.SurfaceFeedback.Enabled = SurfaceFeedbackEnabled;
+        profile.SurfaceFeedback.StrengthPercent = Math.Clamp(SurfaceFeedbackStrengthPercent, 0, 100);
+        profile.SurfaceFeedback.MaxOutputPercent = Math.Clamp(SurfaceFeedbackMaxPercent, 0, 100);
+        profile.SurfaceFeedback.Curve = SurfaceFeedbackCurve;
+        profile.SlipFeedback.Enabled = SlipFeedbackEnabled;
+        profile.SlipFeedback.StrengthPercent = Math.Clamp(SlipFeedbackStrengthPercent, 0, 100);
+        profile.SlipFeedback.MaxOutputPercent = Math.Clamp(SlipFeedbackMaxPercent, 0, 100);
+        profile.SlipFeedback.Curve = SlipFeedbackCurve;
+        profile.WetnessFeedback.Enabled = WetnessFeedbackEnabled;
+        profile.WetnessFeedback.StrengthPercent = Math.Clamp(WetnessFeedbackStrengthPercent, 0, 100);
+        profile.WetnessFeedback.MaxOutputPercent = Math.Clamp(WetnessFeedbackMaxPercent, 0, 100);
+        profile.WetnessFeedback.Curve = WetnessFeedbackCurve;
+        profile.MotionFeedback.Enabled = MotionFeedbackEnabled;
+        profile.MotionFeedback.StrengthPercent = Math.Clamp(MotionFeedbackStrengthPercent, 0, 100);
+        profile.MotionFeedback.MaxOutputPercent = Math.Clamp(MotionFeedbackMaxPercent, 0, 100);
+        profile.MotionFeedback.Curve = MotionFeedbackCurve;
+        profile.BumpFeedback.Enabled = BumpFeedbackEnabled;
+        profile.BumpFeedback.StrengthPercent = Math.Clamp(BumpFeedbackStrengthPercent, 0, 100);
+        profile.BumpFeedback.MaxOutputPercent = Math.Clamp(BumpFeedbackMaxPercent, 0, 100);
+        profile.BumpFeedback.Curve = BumpFeedbackCurve;
     }
 
     private GameplayFfbSettings GetRuntimeGameplaySettings()
@@ -681,7 +775,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SlipFeedback = _config.GameplayFfb.SlipFeedback,
             WetnessFeedback = _config.GameplayFfb.WetnessFeedback,
             MotionFeedback = _config.GameplayFfb.MotionFeedback,
-            BumpFeedback = _config.GameplayFfb.BumpFeedback
+            BumpFeedback = _config.GameplayFfb.BumpFeedback,
+            VehicleCategoryEffectProfiles = _config.GameplayFfb.VehicleCategoryEffectProfiles
         };
     }
 
@@ -710,6 +805,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Dispatcher.UIThread.Post(() =>
         {
             ActiveGameplayEffects = output.ActiveEffectsText;
+            ActiveVehicleCategory = output.IsActive ? output.ActiveCategory : ActiveVehicleCategory;
             SpringOutput = $"{output.SpringPercent}%";
             DamperOutput = $"{output.DamperPercent}%";
             FrictionOutput = $"{output.FrictionPercent}%";
@@ -791,6 +887,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WetnessAndRain = "- / -";
             WheelSlip = "-";
             GroundContactRatio = "-";
+            WheelTireTypes = "-";
+            WheelTireProfile = "-";
             Attitude = "- / - / -";
             LocalAcceleration = "- / - / -";
             BumpImpulse = "-";
@@ -815,6 +913,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WetnessAndRain = $"{FormatNumber(packet.GroundWetness, "0.00")} / {FormatNumber(packet.RainScale, "0.00")}";
             WheelSlip = $"{FormatNumber(packet.WheelSlip, "0.00")} / {FormatNumber(packet.MaxWheelSlip, "0.00")}";
             GroundContactRatio = FormatNumber(packet.GroundContactRatio, "0%");
+            WheelTireTypes = string.IsNullOrWhiteSpace(packet.WheelTireTypes) ? "-" : packet.WheelTireTypes;
+            WheelTireProfile = string.IsNullOrWhiteSpace(packet.WheelTireProfile) ? "-" : packet.WheelTireProfile;
             Attitude = $"{FormatNumber(packet.PitchDeg, "0.0 deg")} / {FormatNumber(packet.RollDeg, "0.0 deg")} / {FormatNumber(packet.SlopeDeg, "0.0 deg")}";
             LocalAcceleration = $"{FormatNumber(packet.LocalAccelerationX, "0.00")} / {FormatNumber(packet.LocalAccelerationY, "0.00")} / {FormatNumber(packet.LocalAccelerationZ, "0.00")}";
             BumpImpulse = FormatNumber(packet.BumpImpulse, "0.00");
@@ -851,6 +951,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         _disposed = true;
         _safety.StopAll("view model disposed");
+        _effectStatusWriter.WriteZero(ActiveVehicleCategory);
         _gameplayFfb.Dispose();
         _telemetryReceiver.StateChanged -= OnTelemetryStateChanged;
         _telemetryReceiver.Dispose();

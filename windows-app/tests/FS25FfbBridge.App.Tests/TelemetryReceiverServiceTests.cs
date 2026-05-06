@@ -16,6 +16,8 @@ public sealed class TelemetryReceiverServiceTests
           "vehicleName": "Tractor",
           "vehicleType": "tractor",
           "vehicleCategory": "TractorWheeled",
+          "wheelTireTypes": "street,mud",
+          "wheelTireProfile": "mixed",
           "speedKmh": 12.4,
           "steeringAngle": 0.13,
           "rpm": 850,
@@ -34,6 +36,8 @@ public sealed class TelemetryReceiverServiceTests
           "vehicleName": "Tractor",
           "vehicleType": "tractor",
           "vehicleCategory": "TractorWheeled",
+          "wheelTireTypes": "street,mud",
+          "wheelTireProfile": "mixed",
           "speedKmh": 12.4,
           "steeringAngle": 0.13,
           "rpm": 850,
@@ -99,6 +103,8 @@ public sealed class TelemetryReceiverServiceTests
         var packet = (await stateTask).LastPacket;
         Assert.Equal(0.35, packet?.GroundWetness);
         Assert.Equal(0.24, packet?.MaxWheelSlip);
+        Assert.Equal("street,mud", packet?.WheelTireTypes);
+        Assert.Equal("mixed", packet?.WheelTireProfile);
         Assert.Equal(-2.4, packet?.RollDeg);
         Assert.Equal(0.42, packet?.BumpImpulse);
     }

@@ -11,6 +11,7 @@ The telemetry mod uses UDP JSON over localhost when FS25 Lua socket support is a
 - Receiver: Windows app
 - Default send rate: `30 Hz`
 - File fallback: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
+- Effect status return file: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json`
 
 Packet loss is acceptable for UDP. The receiver always keeps the last valid packet visible and changes status to `Lost` when packets or file updates stop.
 The Windows receiver reports UDP status, file fallback status, last valid packet source, parser status, and the latest transport error separately so a UDP bind failure does not hide file fallback diagnostics.
@@ -25,6 +26,8 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
   "vehicleName": "Tractor",
   "vehicleType": "tractor",
   "vehicleCategory": "TractorWheeled",
+  "wheelTireTypes": "street,mud",
+  "wheelTireProfile": "mixed",
   "speedKmh": 12.4,
   "steeringAngle": 0.13,
   "rpm": 850,
@@ -54,7 +57,9 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 
 - `timestamp`: FS game time when available, otherwise Lua clock.
 - `vehicleType`: raw FS25 `typeName`/`typeDesc` value kept as a legacy/debug field.
-- `vehicleCategory`: normalized category used by the Windows app to select automatic FFB multipliers. Values are `TractorWheeled`, `TractorTracked`, `HeavyTractorWheeled`, `HeavyTractorTracked`, `Harvester`, `Truck`, `LoaderTelehandler`, `LightVehicle`, and `Unknown`.
+- `vehicleCategory`: normalized category used by the Windows app to select a full category effect profile. Values are `TractorWheeled`, `TractorTracked`, `HeavyTractorWheeled`, `HeavyTractorTracked`, `Harvester`, `Truck`, `LoaderTelehandler`, `LightVehicle`, and `Unknown`.
+- `wheelTireTypes`: comma-separated unique FS25 wheel tire type names read from `wheel.physics.tireType` through `WheelsUtil.getTireTypeName(...)` when available, for example `street`, `mud`, `offRoad`, or `crawler`.
+- `wheelTireProfile`: normalized tire profile: `street`, `agricultural`, `mixed`, `tracked`, or `unknown`.
 - `steeringAngle`: best-effort normalized/vehicle steering value for Milestone 2.
 - `rpm`: best-effort motor RPM.
 - `mass` and `totalMass`: best-effort vehicle mass values.
@@ -70,7 +75,9 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 
 ## Vehicle Categories
 
-The Lua mod classifies vehicles from FS25 `vehicle.typeName` and `vehicle.typeDesc`. Tractor categories are split into wheeled/tracked variants by the FS25 `Crawlers` specialization data (`vehicle.spec_crawlers.crawlers` and wheel-configuration crawler tables). GIANTS documents `Crawlers` as the specialization for crawlers and tracks with rotating or scrolling elements: https://gdn.giants-software.com/documentation_scripting_fs25.php?category=77&class=655&version=script
+The Lua mod classifies vehicles from FS25 `vehicle.typeName` and `vehicle.typeDesc` with token/alias matching, so `roadTractor` and `semiTruck` are treated as road trucks instead of matching the generic tractor token. Truck aliases include `truck`, `trucks`, `semiTruck`, `roadTractor`, `lkw`, and `semi truck`. Tractor categories are split into wheeled/tracked variants by the FS25 `Crawlers` specialization data (`vehicle.spec_crawlers.crawlers` and wheel-configuration crawler tables). GIANTS documents `Crawlers` as the specialization for crawlers and tracks with rotating or scrolling elements: https://gdn.giants-software.com/documentation_scripting_fs25.php?category=77&class=655&version=script
+
+If a raw truck category uses agricultural or tracked tire profiles from FS25 wheel physics, the Lua mod temporarily emits `TractorWheeled` or `TractorTracked` respectively. Model names such as Volvo, Mack, Unimog, or Heizomat are not parsed.
 
 Heavy tractor detection uses explicit raw type/category names such as large/heavy tractor equivalents. Mass is not used as the primary criterion, and model names are not parsed. If the raw type/category data is missing or unexpected, the mod emits `Unknown`.
 
@@ -82,6 +89,25 @@ Heavy tractor detection uses explicit raw type/category names such as large/heav
 
 Malformed JSON updates the raw packet preview and parser status, but it does not replace the last valid decoded packet.
 If the UDP port is already in use, the app reports the bind error and continues watching the fallback file.
+
+## Effect Status Return File
+
+The Windows app writes `effectStatus.json` at up to 10 Hz, plus immediate zero-status writes on Stop All, telemetry loss, and shutdown/dispose. The in-game overlay reads this file and marks all lamps stale/red if the status timestamp is older than one second or the file is unavailable.
+
+```json
+{
+  "timestampMs": 1715000000000,
+  "activeCategory": "Truck",
+  "activeEffectsText": "Spring, Damper",
+  "speedSpring": true,
+  "speedDamper": true,
+  "friction": false,
+  "rpmVibration": false,
+  "surfaceFeedback": false,
+  "slipFeedback": false,
+  "bump": false
+}
+```
 
 ## Manual UDP Test
 

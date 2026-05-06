@@ -5,6 +5,8 @@
   "vehicleName": "UDP Test Tractor",
   "vehicleType": "tractor",
   "vehicleCategory": "TractorWheeled",
+  "wheelTireTypes": "street",
+  "wheelTireProfile": "street",
   "speedKmh": 12.5,
   "steeringAngle": 0.1,
   "rpm": 850,

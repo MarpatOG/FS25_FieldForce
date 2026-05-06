@@ -23,81 +23,82 @@ public sealed class GameplayFfbCalculator
             return GameplayFfbOutput.Zero;
         }
 
-        settings = ApplyVehicleCategoryProfile(settings, packet.VehicleCategory);
+        var activeCategory = NormalizeVehicleCategory(packet.VehicleCategory);
+        var profile = ResolveVehicleCategoryProfile(settings, activeCategory);
 
         var rawSpeed = Math.Max(0, packet.SpeedKmh ?? 0);
         var speed = rawSpeed < MovingSpeedThresholdKmh ? 0 : rawSpeed;
         var loadFactor = CalculateLoadFactor(packet.Mass, packet.TotalMass);
-        var loadResistance = CalculateLoadResistance(settings.LoadResistance, loadFactor);
+        var loadResistance = CalculateLoadResistance(profile.LoadResistance, loadFactor);
         var loadRatio = CalculateLoadRatio(loadFactor);
         var surfaceType = NormalizeSurfaceType(packet);
         var fieldSurface = IsFieldSurface(surfaceType, packet.IsOnField);
         var wetness = CalculateWetness(packet);
-        var surfaceActive = IsSurfaceActive(settings.SurfaceFeedback, speed, fieldSurface);
-        var wetnessActive = settings.WetnessFeedback.Enabled &&
+        var surfaceActive = IsSurfaceActive(profile.SurfaceFeedback, speed, fieldSurface);
+        var wetnessActive = profile.WetnessFeedback.Enabled &&
                             wetness is not null &&
-                            wetness.Value >= Math.Clamp(settings.WetnessFeedback.MinWetness, 0, 1);
+                            wetness.Value >= Math.Clamp(profile.WetnessFeedback.MinWetness, 0, 1);
 
-        var spring = CalculateSpeedEffect(settings.SpeedSpring, speed, fade);
-        var damper = CalculateSpeedEffect(settings.SpeedDamper, speed, fade);
-        var friction = CalculateMechanicalFriction(settings.MechanicalFriction, loadRatio, surfaceActive, fade);
+        var spring = CalculateSpeedEffect(profile.SpeedSpring, speed, fade);
+        var damper = CalculateSpeedEffect(profile.SpeedDamper, speed, fade);
+        var friction = CalculateMechanicalFriction(profile.MechanicalFriction, loadRatio, surfaceActive, fade);
 
-        if (settings.LoadResistance.Enabled)
+        if (profile.LoadResistance.Enabled)
         {
-            if (settings.LoadResistance.AffectsSpring)
+            if (profile.LoadResistance.AffectsSpring)
             {
-                spring *= 1 + (loadResistance * Math.Clamp(settings.LoadResistance.SpringScale, 0, 2));
+                spring *= 1 + (loadResistance * Math.Clamp(profile.LoadResistance.SpringScale, 0, 2));
             }
 
-            if (settings.LoadResistance.AffectsDamper)
+            if (profile.LoadResistance.AffectsDamper)
             {
-                damper *= 1 + (loadResistance * Math.Clamp(settings.LoadResistance.DamperScale, 0, 2));
+                damper *= 1 + (loadResistance * Math.Clamp(profile.LoadResistance.DamperScale, 0, 2));
             }
 
-            if (settings.LoadResistance.AffectsFriction)
+            if (profile.LoadResistance.AffectsFriction)
             {
-                friction *= 1 + (loadResistance * Math.Clamp(settings.LoadResistance.FrictionScale, 0, 2));
+                friction *= 1 + (loadResistance * Math.Clamp(profile.LoadResistance.FrictionScale, 0, 2));
             }
         }
 
         if (surfaceActive)
         {
-            spring *= 1 + (settings.SurfaceFeedback.FieldSpringModifierPercent / 100.0);
-            damper *= 1 + (settings.SurfaceFeedback.FieldDamperModifierPercent / 100.0);
-            friction *= 1 + (settings.SurfaceFeedback.FieldFrictionModifierPercent / 100.0);
+            spring *= 1 + (profile.SurfaceFeedback.FieldSpringModifierPercent / 100.0);
+            damper *= 1 + (profile.SurfaceFeedback.FieldDamperModifierPercent / 100.0);
+            friction *= 1 + (profile.SurfaceFeedback.FieldFrictionModifierPercent / 100.0);
         }
 
         if (wetnessActive)
         {
-            var wetnessRatio = ApplyCurve(wetness!.Value, settings.WetnessFeedback.Curve);
-            var wetnessCap = CalculateMaxCapped(settings.WetnessFeedback, fade) / 100.0;
-            damper *= 1 + (wetnessRatio * wetnessCap * settings.WetnessFeedback.DamperModifierPercent / 100.0);
+            var wetnessRatio = ApplyCurve(wetness!.Value, profile.WetnessFeedback.Curve);
+            var wetnessCap = CalculateMaxCapped(profile.WetnessFeedback, fade) / 100.0;
+            damper *= 1 + (wetnessRatio * wetnessCap * profile.WetnessFeedback.DamperModifierPercent / 100.0);
         }
 
-        var motionRatio = CalculateMotionRatio(packet, settings.MotionFeedback);
+        var motionRatio = CalculateMotionRatio(packet, profile.MotionFeedback);
         if (motionRatio > 0)
         {
-            var motionCap = CalculateMaxCapped(settings.MotionFeedback, fade) / 100.0;
-            spring *= 1 + (motionRatio * motionCap * settings.MotionFeedback.SpringModifierPercent / 100.0);
-            damper *= 1 + (motionRatio * motionCap * settings.MotionFeedback.DamperModifierPercent / 100.0);
+            var motionCap = CalculateMaxCapped(profile.MotionFeedback, fade) / 100.0;
+            spring *= 1 + (motionRatio * motionCap * profile.MotionFeedback.SpringModifierPercent / 100.0);
+            damper *= 1 + (motionRatio * motionCap * profile.MotionFeedback.DamperModifierPercent / 100.0);
         }
 
-        var engine = CalculateEngineVibration(packet.Rpm, packet.EngineStarted, settings.EngineVibration, fade, out var engineHz);
+        var engine = CalculateEngineVibration(packet.Rpm, packet.EngineStarted, profile.EngineVibration, fade, out var engineHz);
         var surface = surfaceActive
-            ? CalculateMaxCapped(settings.SurfaceFeedback, fade)
+            ? CalculateMaxCapped(profile.SurfaceFeedback, fade)
             : 0;
         if (surface > 0 && wetnessActive)
         {
-            var wetnessRatio = ApplyCurve(wetness!.Value, settings.WetnessFeedback.Curve);
-            var wetnessCap = CalculateMaxCapped(settings.WetnessFeedback, fade) / 100.0;
-            surface *= 1 + (wetnessRatio * wetnessCap * settings.WetnessFeedback.SurfaceVibrationModifierPercent / 100.0);
+            var wetnessRatio = ApplyCurve(wetness!.Value, profile.WetnessFeedback.Curve);
+            var wetnessCap = CalculateMaxCapped(profile.WetnessFeedback, fade) / 100.0;
+            surface *= 1 + (wetnessRatio * wetnessCap * profile.WetnessFeedback.SurfaceVibrationModifierPercent / 100.0);
         }
 
         var surfaceHz = surface > 0
-            ? CalculateSurfaceFrequency(settings.SurfaceFeedback, speed, settings.SpeedDamper.SpeedReferenceKmh)
+            ? CalculateSurfaceFrequency(profile.SurfaceFeedback, speed, profile.SpeedDamper.SpeedReferenceKmh)
             : 0;
-        var slip = CalculateSlipFeedback(packet.MaxWheelSlip ?? packet.WheelSlip, speed, settings.SlipFeedback, fade, out var slipHz);
-        var bump = CalculateBumpImpulse(packet, settings.BumpFeedback, fade, out var bumpDurationMs);
+        var slip = CalculateSlipFeedback(packet.MaxWheelSlip ?? packet.WheelSlip, speed, profile.SlipFeedback, fade, out var slipHz);
+        var bump = CalculateBumpImpulse(packet, profile.BumpFeedback, fade, out var bumpDurationMs);
 
         var output = new GameplayFfbOutput(
             ClampPercent(spring),
@@ -111,10 +112,11 @@ public sealed class GameplayFfbCalculator
             slip > 0 ? slipHz : 0,
             ClampSignedPercent(bump),
             bump != 0 ? bumpDurationMs : 0,
-            bump != 0 ? Math.Clamp(settings.BumpFeedback.CooldownMs, 20, 500) : 0,
+            bump != 0 ? Math.Clamp(profile.BumpFeedback.CooldownMs, 20, 500) : 0,
             loadFactor,
             fade,
-            true);
+            true,
+            activeCategory);
 
         return output with
         {
@@ -128,15 +130,21 @@ public sealed class GameplayFfbCalculator
         };
     }
 
-    private static GameplayFfbSettings ApplyVehicleCategoryProfile(GameplayFfbSettings settings, string? vehicleCategory)
+    private static GameplayFfbEffectProfile ResolveVehicleCategoryProfile(GameplayFfbSettings settings, string activeCategory)
     {
-        var category = NormalizeVehicleCategory(vehicleCategory);
-        if (!settings.VehicleCategoryProfiles.TryGetValue(category, out var profile))
+        if (settings.VehicleCategoryEffectProfiles.TryGetValue(activeCategory, out var profile) &&
+            profile is not null)
         {
-            profile = VehicleCategoryFfbProfile.CreateDefaults().GetValueOrDefault(category);
+            return profile;
         }
 
-        return profile is null ? settings : ApplyProfile(CloneSettings(settings), profile);
+        if (settings.VehicleCategoryEffectProfiles.TryGetValue(VehicleCategoryFfbProfile.Unknown, out var unknownProfile) &&
+            unknownProfile is not null)
+        {
+            return unknownProfile;
+        }
+
+        return settings;
     }
 
     private static string NormalizeVehicleCategory(string? vehicleCategory)
@@ -159,158 +167,6 @@ public sealed class GameplayFfbCalculator
             VehicleCategoryFfbProfile.LightVehicle or
             VehicleCategoryFfbProfile.Unknown => value,
             _ => VehicleCategoryFfbProfile.Unknown
-        };
-    }
-
-    private static GameplayFfbSettings ApplyProfile(GameplayFfbSettings settings, VehicleCategoryFfbProfile profile)
-    {
-        ApplySpeedProfile(settings.SpeedSpring, profile.SpeedSpringStrengthMultiplier, profile.SpeedSpringMaxMultiplier, profile.SpeedSpringReferenceMultiplier);
-        ApplySpeedProfile(settings.SpeedDamper, profile.SpeedDamperStrengthMultiplier, profile.SpeedDamperMaxMultiplier, profile.SpeedDamperReferenceMultiplier);
-        ApplyEffectProfile(settings.MechanicalFriction, profile.MechanicalFrictionStrengthMultiplier, profile.MechanicalFrictionMaxMultiplier);
-        ApplyEffectProfile(settings.LoadResistance, profile.LoadResistanceStrengthMultiplier, profile.LoadResistanceMaxMultiplier);
-        ApplyEffectProfile(settings.EngineVibration, profile.EngineVibrationStrengthMultiplier, profile.EngineVibrationMaxMultiplier);
-        ApplyEffectProfile(settings.SurfaceFeedback, profile.SurfaceFeedbackStrengthMultiplier, profile.SurfaceFeedbackMaxMultiplier);
-        ApplyEffectProfile(settings.SlipFeedback, profile.SlipFeedbackStrengthMultiplier, profile.SlipFeedbackMaxMultiplier);
-        ApplyEffectProfile(settings.BumpFeedback, profile.BumpFeedbackStrengthMultiplier, profile.BumpFeedbackMaxMultiplier);
-        return settings;
-    }
-
-    private static void ApplyEffectProfile(FfbEffectSettings settings, double strengthMultiplier, double maxMultiplier)
-    {
-        settings.StrengthPercent = ClampSettingPercent(settings.StrengthPercent * SanitizeMultiplier(strengthMultiplier));
-        settings.MaxOutputPercent = ClampSettingPercent(settings.MaxOutputPercent * SanitizeMultiplier(maxMultiplier));
-    }
-
-    private static void ApplySpeedProfile(SpeedConditionSettings settings, double strengthMultiplier, double maxMultiplier, double speedReferenceMultiplier)
-    {
-        ApplyEffectProfile(settings, strengthMultiplier, maxMultiplier);
-        settings.SpeedReferenceKmh = Math.Clamp(settings.SpeedReferenceKmh * SanitizeMultiplier(speedReferenceMultiplier), 1, 300);
-    }
-
-    private static double SanitizeMultiplier(double value)
-    {
-        return double.IsFinite(value) && value >= 0 ? Math.Clamp(value, 0, 3) : 1;
-    }
-
-    private static int ClampSettingPercent(double value)
-    {
-        return Math.Clamp((int)Math.Round(value), 0, 100);
-    }
-
-    private static GameplayFfbSettings CloneSettings(GameplayFfbSettings settings)
-    {
-        return new GameplayFfbSettings
-        {
-            Enabled = settings.Enabled,
-            VehicleCategoryProfiles = settings.VehicleCategoryProfiles,
-            SpeedSpring = CloneSpeed(settings.SpeedSpring),
-            SpeedDamper = CloneSpeed(settings.SpeedDamper),
-            MechanicalFriction = new MechanicalFrictionSettings
-            {
-                Enabled = settings.MechanicalFriction.Enabled,
-                StrengthPercent = settings.MechanicalFriction.StrengthPercent,
-                MaxOutputPercent = settings.MechanicalFriction.MaxOutputPercent,
-                Curve = settings.MechanicalFriction.Curve,
-                BaseFriction = settings.MechanicalFriction.BaseFriction,
-                LoadInfluence = settings.MechanicalFriction.LoadInfluence,
-                FieldInfluence = settings.MechanicalFriction.FieldInfluence
-            },
-            LoadResistance = new LoadResistanceSettings
-            {
-                Enabled = settings.LoadResistance.Enabled,
-                StrengthPercent = settings.LoadResistance.StrengthPercent,
-                MaxOutputPercent = settings.LoadResistance.MaxOutputPercent,
-                Curve = settings.LoadResistance.Curve,
-                AffectsSpring = settings.LoadResistance.AffectsSpring,
-                AffectsDamper = settings.LoadResistance.AffectsDamper,
-                AffectsFriction = settings.LoadResistance.AffectsFriction,
-                SpringScale = settings.LoadResistance.SpringScale,
-                DamperScale = settings.LoadResistance.DamperScale,
-                FrictionScale = settings.LoadResistance.FrictionScale
-            },
-            EngineVibration = new EngineVibrationSettings
-            {
-                Enabled = settings.EngineVibration.Enabled,
-                StrengthPercent = settings.EngineVibration.StrengthPercent,
-                MaxOutputPercent = settings.EngineVibration.MaxOutputPercent,
-                Curve = settings.EngineVibration.Curve,
-                MinRpm = settings.EngineVibration.MinRpm,
-                MaxRpm = settings.EngineVibration.MaxRpm,
-                MinFrequencyHz = settings.EngineVibration.MinFrequencyHz,
-                MaxFrequencyHz = settings.EngineVibration.MaxFrequencyHz
-            },
-            SurfaceFeedback = new SurfaceFeedbackSettings
-            {
-                Enabled = settings.SurfaceFeedback.Enabled,
-                StrengthPercent = settings.SurfaceFeedback.StrengthPercent,
-                MaxOutputPercent = settings.SurfaceFeedback.MaxOutputPercent,
-                Curve = settings.SurfaceFeedback.Curve,
-                MinSpeedKmh = settings.SurfaceFeedback.MinSpeedKmh,
-                FieldFrequencyMinHz = settings.SurfaceFeedback.FieldFrequencyMinHz,
-                FieldFrequencyMaxHz = settings.SurfaceFeedback.FieldFrequencyMaxHz,
-                FieldSpringModifierPercent = settings.SurfaceFeedback.FieldSpringModifierPercent,
-                FieldDamperModifierPercent = settings.SurfaceFeedback.FieldDamperModifierPercent,
-                FieldFrictionModifierPercent = settings.SurfaceFeedback.FieldFrictionModifierPercent
-            },
-            SlipFeedback = new SlipFeedbackSettings
-            {
-                Enabled = settings.SlipFeedback.Enabled,
-                StrengthPercent = settings.SlipFeedback.StrengthPercent,
-                MaxOutputPercent = settings.SlipFeedback.MaxOutputPercent,
-                Curve = settings.SlipFeedback.Curve,
-                MinSlip = settings.SlipFeedback.MinSlip,
-                FullSlip = settings.SlipFeedback.FullSlip,
-                MinSpeedKmh = settings.SlipFeedback.MinSpeedKmh,
-                MinFrequencyHz = settings.SlipFeedback.MinFrequencyHz,
-                MaxFrequencyHz = settings.SlipFeedback.MaxFrequencyHz
-            },
-            WetnessFeedback = new WetnessFeedbackSettings
-            {
-                Enabled = settings.WetnessFeedback.Enabled,
-                StrengthPercent = settings.WetnessFeedback.StrengthPercent,
-                MaxOutputPercent = settings.WetnessFeedback.MaxOutputPercent,
-                Curve = settings.WetnessFeedback.Curve,
-                MinWetness = settings.WetnessFeedback.MinWetness,
-                DamperModifierPercent = settings.WetnessFeedback.DamperModifierPercent,
-                SurfaceVibrationModifierPercent = settings.WetnessFeedback.SurfaceVibrationModifierPercent
-            },
-            MotionFeedback = new MotionFeedbackSettings
-            {
-                Enabled = settings.MotionFeedback.Enabled,
-                StrengthPercent = settings.MotionFeedback.StrengthPercent,
-                MaxOutputPercent = settings.MotionFeedback.MaxOutputPercent,
-                Curve = settings.MotionFeedback.Curve,
-                FullRollDeg = settings.MotionFeedback.FullRollDeg,
-                FullPitchDeg = settings.MotionFeedback.FullPitchDeg,
-                FullYawRateDegPerSec = settings.MotionFeedback.FullYawRateDegPerSec,
-                FullAcceleration = settings.MotionFeedback.FullAcceleration,
-                SpringModifierPercent = settings.MotionFeedback.SpringModifierPercent,
-                DamperModifierPercent = settings.MotionFeedback.DamperModifierPercent
-            },
-            BumpFeedback = new BumpFeedbackSettings
-            {
-                Enabled = settings.BumpFeedback.Enabled,
-                StrengthPercent = settings.BumpFeedback.StrengthPercent,
-                MaxOutputPercent = settings.BumpFeedback.MaxOutputPercent,
-                Curve = settings.BumpFeedback.Curve,
-                MinImpulse = settings.BumpFeedback.MinImpulse,
-                FullImpulse = settings.BumpFeedback.FullImpulse,
-                DurationMs = settings.BumpFeedback.DurationMs,
-                CooldownMs = settings.BumpFeedback.CooldownMs
-            }
-        };
-    }
-
-    private static SpeedConditionSettings CloneSpeed(SpeedConditionSettings settings)
-    {
-        return new SpeedConditionSettings
-        {
-            Enabled = settings.Enabled,
-            StrengthPercent = settings.StrengthPercent,
-            MaxOutputPercent = settings.MaxOutputPercent,
-            Curve = settings.Curve,
-            StandstillFloor = settings.StandstillFloor,
-            SpeedReferenceKmh = settings.SpeedReferenceKmh
         };
     }
 

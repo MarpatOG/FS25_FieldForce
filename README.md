@@ -10,7 +10,7 @@ Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a
 - FS25 Lua telemetry mod: implemented for Milestone 2 as a defensive UDP sender.
 - Telemetry receiver: implemented in the Windows app with UDP and file fallback.
 - Gameplay-driven FFB effects: Speed Spring, Speed Damper, Mechanical Friction, Load Resistance, RPM Vibration, Surface Feedback, Slip Feedback, Wetness, Motion, and Bump Feedback are implemented with conservative Logitech MOMO defaults.
-- FS25 overlay: displays a compact vertical diagnostic panel with every transmitted telemetry field.
+- FS25 overlay: displays a compact vertical diagnostic panel with every transmitted telemetry field plus live Windows effect-status lamps.
 
 ## Requirements
 
@@ -65,7 +65,7 @@ The current DirectInput test values are calibrated as a conservative Logitech MO
 
 ## MVP Effects
 
-The `Effects` tab controls gameplay FFB. Strength controls the requested effect output, Max cap limits that effect before global/device limits, and Curve changes how quickly the effect grows from telemetry.
+The `Effects` tab controls gameplay FFB per vehicle category. Select a category tab, then edit each effect's Enabled, Strength, Max cap, and Curve values for that full category profile.
 
 - `Speed Spring`: centers the wheel more strongly as speed increases.
 - `Speed Damper`: adds viscous resistance as speed increases.
@@ -86,6 +86,7 @@ Every gameplay FFB mechanic must be documented in `docs/gameplay-ffb-mechanics.m
 
 - Config: `%APPDATA%/FS25FFBBridge/config.json`
 - Logs: `%LOCALAPPDATA%/FS25FFBBridge/logs/bridge-.log`
+- Effect status file: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json`
 
 ## Repository Layout
 
