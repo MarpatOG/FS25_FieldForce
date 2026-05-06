@@ -230,7 +230,7 @@ function FS25RealFfbTelemetry:getActiveVehicle()
             return g_localPlayer:getCurrentVehicle()
         end)
         if ok and vehicle ~= nil then
-            return self:getSelectedVehicleOrSelf(vehicle)
+            return self:getForceFeedbackVehicle(vehicle)
         end
     end
 
@@ -240,13 +240,13 @@ function FS25RealFfbTelemetry:getActiveVehicle()
     end
 
     if mission.controlledVehicle ~= nil then
-        return self:getSelectedVehicleOrSelf(mission.controlledVehicle)
+        return self:getForceFeedbackVehicle(mission.controlledVehicle)
     end
 
     if mission.controlledVehicles ~= nil then
         for _, vehicle in pairs(mission.controlledVehicles) do
             if vehicle ~= nil then
-                return self:getSelectedVehicleOrSelf(vehicle)
+                return self:getForceFeedbackVehicle(vehicle)
             end
         end
     end
@@ -256,24 +256,45 @@ function FS25RealFfbTelemetry:getActiveVehicle()
             return mission.player:getCurrentVehicle()
         end)
         if ok and vehicle ~= nil then
-            return self:getSelectedVehicleOrSelf(vehicle)
+            return self:getForceFeedbackVehicle(vehicle)
         end
     end
 
     return nil
 end
 
-function FS25RealFfbTelemetry:getSelectedVehicleOrSelf(vehicle)
-    if vehicle ~= nil and vehicle.getSelectedVehicle ~= nil then
-        local ok, selectedVehicle = pcall(function()
+function FS25RealFfbTelemetry:getForceFeedbackVehicle(vehicle)
+    if vehicle == nil then
+        return nil
+    end
+
+    if self:isDriveableTelemetrySource(vehicle) then
+        return vehicle
+    end
+
+    local selectedVehicle = nil
+    if vehicle.getSelectedVehicle ~= nil then
+        local ok, result = pcall(function()
             return vehicle:getSelectedVehicle()
         end)
-        if ok and selectedVehicle ~= nil then
-            return selectedVehicle
+        if ok then
+            selectedVehicle = result
         end
     end
 
+    if self:isDriveableTelemetrySource(selectedVehicle) then
+        return selectedVehicle
+    end
+
     return vehicle
+end
+
+function FS25RealFfbTelemetry:isDriveableTelemetrySource(vehicle)
+    return vehicle ~= nil and
+        (vehicle.spec_drivable ~= nil or
+            vehicle.spec_motorized ~= nil or
+            vehicle.getMotorRpm ~= nil or
+            vehicle.getIsMotorStarted ~= nil)
 end
 
 function FS25RealFfbTelemetry:getTimestamp()
@@ -339,15 +360,60 @@ function FS25RealFfbTelemetry:getSpeedKmh(vehicle)
 end
 
 function FS25RealFfbTelemetry:getSteeringAngle(vehicle)
-    if vehicle.rotatedTime ~= nil then
-        return vehicle.rotatedTime
+    return self:getFirstNumber(
+        vehicle.rotatedTime,
+        vehicle.steeringAngle,
+        vehicle.steeringInput,
+        vehicle.axisSide,
+        vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisSide or nil,
+        vehicle.spec_drivable ~= nil and vehicle.spec_drivable.lastInputValues ~= nil and vehicle.spec_drivable.lastInputValues.axisSide or nil,
+        vehicle.spec_drivable ~= nil and vehicle.spec_drivable.steeringAngle or nil,
+        vehicle.spec_drivable ~= nil and vehicle.spec_drivable.steeringInput or nil,
+        self:getAverageWheelSteeringAngle(vehicle)
+    )
+end
+
+function FS25RealFfbTelemetry:getAverageWheelSteeringAngle(vehicle)
+    local total = 0
+    local count = 0
+
+    for _, wheel in ipairs(self:getVehicleWheels(vehicle)) do
+        local value = self:getFirstNumber(
+            wheel.steeringAngle,
+            wheel.rotatedTime,
+            wheel.steeringInput,
+            wheel.steeringAxis
+        )
+
+        if value ~= nil and math.abs(value) > 0.0001 then
+            total = total + value
+            count = count + 1
+        end
     end
 
-    if vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisSide ~= nil then
-        return vehicle.spec_drivable.axisSide
+    if count > 0 then
+        return total / count
     end
 
     return nil
+end
+
+function FS25RealFfbTelemetry:getFirstNumber(...)
+    local fallbackZero = nil
+    local count = select("#", ...)
+
+    for index = 1, count do
+        local value = select(index, ...)
+        if type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge then
+            if math.abs(value) > 0.0001 then
+                return value
+            end
+
+            fallbackZero = value
+        end
+    end
+
+    return fallbackZero
 end
 
 function FS25RealFfbTelemetry:getRpm(vehicle)
