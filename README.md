@@ -9,7 +9,7 @@ Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 adds a 
 - Windows app: DirectInput FFB test baseline physically confirmed on Logitech MOMO Racing Wheel.
 - FS25 Lua telemetry mod: implemented for Milestone 2 as a defensive UDP sender.
 - Telemetry receiver: implemented in the Windows app with UDP and file fallback.
-- Gameplay-driven FFB effects: planned for later milestones.
+- Gameplay-driven FFB effects: first lightweight RPM vibration is implemented.
 
 ## Requirements
 
@@ -42,6 +42,7 @@ dotnet run --project windows-app/src/App/FS25FfbBridge.App.csproj
 4. Start FS25 and enable `FS25 Real FFB Telemetry`.
 5. Enter a vehicle.
 6. The app should change to `Connected` and show vehicle/speed/RPM fields as available.
+7. With an acquired FFB wheel and a running engine, the bridge applies a very light RPM-driven sine vibration. It stops when telemetry is lost, the engine stops, or the player leaves the vehicle.
 
 The `Telemetry` tab shows UDP status, file fallback status, last packet source, packet age, parser status, and transport errors separately.
 If FS25 logs that Lua socket is unavailable, the mod logs the `require("socket")` failure details and falls back to:

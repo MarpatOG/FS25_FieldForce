@@ -21,11 +21,15 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
     private readonly AppLogService _log;
     private readonly IDirectInput8 _directInput;
+    private readonly object _effectLock = new();
     private readonly List<IDirectInputEffect> _activeEffects = [];
+    private IDirectInputEffect? _gameplayRpmEffect;
     private IDirectInputDevice8? _device;
     private int _primaryAxisOffset;
     private int _globalLimitPercent = 40;
     private int _deviceLimitPercent = 35;
+    private int _gameplayRpmMagnitude;
+    private int _gameplayRpmHz;
 
     public DirectInputFfbBackend(AppLogService log)
     {
@@ -127,39 +131,124 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
     public void StartTestEffect(FfbEffectKind kind)
     {
-        if (_device is null || SelectedDevice is null)
+        lock (_effectLock)
         {
-            _log.Warning("Effect start ignored because no FFB device is selected");
-            return;
-        }
-
-        StopAllEffects("starting " + kind);
-
-        try
-        {
-            var effect = kind switch
+            if (_device is null || SelectedDevice is null)
             {
-                FfbEffectKind.Spring => CreateConditionEffect(EffectGuid.Spring, MomoTestConditionCoefficient, MomoTestConditionSaturation, MomoSpringDeadBand),
-                FfbEffectKind.Damper => CreateConditionEffect(EffectGuid.Damper, MomoTestConditionCoefficient, MomoTestConditionSaturation, deadBand: 0),
-                FfbEffectKind.ConstantLeft => CreateConstantEffect(MomoConstantMagnitude, DirectionNegative, ConstantTestDuration),
-                FfbEffectKind.ConstantRight => CreateConstantEffect(MomoConstantMagnitude, DirectionPositive, ConstantTestDuration),
-                FfbEffectKind.LowVibration => CreatePeriodicEffect(EffectGuid.Sine, MomoVibrationMagnitude, MomoVibrationHz, VibrationTestDuration),
-                _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
-            };
+                _log.Warning("Effect start ignored because no FFB device is selected");
+                return;
+            }
 
-            effect.Download().CheckError();
-            effect.Start(1).CheckError();
-            _activeEffects.Add(effect);
-            _log.Information("Effect started: {EffectKind}", kind);
+            StopGameplayEffectsCore("starting " + kind);
+            StopActiveEffectsCore();
+
+            try
+            {
+                var effect = kind switch
+                {
+                    FfbEffectKind.Spring => CreateConditionEffect(EffectGuid.Spring, MomoTestConditionCoefficient, MomoTestConditionSaturation, MomoSpringDeadBand),
+                    FfbEffectKind.Damper => CreateConditionEffect(EffectGuid.Damper, MomoTestConditionCoefficient, MomoTestConditionSaturation, deadBand: 0),
+                    FfbEffectKind.ConstantLeft => CreateConstantEffect(MomoConstantMagnitude, DirectionNegative, ConstantTestDuration),
+                    FfbEffectKind.ConstantRight => CreateConstantEffect(MomoConstantMagnitude, DirectionPositive, ConstantTestDuration),
+                    FfbEffectKind.LowVibration => CreatePeriodicEffect(EffectGuid.Sine, MomoVibrationMagnitude, MomoVibrationHz, VibrationTestDuration),
+                    _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+                };
+
+                effect.Download().CheckError();
+                effect.Start(1).CheckError();
+                _activeEffects.Add(effect);
+                _log.Information("Effect started: {EffectKind}", kind);
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex, "Effect start failed: {EffectKind}", kind);
+                StopAllEffectsCore("effect start failure");
+            }
         }
-        catch (Exception ex)
+    }
+
+    public void ApplyRpmVibration(int magnitude, int hz)
+    {
+        lock (_effectLock)
         {
-            _log.Error(ex, "Effect start failed: {EffectKind}", kind);
-            StopAllEffects("effect start failure");
+            if (_device is null || SelectedDevice is null)
+            {
+                return;
+            }
+
+            var cappedMagnitude = Math.Clamp(magnitude, 0, 2000);
+            var cappedHz = Math.Clamp(hz, 8, 45);
+            if (cappedMagnitude <= 0)
+            {
+                StopGameplayEffectsCore("rpm vibration magnitude zero");
+                return;
+            }
+
+            if (_gameplayRpmEffect is not null &&
+                Math.Abs(_gameplayRpmMagnitude - cappedMagnitude) < 100 &&
+                Math.Abs(_gameplayRpmHz - cappedHz) < 2)
+            {
+                return;
+            }
+
+            StopGameplayEffectsCore("updating rpm vibration");
+
+            try
+            {
+                var effect = CreatePeriodicEffect(EffectGuid.Sine, cappedMagnitude, cappedHz, TimeSpan.MaxValue);
+                effect.Download().CheckError();
+                effect.Start(1).CheckError();
+                _gameplayRpmEffect = effect;
+                _gameplayRpmMagnitude = cappedMagnitude;
+                _gameplayRpmHz = cappedHz;
+                _log.Information("RPM vibration updated: magnitude={Magnitude}, hz={Hz}", ScaleMagnitude(cappedMagnitude), cappedHz);
+            }
+            catch (Exception ex)
+            {
+                _log.Error(ex, "RPM vibration update failed");
+                StopGameplayEffectsCore("rpm vibration update failure");
+            }
+        }
+    }
+
+    public void StopGameplayEffects(string reason)
+    {
+        lock (_effectLock)
+        {
+            StopGameplayEffectsCore(reason);
         }
     }
 
     public void StopAllEffects(string reason)
+    {
+        lock (_effectLock)
+        {
+            StopAllEffectsCore(reason);
+        }
+    }
+
+    private void StopAllEffectsCore(string reason)
+    {
+        StopGameplayEffectsCore(reason);
+        StopActiveEffectsCore();
+
+        try
+        {
+            _device?.SendForceFeedbackCommand(ForceFeedbackCommand.StopAll);
+        }
+        catch (SharpGenException ex) when (IsNotExclusiveAcquired(ex))
+        {
+            _log.Warning("StopAll command skipped because the DirectInput device is not exclusively acquired");
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "StopAll command failed");
+        }
+
+        _log.Information("Effect stopped: all effects ({Reason})", reason);
+    }
+
+    private void StopActiveEffectsCore()
     {
         foreach (var effect in _activeEffects.ToArray())
         {
@@ -176,21 +265,32 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         }
 
         _activeEffects.Clear();
+    }
+
+    private void StopGameplayEffectsCore(string reason)
+    {
+        if (_gameplayRpmEffect is null)
+        {
+            return;
+        }
 
         try
         {
-            _device?.SendForceFeedbackCommand(ForceFeedbackCommand.StopAll);
-        }
-        catch (SharpGenException ex) when (IsNotExclusiveAcquired(ex))
-        {
-            _log.Warning("StopAll command skipped because the DirectInput device is not exclusively acquired");
+            _gameplayRpmEffect.Stop();
+            _gameplayRpmEffect.Unload();
+            _gameplayRpmEffect.Dispose();
+            _log.Information("Gameplay FFB stopped ({Reason})", reason);
         }
         catch (Exception ex)
         {
-            _log.Error(ex, "StopAll command failed");
+            _log.Error(ex, "Gameplay FFB stop/unload failed");
         }
-
-        _log.Information("Effect stopped: all effects ({Reason})", reason);
+        finally
+        {
+            _gameplayRpmEffect = null;
+            _gameplayRpmMagnitude = 0;
+            _gameplayRpmHz = 0;
+        }
     }
 
     public void Dispose()

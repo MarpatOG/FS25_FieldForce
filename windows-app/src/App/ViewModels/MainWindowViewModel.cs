@@ -12,6 +12,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly ConfigStore _configStore;
     private readonly IFfbBackend _backend;
     private readonly TelemetryReceiverService _telemetryReceiver;
+    private readonly GameplayFfbController _gameplayFfb;
     private readonly SafetyManager _safety;
     private readonly AppLogService _log;
     private readonly PanicHotkeyService _panicHotkey;
@@ -131,6 +132,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _backend.UpdateForceLimits(GlobalForceLimitPercent, DeviceForceLimitPercent);
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
         _telemetryReceiver.Start(_config.TelemetryHost, _config.TelemetryPort, _config.TelemetryLostTimeoutMs, _config.TelemetryFilePath);
+        _gameplayFfb = new GameplayFfbController(_telemetryReceiver, _backend, _log);
         _log.Information("Application initialized. Config={ConfigPath}", ConfigPath);
     }
 
@@ -374,6 +376,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         _disposed = true;
         _safety.StopAll("view model disposed");
+        _gameplayFfb.Dispose();
         _telemetryReceiver.StateChanged -= OnTelemetryStateChanged;
         _telemetryReceiver.Dispose();
         _panicHotkey.Dispose();
