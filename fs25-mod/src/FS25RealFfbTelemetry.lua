@@ -15,6 +15,13 @@ function FS25RealFfbTelemetry.new()
     self.udpEnabled = false
     self.fileEnabled = false
     self.filePath = nil
+    self.lastPacket = nil
+    self.lastPayload = nil
+    self.lastPacketTime = nil
+    self.lastPacketSource = "none"
+    self.lastWriteError = nil
+    self.overlayConfig = self.config.overlay or {}
+    self.overlayEnabled = self.overlayConfig.enabled ~= false
     self.fileWarningLogged = false
     self.transportWarningLogged = false
     return self
@@ -139,6 +146,7 @@ end
 function FS25RealFfbTelemetry:sendTelemetry()
     local packet = self:collectTelemetry()
     local payload = self:encodeJson(packet)
+    local sent = false
 
     if self.udpEnabled then
         local ok, result = pcall(function()
@@ -148,18 +156,32 @@ function FS25RealFfbTelemetry:sendTelemetry()
         if not ok or result == nil then
             self:logTransportWarning("UDP send failed: " .. tostring(result))
         elseif self.debug then
+            sent = true
             print("[FS25 Real FFB] Sent UDP telemetry: " .. payload)
+        else
+            sent = true
         end
     end
 
     if self.fileEnabled and self.filePath ~= nil then
         local ok, writeError = self:writeFile(self.filePath, payload)
         if not ok then
+            self.lastWriteError = tostring(writeError)
             self:logFileWarning("File telemetry write failed: " .. tostring(writeError))
         elseif self.debug then
+            sent = true
+            self.lastWriteError = nil
             print("[FS25 Real FFB] Wrote file telemetry: " .. payload)
+        else
+            sent = true
+            self.lastWriteError = nil
         end
     end
+
+    self.lastPacket = packet
+    self.lastPayload = payload
+    self.lastPacketTime = packet.timestamp
+    self.lastPacketSource = self:getTransportLabel(sent)
 end
 
 function FS25RealFfbTelemetry:collectTelemetry()
@@ -391,6 +413,165 @@ function FS25RealFfbTelemetry:getIsOnField(vehicle)
     end
 
     return nil
+end
+
+function FS25RealFfbTelemetry:draw()
+    if not self.overlayEnabled then
+        return
+    end
+
+    if type(renderText) ~= "function" then
+        return
+    end
+
+    local ok, err = pcall(function()
+        self:drawDebugOverlay()
+    end)
+
+    if not ok and self.debug then
+        print("[FS25 Real FFB] Debug overlay draw failed: " .. tostring(err))
+    end
+end
+
+function FS25RealFfbTelemetry:drawDebugOverlay()
+    local packet = self.lastPacket
+    local x = tonumber(self.overlayConfig.x) or 0.015
+    local y = tonumber(self.overlayConfig.y) or 0.965
+    local fontSize = tonumber(self.overlayConfig.fontSize) or 0.014
+    local lineHeight = tonumber(self.overlayConfig.lineHeight) or 0.018
+    local lines = self:getOverlayLines(packet)
+
+    self:setOverlayTextStyle()
+
+    for index, line in ipairs(lines) do
+        renderText(x, y - ((index - 1) * lineHeight), fontSize, line)
+    end
+
+    self:resetOverlayTextStyle()
+end
+
+function FS25RealFfbTelemetry:getOverlayLines(packet)
+    local transport = self:getTransportLabel(false)
+    local age = self:getPacketAgeText()
+    local lines = {
+        "FS25 Real FFB Telemetry",
+        "Transport: " .. transport .. " | source: " .. tostring(self.lastPacketSource or "none"),
+        "Age: " .. age .. " | rate: " .. tostring(self.updateRateHz) .. " Hz"
+    }
+
+    if self.lastWriteError ~= nil then
+        table.insert(lines, "File error: " .. self:truncateText(self.lastWriteError, 90))
+    end
+
+    if packet == nil then
+        table.insert(lines, "Packet: none")
+        return lines
+    end
+
+    table.insert(lines, "In vehicle: " .. self:boolText(packet.isPlayerInVehicle) .. " | state: " .. tostring(packet.gameState or "-"))
+    table.insert(lines, "Vehicle: " .. tostring(packet.vehicleName or "-") .. " (" .. tostring(packet.vehicleType or "-") .. ")")
+    table.insert(lines, "Speed: " .. self:formatNumber(packet.speedKmh, "km/h", 1) ..
+        " | RPM: " .. self:formatNumber(packet.rpm, "", 0) ..
+        " | Steering: " .. self:formatNumber(packet.steeringAngle, "", 3))
+    table.insert(lines, "Engine: " .. self:boolText(packet.engineStarted) ..
+        " | Mass: " .. self:formatNumber(packet.mass, "kg", 0) ..
+        " / " .. self:formatNumber(packet.totalMass, "kg", 0))
+
+    if self.lastPayload ~= nil then
+        local maxRawLength = tonumber(self.overlayConfig.maxRawLength) or 120
+        table.insert(lines, "Raw: " .. self:truncateText(self.lastPayload, maxRawLength))
+    end
+
+    return lines
+end
+
+function FS25RealFfbTelemetry:setOverlayTextStyle()
+    if type(setTextColor) == "function" then
+        setTextColor(0.88, 1.0, 0.82, 0.95)
+    end
+
+    if type(setTextBold) == "function" then
+        setTextBold(false)
+    end
+
+    if type(RenderText) == "table" and type(setTextAlignment) == "function" and RenderText.ALIGN_LEFT ~= nil then
+        setTextAlignment(RenderText.ALIGN_LEFT)
+    end
+
+    if type(RenderText) == "table" and type(setTextVerticalAlignment) == "function" and RenderText.VERTICAL_ALIGN_BASELINE ~= nil then
+        setTextVerticalAlignment(RenderText.VERTICAL_ALIGN_BASELINE)
+    end
+
+    if type(setTextDepthTestEnabled) == "function" then
+        setTextDepthTestEnabled(false)
+    end
+end
+
+function FS25RealFfbTelemetry:resetOverlayTextStyle()
+    if type(setTextColor) == "function" then
+        setTextColor(1, 1, 1, 1)
+    end
+
+    if type(setTextBold) == "function" then
+        setTextBold(false)
+    end
+end
+
+function FS25RealFfbTelemetry:getPacketAgeText()
+    if self.lastPacketTime == nil then
+        return "none"
+    end
+
+    local now = self:getTimestamp()
+    if type(now) ~= "number" or type(self.lastPacketTime) ~= "number" then
+        return "unknown"
+    end
+
+    return string.format("%.0f ms", math.max(0, now - self.lastPacketTime))
+end
+
+function FS25RealFfbTelemetry:getTransportLabel(sent)
+    if self.udpEnabled and self.fileEnabled then
+        return sent and "udp+file" or "udp+file ready"
+    elseif self.udpEnabled then
+        return sent and "udp" or "udp ready"
+    elseif self.fileEnabled then
+        return sent and "file" or "file ready"
+    end
+
+    return "disabled"
+end
+
+function FS25RealFfbTelemetry:boolText(value)
+    if value == nil then
+        return "-"
+    end
+
+    return value and "yes" or "no"
+end
+
+function FS25RealFfbTelemetry:formatNumber(value, suffix, decimals)
+    if type(value) ~= "number" then
+        return "-"
+    end
+
+    local format = "%." .. tostring(decimals or 0) .. "f"
+    local text = string.format(format, value)
+    if suffix ~= nil and suffix ~= "" then
+        return text .. " " .. suffix
+    end
+
+    return text
+end
+
+function FS25RealFfbTelemetry:truncateText(value, maxLength)
+    value = tostring(value or "")
+    maxLength = tonumber(maxLength) or 120
+    if string.len(value) <= maxLength then
+        return value
+    end
+
+    return string.sub(value, 1, math.max(1, maxLength - 3)) .. "..."
 end
 
 function FS25RealFfbTelemetry:encodeJson(packet)

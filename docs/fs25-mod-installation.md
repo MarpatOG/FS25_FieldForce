@@ -30,12 +30,23 @@ FS25RealFfbTelemetryConfig = {
     host = "127.0.0.1",
     port = 34325,
     updateRateHz = 30,
-    debug = false
+    debug = false,
+    fileFallback = true,
+    fileName = "telemetry.json",
+    overlay = {
+        enabled = true,
+        x = 0.015,
+        y = 0.965,
+        fontSize = 0.014,
+        lineHeight = 0.018,
+        maxRawLength = 120
+    }
 }
 ```
 
 Keep `debug=false` for normal use.
 Set `debug=true` only while diagnosing transport issues; the mod will then print sent UDP/file payloads and extra file write details.
+Set `overlay.enabled=false` if the in-game debug overlay is not needed.
 
 ## Run
 

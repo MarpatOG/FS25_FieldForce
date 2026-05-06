@@ -4,5 +4,13 @@ FS25RealFfbTelemetryConfig = {
     updateRateHz = 30,
     debug = false,
     fileFallback = true,
-    fileName = "telemetry.json"
+    fileName = "telemetry.json",
+    overlay = {
+        enabled = true,
+        x = 0.015,
+        y = 0.965,
+        fontSize = 0.014,
+        lineHeight = 0.018,
+        maxRawLength = 120
+    }
 }

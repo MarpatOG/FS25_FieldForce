@@ -35,6 +35,10 @@ Edit `config/TelemetryConfig.lua`:
 - `port`: default `34325`
 - `updateRateHz`: default `30`
 - `debug`: default `false`
+- `overlay.enabled`: default `true`; draws the in-game telemetry debug overlay
+- `overlay.x`, `overlay.y`: screen-space overlay position, where `0,0` is bottom-left
+- `overlay.fontSize`, `overlay.lineHeight`: text sizing
+- `overlay.maxRawLength`: max raw JSON characters shown in the overlay
 
 ## Transport Diagnostics
 
