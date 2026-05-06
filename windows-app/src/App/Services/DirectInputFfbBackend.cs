@@ -23,13 +23,15 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private readonly IDirectInput8 _directInput;
     private readonly object _effectLock = new();
     private readonly List<IDirectInputEffect> _activeEffects = [];
-    private IDirectInputEffect? _gameplayRpmEffect;
+    private IDirectInputEffect? _gameplaySpringEffect;
+    private IDirectInputEffect? _gameplayDamperEffect;
+    private IDirectInputEffect? _gameplayEngineEffect;
+    private IDirectInputEffect? _gameplaySurfaceEffect;
     private IDirectInputDevice8? _device;
     private int _primaryAxisOffset;
     private int _globalLimitPercent = 40;
     private int _deviceLimitPercent = 35;
-    private int _gameplayRpmMagnitude;
-    private int _gameplayRpmHz;
+    private GameplayFfbOutput _lastGameplayOutput = GameplayFfbOutput.Zero;
 
     public DirectInputFfbBackend(AppLogService log)
     {
@@ -167,7 +169,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         }
     }
 
-    public void ApplyRpmVibration(int magnitude, int hz)
+    public void ApplyGameplayEffects(GameplayFfbOutput output)
     {
         lock (_effectLock)
         {
@@ -176,38 +178,33 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                 return;
             }
 
-            var cappedMagnitude = Math.Clamp(magnitude, 0, 2000);
-            var cappedHz = Math.Clamp(hz, 8, 45);
-            if (cappedMagnitude <= 0)
+            if (!output.IsActive)
             {
-                StopGameplayEffectsCore("rpm vibration magnitude zero");
+                StopGameplayEffectsCore("gameplay output zero");
                 return;
             }
 
-            if (_gameplayRpmEffect is not null &&
-                Math.Abs(_gameplayRpmMagnitude - cappedMagnitude) < 100 &&
-                Math.Abs(_gameplayRpmHz - cappedHz) < 2)
+            var quantized = QuantizeOutput(output);
+            if (IsSameGameplayOutput(_lastGameplayOutput, quantized))
             {
                 return;
             }
 
-            StopGameplayEffectsCore("updating rpm vibration");
-
-            try
-            {
-                var effect = CreatePeriodicEffect(EffectGuid.Sine, cappedMagnitude, cappedHz, TimeSpan.MaxValue);
-                effect.Download().CheckError();
-                effect.Start(1).CheckError();
-                _gameplayRpmEffect = effect;
-                _gameplayRpmMagnitude = cappedMagnitude;
-                _gameplayRpmHz = cappedHz;
-                _log.Information("RPM vibration updated: magnitude={Magnitude}, hz={Hz}", ScaleMagnitude(cappedMagnitude), cappedHz);
-            }
-            catch (Exception ex)
-            {
-                _log.Error(ex, "RPM vibration update failed");
-                StopGameplayEffectsCore("rpm vibration update failure");
-            }
+            ApplyConditionEffect(ref _gameplaySpringEffect, EffectGuid.Spring, quantized.SpringPercent, deadBand: MomoSpringDeadBand, "spring");
+            ApplyConditionEffect(ref _gameplayDamperEffect, EffectGuid.Damper, quantized.DamperPercent, deadBand: 0, "damper");
+            ApplyPeriodicEffect(ref _gameplayEngineEffect, quantized.EngineVibrationPercent, quantized.EngineVibrationHz, "engine vibration");
+            ApplyPeriodicEffect(ref _gameplaySurfaceEffect, quantized.SurfaceVibrationPercent, quantized.SurfaceVibrationHz, "surface feedback");
+            _lastGameplayOutput = quantized;
+            _log.Information(
+                "Gameplay FFB updated: spring={Spring}%, damper={Damper}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, load={Load:0.00}, fade={Fade:0.00}",
+                quantized.SpringPercent,
+                quantized.DamperPercent,
+                quantized.EngineVibrationPercent,
+                quantized.EngineVibrationHz,
+                quantized.SurfaceVibrationPercent,
+                quantized.SurfaceVibrationHz,
+                quantized.LoadFactor,
+                quantized.TelemetryFade);
         }
     }
 
@@ -269,28 +266,21 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
     private void StopGameplayEffectsCore(string reason)
     {
-        if (_gameplayRpmEffect is null)
+        if (_gameplaySpringEffect is null &&
+            _gameplayDamperEffect is null &&
+            _gameplayEngineEffect is null &&
+            _gameplaySurfaceEffect is null)
         {
+            _lastGameplayOutput = GameplayFfbOutput.Zero;
             return;
         }
 
-        try
-        {
-            _gameplayRpmEffect.Stop();
-            _gameplayRpmEffect.Unload();
-            _gameplayRpmEffect.Dispose();
-            _log.Information("Gameplay FFB stopped ({Reason})", reason);
-        }
-        catch (Exception ex)
-        {
-            _log.Error(ex, "Gameplay FFB stop/unload failed");
-        }
-        finally
-        {
-            _gameplayRpmEffect = null;
-            _gameplayRpmMagnitude = 0;
-            _gameplayRpmHz = 0;
-        }
+        StopAndDisposeEffect(ref _gameplaySpringEffect, "gameplay spring");
+        StopAndDisposeEffect(ref _gameplayDamperEffect, "gameplay damper");
+        StopAndDisposeEffect(ref _gameplayEngineEffect, "gameplay engine vibration");
+        StopAndDisposeEffect(ref _gameplaySurfaceEffect, "gameplay surface feedback");
+        _lastGameplayOutput = GameplayFfbOutput.Zero;
+        _log.Information("Gameplay FFB stopped ({Reason})", reason);
     }
 
     public void Dispose()
@@ -354,6 +344,72 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return _device!.CreateEffect(effectGuid, parameters);
     }
 
+    private void ApplyConditionEffect(ref IDirectInputEffect? effect, Guid effectGuid, int percent, int deadBand, string label)
+    {
+        StopAndDisposeEffect(ref effect, label);
+        if (percent <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var magnitude = PercentToDirectInputMagnitude(percent);
+            effect = CreateConditionEffect(effectGuid, magnitude, magnitude, deadBand);
+            effect.Download().CheckError();
+            effect.Start(1).CheckError();
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Gameplay condition effect update failed: {EffectLabel}", label);
+            StopAndDisposeEffect(ref effect, label);
+        }
+    }
+
+    private void ApplyPeriodicEffect(ref IDirectInputEffect? effect, int percent, int hz, string label)
+    {
+        StopAndDisposeEffect(ref effect, label);
+        if (percent <= 0 || hz <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            effect = CreatePeriodicEffect(EffectGuid.Sine, PercentToDirectInputMagnitude(percent), hz, TimeSpan.MaxValue);
+            effect.Download().CheckError();
+            effect.Start(1).CheckError();
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Gameplay periodic effect update failed: {EffectLabel}", label);
+            StopAndDisposeEffect(ref effect, label);
+        }
+    }
+
+    private void StopAndDisposeEffect(ref IDirectInputEffect? effect, string label)
+    {
+        if (effect is null)
+        {
+            return;
+        }
+
+        try
+        {
+            effect.Stop();
+            effect.Unload();
+            effect.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Effect stop/unload failed: {EffectLabel}", label);
+        }
+        finally
+        {
+            effect = null;
+        }
+    }
+
     private EffectParameters BaseParameters(TimeSpan duration, int direction = DirectionPositive)
     {
         var parameters = new EffectParameters
@@ -378,6 +434,39 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     {
         var limit = Math.Min(_globalLimitPercent, _deviceLimitPercent) / 100.0;
         return Math.Clamp((int)Math.Round(Math.Abs(magnitude) * limit), 0, DirectInputMax);
+    }
+
+    private static int PercentToDirectInputMagnitude(int percent)
+    {
+        return Math.Clamp((int)Math.Round(DirectInputMax * (Math.Clamp(percent, 0, 100) / 100.0)), 0, DirectInputMax);
+    }
+
+    private static GameplayFfbOutput QuantizeOutput(GameplayFfbOutput output)
+    {
+        return output with
+        {
+            SpringPercent = QuantizePercent(output.SpringPercent, 2),
+            DamperPercent = QuantizePercent(output.DamperPercent, 2),
+            EngineVibrationPercent = QuantizePercent(output.EngineVibrationPercent, 2),
+            EngineVibrationHz = QuantizePercent(output.EngineVibrationHz, 2),
+            SurfaceVibrationPercent = QuantizePercent(output.SurfaceVibrationPercent, 2),
+            SurfaceVibrationHz = QuantizePercent(output.SurfaceVibrationHz, 2)
+        };
+    }
+
+    private static int QuantizePercent(int value, int step)
+    {
+        return Math.Clamp((int)Math.Round(value / (double)step) * step, 0, 100);
+    }
+
+    private static bool IsSameGameplayOutput(GameplayFfbOutput left, GameplayFfbOutput right)
+    {
+        return left.SpringPercent == right.SpringPercent &&
+               left.DamperPercent == right.DamperPercent &&
+               left.EngineVibrationPercent == right.EngineVibrationPercent &&
+               left.EngineVibrationHz == right.EngineVibrationHz &&
+               left.SurfaceVibrationPercent == right.SurfaceVibrationPercent &&
+               left.SurfaceVibrationHz == right.SurfaceVibrationHz;
     }
 
     private void ReleaseDevice()

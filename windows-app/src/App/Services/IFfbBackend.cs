@@ -8,7 +8,7 @@ public interface IFfbBackend : IDisposable
     bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent);
     void UpdateForceLimits(int globalLimitPercent, int deviceLimitPercent);
     void StartTestEffect(FfbEffectKind kind);
-    void ApplyRpmVibration(int magnitude, int hz);
+    void ApplyGameplayEffects(GameplayFfbOutput output);
     void StopGameplayEffects(string reason);
     void StopAllEffects(string reason);
     DeviceInfo? SelectedDevice { get; }

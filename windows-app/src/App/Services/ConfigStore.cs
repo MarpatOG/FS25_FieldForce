@@ -26,7 +26,7 @@ public sealed class ConfigStore
             }
 
             var json = File.ReadAllText(ConfigPath);
-            return JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig();
+            return Normalize(JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig());
         }
         catch
         {
@@ -43,5 +43,16 @@ public sealed class ConfigStore
         }
 
         File.WriteAllText(ConfigPath, JsonSerializer.Serialize(config, JsonOptions));
+    }
+
+    private static AppConfig Normalize(AppConfig config)
+    {
+        config.GameplayFfb ??= new GameplayFfbSettings();
+        config.GameplayFfb.SpeedSpring ??= new FfbEffectSettings();
+        config.GameplayFfb.SpeedDamper ??= new FfbEffectSettings();
+        config.GameplayFfb.LoadResistance ??= new LoadResistanceSettings();
+        config.GameplayFfb.EngineVibration ??= new EngineVibrationSettings();
+        config.GameplayFfb.SurfaceFeedback ??= new SurfaceFeedbackSettings();
+        return config;
     }
 }

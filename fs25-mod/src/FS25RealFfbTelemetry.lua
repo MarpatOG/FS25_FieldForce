@@ -437,14 +437,23 @@ function FS25RealFfbTelemetry:drawDebugOverlay()
     local packet = self.lastPacket
     local x = tonumber(self.overlayConfig.x) or 0.015
     local y = tonumber(self.overlayConfig.y) or 0.965
+    local width = tonumber(self.overlayConfig.width) or 0.32
+    local padding = tonumber(self.overlayConfig.padding) or 0.008
     local fontSize = tonumber(self.overlayConfig.fontSize) or 0.014
     local lineHeight = tonumber(self.overlayConfig.lineHeight) or 0.018
     local lines = self:getOverlayLines(packet)
 
-    self:setOverlayTextStyle()
+    self:drawOverlayContainer(x, y, width, padding, lineHeight, #lines)
+    self:setOverlayTextStyle(false)
 
     for index, line in ipairs(lines) do
-        renderText(x, y - ((index - 1) * lineHeight), fontSize, line)
+        if index == 1 then
+            self:setOverlayTextStyle(true)
+        elseif index == 2 then
+            self:setOverlayTextStyle(false)
+        end
+
+        renderText(x + padding, y - padding - ((index - 1) * lineHeight), fontSize, line)
     end
 
     self:resetOverlayTextStyle()
@@ -455,43 +464,73 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
     local age = self:getPacketAgeText()
     local lines = {
         "FS25 Real FFB Telemetry",
-        "Transport: " .. transport .. " | source: " .. tostring(self.lastPacketSource or "none"),
-        "Age: " .. age .. " | rate: " .. tostring(self.updateRateHz) .. " Hz"
+        "transport: " .. transport,
+        "source: " .. tostring(self.lastPacketSource or "none"),
+        "age: " .. age,
+        "rate: " .. tostring(self.updateRateHz) .. " Hz"
     }
 
     if self.lastWriteError ~= nil then
-        table.insert(lines, "File error: " .. self:truncateText(self.lastWriteError, 90))
+        table.insert(lines, "fileError: " .. self:truncateText(self.lastWriteError, 90))
     end
 
     if packet == nil then
-        table.insert(lines, "Packet: none")
+        table.insert(lines, "timestamp: -")
+        table.insert(lines, "gameState: -")
+        table.insert(lines, "isPlayerInVehicle: -")
+        table.insert(lines, "vehicleName: -")
+        table.insert(lines, "vehicleType: -")
+        table.insert(lines, "speedKmh: -")
+        table.insert(lines, "steeringAngle: -")
+        table.insert(lines, "rpm: -")
+        table.insert(lines, "engineStarted: -")
+        table.insert(lines, "mass: -")
+        table.insert(lines, "totalMass: -")
+        table.insert(lines, "isOnField: -")
         return lines
     end
 
-    table.insert(lines, "In vehicle: " .. self:boolText(packet.isPlayerInVehicle) .. " | state: " .. tostring(packet.gameState or "-"))
-    table.insert(lines, "Vehicle: " .. tostring(packet.vehicleName or "-") .. " (" .. tostring(packet.vehicleType or "-") .. ")")
-    table.insert(lines, "Speed: " .. self:formatNumber(packet.speedKmh, "km/h", 1) ..
-        " | RPM: " .. self:formatNumber(packet.rpm, "", 0) ..
-        " | Steering: " .. self:formatNumber(packet.steeringAngle, "", 3))
-    table.insert(lines, "Engine: " .. self:boolText(packet.engineStarted) ..
-        " | Mass: " .. self:formatNumber(packet.mass, "kg", 0) ..
-        " / " .. self:formatNumber(packet.totalMass, "kg", 0))
-
-    if self.lastPayload ~= nil then
-        local maxRawLength = tonumber(self.overlayConfig.maxRawLength) or 120
-        table.insert(lines, "Raw: " .. self:truncateText(self.lastPayload, maxRawLength))
-    end
+    table.insert(lines, "timestamp: " .. self:formatNumber(packet.timestamp, "", 0))
+    table.insert(lines, "gameState: " .. tostring(packet.gameState or "-"))
+    table.insert(lines, "isPlayerInVehicle: " .. self:boolText(packet.isPlayerInVehicle))
+    table.insert(lines, "vehicleName: " .. tostring(packet.vehicleName or "-"))
+    table.insert(lines, "vehicleType: " .. tostring(packet.vehicleType or "-"))
+    table.insert(lines, "speedKmh: " .. self:formatNumber(packet.speedKmh, "", 1))
+    table.insert(lines, "steeringAngle: " .. self:formatNumber(packet.steeringAngle, "", 3))
+    table.insert(lines, "rpm: " .. self:formatNumber(packet.rpm, "", 0))
+    table.insert(lines, "engineStarted: " .. self:boolText(packet.engineStarted))
+    table.insert(lines, "mass: " .. self:formatNumber(packet.mass, "", 0))
+    table.insert(lines, "totalMass: " .. self:formatNumber(packet.totalMass, "", 0))
+    table.insert(lines, "isOnField: " .. self:boolText(packet.isOnField))
 
     return lines
 end
 
-function FS25RealFfbTelemetry:setOverlayTextStyle()
+function FS25RealFfbTelemetry:drawOverlayContainer(x, y, width, padding, lineHeight, lineCount)
+    local height = (lineCount * lineHeight) + (padding * 1.8)
+    local color = self.overlayConfig.backgroundColor or { 0.02, 0.03, 0.025, 0.62 }
+    local rectY = y - height + padding
+
+    if type(drawFilledRect) == "function" then
+        pcall(function()
+            drawFilledRect(x, rectY, width, height, color[1], color[2], color[3], color[4])
+        end)
+    elseif type(renderFilledRect) == "function" then
+        pcall(function()
+            renderFilledRect(x, rectY, width, height, color[1], color[2], color[3], color[4])
+        end)
+    end
+end
+
+function FS25RealFfbTelemetry:setOverlayTextStyle(isTitle)
     if type(setTextColor) == "function" then
-        setTextColor(0.88, 1.0, 0.82, 0.95)
+        local color = isTitle and (self.overlayConfig.titleColor or { 1.0, 0.96, 0.78, 0.98 }) or
+            (self.overlayConfig.textColor or { 0.88, 1.0, 0.82, 0.95 })
+        setTextColor(color[1], color[2], color[3], color[4])
     end
 
     if type(setTextBold) == "function" then
-        setTextBold(false)
+        setTextBold(isTitle == true)
     end
 
     if type(RenderText) == "table" and type(setTextAlignment) == "function" and RenderText.ALIGN_LEFT ~= nil then

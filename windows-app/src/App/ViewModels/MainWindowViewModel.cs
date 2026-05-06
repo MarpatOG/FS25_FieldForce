@@ -18,6 +18,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly PanicHotkeyService _panicHotkey;
     private AppConfig _config;
     private IntPtr _windowHandle;
+    private bool _loadingConfig;
     private bool _disposed;
 
     [ObservableProperty]
@@ -107,6 +108,90 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private string _telemetryParseStatus = "No packets yet";
 
+    [ObservableProperty]
+    private bool _gameplayFfbEnabled;
+
+    [ObservableProperty]
+    private bool _speedSpringEnabled;
+
+    [ObservableProperty]
+    private int _speedSpringStrengthPercent;
+
+    [ObservableProperty]
+    private int _speedSpringMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _speedSpringCurve;
+
+    [ObservableProperty]
+    private bool _speedDamperEnabled;
+
+    [ObservableProperty]
+    private int _speedDamperStrengthPercent;
+
+    [ObservableProperty]
+    private int _speedDamperMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _speedDamperCurve;
+
+    [ObservableProperty]
+    private bool _loadResistanceEnabled;
+
+    [ObservableProperty]
+    private int _loadResistanceStrengthPercent;
+
+    [ObservableProperty]
+    private int _loadResistanceMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _loadResistanceCurve;
+
+    [ObservableProperty]
+    private bool _engineVibrationEnabled;
+
+    [ObservableProperty]
+    private int _engineVibrationStrengthPercent;
+
+    [ObservableProperty]
+    private int _engineVibrationMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _engineVibrationCurve;
+
+    [ObservableProperty]
+    private bool _surfaceFeedbackEnabled;
+
+    [ObservableProperty]
+    private int _surfaceFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private int _surfaceFeedbackMaxPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _surfaceFeedbackCurve;
+
+    [ObservableProperty]
+    private string _activeGameplayEffects = "None";
+
+    [ObservableProperty]
+    private string _springOutput = "0%";
+
+    [ObservableProperty]
+    private string _damperOutput = "0%";
+
+    [ObservableProperty]
+    private string _engineVibrationOutput = "0%";
+
+    [ObservableProperty]
+    private string _surfaceFeedbackOutput = "0%";
+
+    [ObservableProperty]
+    private string _loadFactor = "1.00";
+
+    [ObservableProperty]
+    private string _telemetryFade = "0%";
+
     public MainWindowViewModel()
         : this(new ConfigStore(), null, null, null)
     {
@@ -123,8 +208,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _panicHotkey.Pressed += HandlePanicHotkey;
         _panicHotkey.Register();
         _config = _configStore.Load();
+        _loadingConfig = true;
         _globalForceLimitPercent = _config.GlobalForceLimitPercent;
         _deviceForceLimitPercent = _config.DeviceForceLimitPercent;
+        LoadGameplaySettingsIntoUi(_config.GameplayFfb);
+        _loadingConfig = false;
         _configPath = _configStore.ConfigPath;
         _logPath = _log.LogPath;
         Logs = _log.Entries;
@@ -132,12 +220,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _backend.UpdateForceLimits(GlobalForceLimitPercent, DeviceForceLimitPercent);
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
         _telemetryReceiver.Start(_config.TelemetryHost, _config.TelemetryPort, _config.TelemetryLostTimeoutMs, _config.TelemetryFilePath);
-        _gameplayFfb = new GameplayFfbController(_telemetryReceiver, _backend, _log);
+        _gameplayFfb = new GameplayFfbController(_telemetryReceiver, _backend, _log, () => _config.GameplayFfb, OnGameplayOutputChanged);
         _log.Information("Application initialized. Config={ConfigPath}", ConfigPath);
     }
 
     public ObservableCollection<DeviceInfo> Devices { get; } = [];
     public ObservableCollection<string> Logs { get; }
+    public IReadOnlyList<FfbCurveKind> CurveKinds { get; } =
+    [
+        FfbCurveKind.Smooth,
+        FfbCurveKind.Linear,
+        FfbCurveKind.Aggressive
+    ];
     public string PanicHotkey => _config.PanicHotkey;
     public bool CanRunEffects => SelectedDevice?.IsForceFeedbackCapable == true && _backend.HasSelectedFfbDevice;
     public string DeviceCountText => $"{Devices.Count} device(s)";
@@ -152,7 +246,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public void HandlePanicHotkey()
     {
+        GameplayFfbEnabled = false;
         _safety.OnPanicHotkey();
+        OnGameplayOutputChanged(GameplayFfbOutput.Zero);
         BackendStatus = "Emergency stop active";
         StopAllEffectsCommand.NotifyCanExecuteChanged();
     }
@@ -236,7 +332,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void StopAllEffects()
     {
+        GameplayFfbEnabled = false;
         _safety.StopAll("user stop");
+        OnGameplayOutputChanged(GameplayFfbOutput.Zero);
         BackendStatus = "All effects stopped";
     }
 
@@ -296,6 +394,111 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _backend.UpdateForceLimits(GlobalForceLimitPercent, DeviceForceLimitPercent);
         _configStore.Save(_config);
         _log.Information("Force limits updated: global={GlobalLimit}%, device={DeviceLimit}%", GlobalForceLimitPercent, DeviceForceLimitPercent);
+    }
+
+    partial void OnGameplayFfbEnabledChanged(bool value)
+    {
+        SaveGameplaySettingsFromUi();
+        if (!value && !_loadingConfig)
+        {
+            _backend.StopGameplayEffects("gameplay ffb disabled");
+            OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+        }
+    }
+    partial void OnSpeedSpringEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedSpringStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedSpringMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedSpringCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedDamperEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedDamperStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedDamperMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedDamperCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnLoadResistanceEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnLoadResistanceStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnLoadResistanceMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnLoadResistanceCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineVibrationEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineVibrationStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineVibrationMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineVibrationCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnSurfaceFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnSurfaceFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSurfaceFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSurfaceFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+
+    private void LoadGameplaySettingsIntoUi(GameplayFfbSettings settings)
+    {
+        GameplayFfbEnabled = settings.Enabled;
+        SpeedSpringEnabled = settings.SpeedSpring.Enabled;
+        SpeedSpringStrengthPercent = settings.SpeedSpring.StrengthPercent;
+        SpeedSpringMaxPercent = settings.SpeedSpring.MaxOutputPercent;
+        SpeedSpringCurve = settings.SpeedSpring.Curve;
+        SpeedDamperEnabled = settings.SpeedDamper.Enabled;
+        SpeedDamperStrengthPercent = settings.SpeedDamper.StrengthPercent;
+        SpeedDamperMaxPercent = settings.SpeedDamper.MaxOutputPercent;
+        SpeedDamperCurve = settings.SpeedDamper.Curve;
+        LoadResistanceEnabled = settings.LoadResistance.Enabled;
+        LoadResistanceStrengthPercent = settings.LoadResistance.StrengthPercent;
+        LoadResistanceMaxPercent = settings.LoadResistance.MaxOutputPercent;
+        LoadResistanceCurve = settings.LoadResistance.Curve;
+        EngineVibrationEnabled = settings.EngineVibration.Enabled;
+        EngineVibrationStrengthPercent = settings.EngineVibration.StrengthPercent;
+        EngineVibrationMaxPercent = settings.EngineVibration.MaxOutputPercent;
+        EngineVibrationCurve = settings.EngineVibration.Curve;
+        SurfaceFeedbackEnabled = settings.SurfaceFeedback.Enabled;
+        SurfaceFeedbackStrengthPercent = settings.SurfaceFeedback.StrengthPercent;
+        SurfaceFeedbackMaxPercent = settings.SurfaceFeedback.MaxOutputPercent;
+        SurfaceFeedbackCurve = settings.SurfaceFeedback.Curve;
+    }
+
+    private void SaveGameplaySettingsFromUi()
+    {
+        if (_loadingConfig)
+        {
+            return;
+        }
+
+        _config.GameplayFfb.Enabled = GameplayFfbEnabled;
+        _config.GameplayFfb.SpeedSpring.Enabled = SpeedSpringEnabled;
+        _config.GameplayFfb.SpeedSpring.StrengthPercent = Math.Clamp(SpeedSpringStrengthPercent, 0, 100);
+        _config.GameplayFfb.SpeedSpring.MaxOutputPercent = Math.Clamp(SpeedSpringMaxPercent, 0, 100);
+        _config.GameplayFfb.SpeedSpring.Curve = SpeedSpringCurve;
+        _config.GameplayFfb.SpeedDamper.Enabled = SpeedDamperEnabled;
+        _config.GameplayFfb.SpeedDamper.StrengthPercent = Math.Clamp(SpeedDamperStrengthPercent, 0, 100);
+        _config.GameplayFfb.SpeedDamper.MaxOutputPercent = Math.Clamp(SpeedDamperMaxPercent, 0, 100);
+        _config.GameplayFfb.SpeedDamper.Curve = SpeedDamperCurve;
+        _config.GameplayFfb.LoadResistance.Enabled = LoadResistanceEnabled;
+        _config.GameplayFfb.LoadResistance.StrengthPercent = Math.Clamp(LoadResistanceStrengthPercent, 0, 100);
+        _config.GameplayFfb.LoadResistance.MaxOutputPercent = Math.Clamp(LoadResistanceMaxPercent, 0, 100);
+        _config.GameplayFfb.LoadResistance.Curve = LoadResistanceCurve;
+        _config.GameplayFfb.EngineVibration.Enabled = EngineVibrationEnabled;
+        _config.GameplayFfb.EngineVibration.StrengthPercent = Math.Clamp(EngineVibrationStrengthPercent, 0, 100);
+        _config.GameplayFfb.EngineVibration.MaxOutputPercent = Math.Clamp(EngineVibrationMaxPercent, 0, 100);
+        _config.GameplayFfb.EngineVibration.Curve = EngineVibrationCurve;
+        _config.GameplayFfb.SurfaceFeedback.Enabled = SurfaceFeedbackEnabled;
+        _config.GameplayFfb.SurfaceFeedback.StrengthPercent = Math.Clamp(SurfaceFeedbackStrengthPercent, 0, 100);
+        _config.GameplayFfb.SurfaceFeedback.MaxOutputPercent = Math.Clamp(SurfaceFeedbackMaxPercent, 0, 100);
+        _config.GameplayFfb.SurfaceFeedback.Curve = SurfaceFeedbackCurve;
+        _configStore.Save(_config);
+        _log.Information("Gameplay FFB settings updated");
+    }
+
+    private void OnGameplayOutputChanged(GameplayFfbOutput output)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            ActiveGameplayEffects = output.ActiveEffectsText;
+            SpringOutput = $"{output.SpringPercent}%";
+            DamperOutput = $"{output.DamperPercent}%";
+            EngineVibrationOutput = output.EngineVibrationPercent > 0
+                ? $"{output.EngineVibrationPercent}% @ {output.EngineVibrationHz} Hz"
+                : "0%";
+            SurfaceFeedbackOutput = output.SurfaceVibrationPercent > 0
+                ? $"{output.SurfaceVibrationPercent}% @ {output.SurfaceVibrationHz} Hz"
+                : "0%";
+            LoadFactor = output.LoadFactor.ToString("0.00");
+            TelemetryFade = $"{output.TelemetryFade * 100:0}%";
+        });
     }
 
     private void RefreshCommandStates()

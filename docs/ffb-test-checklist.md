@@ -26,18 +26,31 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Vibration`: short sine vibration is felt clearly but should not yank the wheel.
 - `Stop All`: active effect stops immediately.
 
-## Gameplay RPM Vibration
+## MVP Gameplay Effects
 
 - Select and acquire the FFB wheel before starting FS25 telemetry verification.
-- Enter a vehicle and start the engine.
-- A very light vibration appears and changes subtly with RPM.
-- Stop the engine or leave the vehicle; vibration stops within about half a second.
-- `Stop All` and `Ctrl+Alt+Pause` stop both test effects and gameplay vibration.
+- Open `Effects` and confirm `FFB Enabled` is checked.
+- Enter a vehicle and start driving slowly.
+- `Speed Spring`: centering is very weak at standstill, soft at low speed, and stronger around 20-30 km/h.
+- `Speed Damper`: wheel movement gets less twitchy as speed increases, without becoming stiff at standstill.
+- `Load Resistance`: attaching heavier equipment increases the displayed load factor and resistance if enabled.
+- `Engine Vibration`: no vibration when the engine is off; low vibration appears when RPM rises.
+- `Surface Feedback`: field state enables soft low-frequency vibration when `isOnField=true`.
+- Each effect can be enabled/disabled independently and each strength slider changes the live output value.
+- Stop the engine, leave the vehicle, or stop telemetry; gameplay outputs fade or stop safely.
+- `Stop All` and `Ctrl+Alt+Pause` stop test and gameplay effects. `Stop All` disables gameplay FFB until `FFB Enabled` is checked again.
+
+## FS25 Overlay
+
+- Overlay appears as a compact mod container.
+- Telemetry fields are displayed vertically as label/value rows.
+- The overlay includes `timestamp`, `gameState`, `isPlayerInVehicle`, `vehicleName`, `vehicleType`, `speedKmh`, `steeringAngle`, `rpm`, `engineStarted`, `mass`, `totalMass`, and `isOnField`.
+- If the panel background is unavailable in the game render API, the text list still renders and FS25 does not crash.
 
 ## Safety Checks
 
 - `Emergency Stop` stops active effects.
-- `Ctrl+Alt+Pause` stops active effects, including when another window has focus if global hotkey registration succeeds.
+- `Ctrl+Alt+Pause` stops active effects and disables gameplay FFB, including when another window has focus if global hotkey registration succeeds.
 - Closing the app stops active effects.
 - Disconnecting the wheel and pressing `Scan` logs a device disconnect safety event.
 
