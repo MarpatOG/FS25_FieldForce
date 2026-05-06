@@ -209,7 +209,11 @@ function FS25RealFfbTelemetry:getTimestamp()
         return g_time
     end
 
-    return os.clock()
+    if os ~= nil and type(os.clock) == "function" then
+        return os.clock()
+    end
+
+    return 0
 end
 
 function FS25RealFfbTelemetry:getGameState()
@@ -424,18 +428,6 @@ function FS25RealFfbTelemetry:getFileApiError()
         return "io.open is unavailable"
     end
 
-    if os == nil then
-        return "os library is unavailable"
-    end
-
-    if type(os.remove) ~= "function" then
-        return "os.remove is unavailable"
-    end
-
-    if type(os.rename) ~= "function" then
-        return "os.rename is unavailable"
-    end
-
     return nil
 end
 
@@ -487,6 +479,10 @@ function FS25RealFfbTelemetry:createFolderIfPossible(path)
 end
 
 function FS25RealFfbTelemetry:writeFile(path, payload)
+    if os == nil or type(os.rename) ~= "function" or type(os.remove) ~= "function" then
+        return self:writeFileDirect(path, payload, "atomic rename unavailable")
+    end
+
     local tmpPath = path .. ".tmp"
     local ok, err = pcall(function()
         local file = io.open(tmpPath, "w")
@@ -509,6 +505,28 @@ function FS25RealFfbTelemetry:writeFile(path, payload)
     end)
 
     if ok == true then
+        return true, nil
+    end
+
+    return false, tostring(err)
+end
+
+function FS25RealFfbTelemetry:writeFileDirect(path, payload, reason)
+    local ok, err = pcall(function()
+        local file = io.open(path, "w")
+        if file == nil then
+            error("io.open returned nil for " .. tostring(path))
+        end
+
+        file:write(payload)
+        file:flush()
+        file:close()
+    end)
+
+    if ok == true then
+        if self.debug then
+            print("[FS25 Real FFB] Wrote file telemetry without atomic rename: " .. tostring(reason))
+        end
         return true, nil
     end
 
