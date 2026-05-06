@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+TestResults/
+*.log
+windows-app/src/App/bin/
+windows-app/src/App/obj/

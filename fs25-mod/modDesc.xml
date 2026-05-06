@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<modDesc descVersion="98">
+    <author>FS25 Real FFB Bridge</author>
+    <version>0.2.0.0</version>
+    <title>
+        <en>FS25 Real FFB Telemetry</en>
+    </title>
+    <description>
+        <en>Sends active vehicle telemetry to the FS25 FFB Bridge Windows app over localhost UDP. Does not modify vehicle physics or steering.</en>
+    </description>
+    <multiplayer supported="false"/>
+    <extraSourceFiles>
+        <sourceFile filename="config/TelemetryConfig.lua"/>
+        <sourceFile filename="src/FS25RealFfbTelemetry.lua"/>
+    </extraSourceFiles>
+</modDesc>

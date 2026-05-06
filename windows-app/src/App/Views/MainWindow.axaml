@@ -1,0 +1,279 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FS25FfbBridge.App.ViewModels"
+        x:Class="FS25FfbBridge.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="1120"
+        Height="760"
+        MinWidth="920"
+        MinHeight="620"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="FS25 FFB Bridge"
+        Background="#F3F1EC">
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#1D211F"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.muted">
+            <Setter Property="Foreground" Value="#69706B"/>
+        </Style>
+        <Style Selector="Border.panel">
+            <Setter Property="Background" Value="#FAF9F5"/>
+            <Setter Property="BorderBrush" Value="#D8D4CA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="#8D1D22"/>
+            <Setter Property="Foreground" Value="#FFF9F1"/>
+        </Style>
+        <Style Selector="Button.test">
+            <Setter Property="Background" Value="#243E36"/>
+            <Setter Property="Foreground" Value="#FFF9F1"/>
+        </Style>
+        <Style Selector="TextBox.mono">
+            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Background="#243E36" Padding="18,14">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                <StackPanel Spacing="2">
+                    <TextBlock Classes="title" Text="FS25 FFB Bridge" Foreground="#FFF9F1"/>
+                    <TextBlock Text="Milestone 2: DirectInput FFB baseline plus FS25 UDP telemetry"
+                               Foreground="#DCE5D7"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" Grid.Column="1" VerticalAlignment="Center">
+                    <Border Background="#E7EEE2" CornerRadius="4" Padding="10,6">
+                        <TextBlock Text="{Binding TelemetryReadyText}" FontWeight="SemiBold"/>
+                    </Border>
+                    <Border Background="#FFF9F1" CornerRadius="4" Padding="10,6">
+                        <TextBlock Text="{Binding FfbReadyText}" FontWeight="SemiBold"/>
+                    </Border>
+                    <Button Classes="danger"
+                            Content="Emergency Stop"
+                            Command="{Binding StopAllEffectsCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TabControl Grid.Row="1" Margin="18">
+            <TabItem Header="Dashboard">
+                <Grid ColumnDefinitions="1.2*,1*" RowDefinitions="Auto,*" ColumnSpacing="16" RowSpacing="16" Margin="0,16,0,0">
+                    <Border Classes="panel">
+                        <StackPanel Spacing="12">
+                            <TextBlock Classes="section" Text="Current State"/>
+                            <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                <TextBlock Classes="muted" Text="Selected wheel"/>
+                                <TextBlock Grid.Column="1" Text="{Binding SelectedDevice.DisplayName, FallbackValue=None}"/>
+                                <TextBlock Grid.Row="1" Classes="muted" Text="Device status"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDeviceStatus}"/>
+                                <TextBlock Grid.Row="2" Classes="muted" Text="FFB capability"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DeviceCapabilityStatus}"/>
+                                <TextBlock Grid.Row="3" Classes="muted" Text="Backend"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BackendStatus}"/>
+                                <TextBlock Grid.Row="4" Classes="muted" Text="Panic hotkey"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding PanicHotkey}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Classes="panel">
+                        <StackPanel Spacing="14">
+                            <TextBlock Classes="section" Text="Safety Limits"/>
+                            <TextBlock Classes="muted" Text="All test effects are capped by both limits."/>
+                            <Grid ColumnDefinitions="150,*,48" RowDefinitions="Auto,Auto" RowSpacing="12" ColumnSpacing="10">
+                                <TextBlock Text="Global limit" VerticalAlignment="Center"/>
+                                <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
+                                        IsSnapToTickEnabled="True"
+                                        Value="{Binding GlobalForceLimitPercent, Mode=TwoWay}"/>
+                                <TextBlock Grid.Column="2" Text="{Binding GlobalForceLimitPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+
+                                <TextBlock Grid.Row="1" Text="Device limit" VerticalAlignment="Center"/>
+                                <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
+                                        IsSnapToTickEnabled="True"
+                                        Value="{Binding DeviceForceLimitPercent, Mode=TwoWay}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding DeviceForceLimitPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="panel">
+                        <StackPanel Spacing="10">
+                            <TextBlock Classes="section" Text="Paths"/>
+                            <TextBlock Text="{Binding ConfigPath}"/>
+                            <TextBlock Text="{Binding LogPath}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Device">
+                <Grid ColumnDefinitions="360,*" ColumnSpacing="16" Margin="0,16,0,0">
+                    <Border Classes="panel">
+                        <DockPanel LastChildFill="True">
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Classes="section" Text="DirectInput Devices"/>
+                                    <TextBlock Classes="muted" Text="{Binding DeviceCountText}"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="Scan" Command="{Binding ScanDevicesCommand}"/>
+                            </Grid>
+                            <ListBox ItemsSource="{Binding Devices}"
+                                     SelectedItem="{Binding SelectedDevice, Mode=TwoWay}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Spacing="3" Margin="0,6">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding FfbStatus}" Classes="muted"/>
+                                            <TextBlock Text="{Binding DeviceType}" Classes="muted"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+
+                    <Grid Grid.Column="1" RowDefinitions="Auto,*" RowSpacing="16">
+                        <Border Classes="panel">
+                            <StackPanel Spacing="10">
+                                <TextBlock Classes="section" Text="Selected Device"/>
+                                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                    <TextBlock Classes="muted" Text="Name"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding SelectedDevice.DisplayName, FallbackValue=None}"/>
+                                    <TextBlock Grid.Row="1" Classes="muted" Text="Stable ID"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDevice.StableId, FallbackValue=None}" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Row="2" Classes="muted" Text="Instance GUID"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedDevice.InstanceGuid, FallbackValue=None}"/>
+                                    <TextBlock Grid.Row="3" Classes="muted" Text="Axes"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedDevice.AxesText, FallbackValue=None}" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Row="4" Classes="muted" Text="Effects"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedDevice.EffectsText, FallbackValue=None}" TextWrapping="Wrap"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="1" Classes="panel">
+                            <StackPanel Spacing="12">
+                                <TextBlock Classes="section" Text="Test Effects"/>
+                                <UniformGrid Columns="3" Rows="2">
+                                    <Button Classes="test" Margin="0,0,8,8" Content="Spring" Command="{Binding SpringTestCommand}"/>
+                                    <Button Classes="test" Margin="0,0,8,8" Content="Damper" Command="{Binding DamperTestCommand}"/>
+                                    <Button Classes="test" Margin="0,0,0,8" Content="Vibration" Command="{Binding LowVibrationCommand}"/>
+                                    <Button Margin="0,0,8,0" Content="Constant Left" Command="{Binding ConstantLeftCommand}"/>
+                                    <Button Margin="0,0,8,0" Content="Constant Right" Command="{Binding ConstantRightCommand}"/>
+                                    <Button Classes="danger" Content="Stop All" Command="{Binding StopAllEffectsCommand}"/>
+                                </UniformGrid>
+                                <TextBlock Classes="muted"
+                                           Text="Use low limits first on old wheels. Stop All is safe to press repeatedly."/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Telemetry">
+                <Grid ColumnDefinitions="1.05*,1*" RowDefinitions="Auto,*" ColumnSpacing="16" RowSpacing="16" Margin="0,16,0,0">
+                    <Border Classes="panel">
+                        <StackPanel Spacing="12">
+                            <TextBlock Classes="section" Text="Connection"/>
+                            <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                <TextBlock Classes="muted" Text="Status"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TelemetryStatus}" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Row="1" Classes="muted" Text="Endpoint"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TelemetryEndpoint}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="2" Classes="muted" Text="UDP"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UdpStatus}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="3" Classes="muted" Text="File fallback"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FileStatus}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="4" Classes="muted" Text="Last source"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastPacketSource}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="5" Classes="muted" Text="Packet rate"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding PacketRate}"/>
+                                <TextBlock Grid.Row="6" Classes="muted" Text="Last packet age"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding LastPacketAge}"/>
+                                <TextBlock Grid.Row="7" Classes="muted" Text="Parser"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding TelemetryParseStatus}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="8" Classes="muted" Text="Transport error"/>
+                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding LastTransportError}" TextWrapping="Wrap"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Classes="panel">
+                        <StackPanel Spacing="12">
+                            <TextBlock Classes="section" Text="Vehicle"/>
+                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                <TextBlock Classes="muted" Text="Vehicle"/>
+                                <TextBlock Grid.Column="1" Text="{Binding CurrentVehicle}"/>
+                                <TextBlock Grid.Row="1" Classes="muted" Text="Type"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleType}"/>
+                                <TextBlock Grid.Row="2" Classes="muted" Text="Game state"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GameState}"/>
+                                <TextBlock Grid.Row="3" Classes="muted" Text="Speed"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SpeedKmh}"/>
+                                <TextBlock Grid.Row="4" Classes="muted" Text="Steering"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SteeringAngle}"/>
+                                <TextBlock Grid.Row="5" Classes="muted" Text="RPM"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Rpm}"/>
+                                <TextBlock Grid.Row="6" Classes="muted" Text="Engine"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding EngineStatus}"/>
+                                <TextBlock Grid.Row="7" Classes="muted" Text="Mass / total"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding MassAndTotal}"/>
+                                <TextBlock Grid.Row="8" Classes="muted" Text="On field"/>
+                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding IsOnField}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="panel">
+                        <DockPanel LastChildFill="True">
+                            <TextBlock DockPanel.Dock="Top" Classes="section" Text="Raw Packet" Margin="0,0,0,10"/>
+                            <TextBox Classes="mono"
+                                     Text="{Binding RawTelemetryPreview}"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinHeight="180"/>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Logs">
+                <Border Classes="panel" Margin="0,16,0,0">
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Top" Spacing="2" Margin="0,0,0,12">
+                            <TextBlock Classes="section" Text="Event Log"/>
+                            <TextBlock Classes="muted" Text="{Binding LogPath}"/>
+                        </StackPanel>
+                        <ListBox ItemsSource="{Binding Logs}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" FontFamily="Consolas, Cascadia Mono, monospace" FontSize="12"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

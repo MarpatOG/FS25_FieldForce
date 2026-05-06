@@ -1,0 +1,14 @@
+{
+  "timestamp": 123456,
+  "gameState": "mission",
+  "isPlayerInVehicle": true,
+  "vehicleName": "UDP Test Tractor",
+  "vehicleType": "tractor",
+  "speedKmh": 12.5,
+  "steeringAngle": 0.1,
+  "rpm": 850,
+  "engineStarted": true,
+  "mass": 6200,
+  "totalMass": 8000,
+  "isOnField": false
+}
