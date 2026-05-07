@@ -611,7 +611,7 @@
                             <ComboBox Grid.Row="8" Grid.Column="4"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding WetnessFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="8" Grid.Column="5" Classes="output" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="8" Grid.Column="5" Classes="output" Text="{Binding WetnessFeedbackOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="9" Text="Motion" VerticalAlignment="Center"/>
                             <CheckBox Grid.Row="9" Grid.Column="1" IsChecked="{Binding MotionFeedbackEnabled, Mode=TwoWay}"/>

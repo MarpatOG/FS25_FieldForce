@@ -292,6 +292,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string _surfaceFeedbackOutput = "0%";
 
     [ObservableProperty]
+    private string _wetnessFeedbackOutput = "0%";
+
+    [ObservableProperty]
     private string _slipFeedbackOutput = "0%";
 
     [ObservableProperty]
@@ -819,6 +822,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             {
                 SurfaceFeedbackOutput = $"{SurfaceFeedbackOutput} ({SurfaceType}, {SpeedKmh})";
             }
+            WetnessFeedbackOutput = WetnessFeedbackEnabled
+                ? WetnessAndRain
+                : "0%";
             SlipFeedbackOutput = output.SlipVibrationPercent > 0
                 ? $"{output.SlipVibrationPercent}% @ {output.SlipVibrationHz} Hz"
                 : "0%";

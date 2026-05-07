@@ -207,7 +207,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
         vehicleCategory = inVehicle and self:getVehicleCategory(vehicle, wheel.wheelTireProfile) or nil,
         wheelTireTypes = wheel.wheelTireTypes,
         wheelTireProfile = wheel.wheelTireProfile,
-        speedKmh = inVehicle and self:getSpeedKmh(vehicle) or nil,
+        speedKmh = inVehicle and (motion.speedKmh or self:getSpeedKmh(vehicle)) or nil,
         steeringAngle = inVehicle and self:getSteeringAngle(vehicle) or nil,
         rpm = inVehicle and self:getRpm(vehicle) or nil,
         engineStarted = inVehicle and self:getEngineStarted(vehicle) or nil,
@@ -569,6 +569,15 @@ function FS25RealFfbTelemetry:tableHasEntries(value)
 end
 
 function FS25RealFfbTelemetry:getSpeedKmh(vehicle)
+    local speed = self:getRawSpeedKmh(vehicle)
+    if speed ~= nil and speed >= 0 and speed < 300 then
+        return speed
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:getRawSpeedKmh(vehicle)
     if vehicle.getLastSpeed ~= nil then
         local ok, speed = pcall(function()
             return vehicle:getLastSpeed()
@@ -579,7 +588,7 @@ function FS25RealFfbTelemetry:getSpeedKmh(vehicle)
     end
 
     if vehicle.lastSpeedReal ~= nil then
-        return vehicle.lastSpeedReal * 3600
+        return vehicle.lastSpeedReal
     end
 
     return nil
@@ -1108,26 +1117,34 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
     local now = self:getTimestamp()
     local key = tostring(vehicle)
     local previous = self.lastVehicleMotion[key]
+    local speedKmh = nil
     local yawRateDegPerSec = nil
     local localAccelerationX, localAccelerationY, localAccelerationZ = nil, nil, nil
     local bumpImpulse = nil
 
-    if previous ~= nil and wx ~= nil and wy ~= nil and wz ~= nil and ry ~= nil then
+    if previous ~= nil and wx ~= nil and wy ~= nil and wz ~= nil then
         local dtSec = self:getDeltaSeconds(now, previous.time)
-        if dtSec ~= nil and dtSec > 0.001 and dtSec < 2 then
-            local vx = (wx - previous.x) / dtSec
-            local vy = (wy - previous.y) / dtSec
-            local vz = (wz - previous.z) / dtSec
+        if dtSec ~= nil and dtSec >= 0.015 and dtSec < 2 then
+            local dx = wx - previous.x
+            local dy = wy - previous.y
+            local dz = wz - previous.z
+            local vx = dx / dtSec
+            local vy = dy / dtSec
+            local vz = dz / dtSec
             local ax = (vx - previous.vx) / dtSec
             local ay = (vy - previous.vy) / dtSec
             local az = (vz - previous.vz) / dtSec
+            speedKmh = self:speedFromDelta(dx, dz, dtSec)
 
             localAccelerationX, localAccelerationY, localAccelerationZ = self:worldDirectionToLocalSafe(node, ax, ay, az)
             if localAccelerationX == nil then
                 localAccelerationX, localAccelerationY, localAccelerationZ = ax, ay, az
             end
 
-            yawRateDegPerSec = math.deg(self:angleDifference(ry, previous.yaw) / dtSec)
+            if ry ~= nil and previous.yaw ~= nil then
+                yawRateDegPerSec = math.deg(self:angleDifference(ry, previous.yaw) / dtSec)
+            end
+
             bumpImpulse = localAccelerationY ~= nil and math.min(math.abs(localAccelerationY) / 9.81, 2) or nil
 
             self.lastVehicleMotion[key] = {
@@ -1135,13 +1152,13 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
                 x = wx,
                 y = wy,
                 z = wz,
-                yaw = ry,
+                yaw = ry or previous.yaw,
                 vx = vx,
                 vy = vy,
                 vz = vz
             }
         end
-    elseif wx ~= nil and wy ~= nil and wz ~= nil and ry ~= nil then
+    elseif wx ~= nil and wy ~= nil and wz ~= nil then
         self.lastVehicleMotion[key] = {
             time = now,
             x = wx,
@@ -1155,6 +1172,7 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
     end
 
     return {
+        speedKmh = speedKmh or ((wx ~= nil and wz ~= nil) and 0 or nil),
         pitchDeg = pitchDeg,
         rollDeg = rollDeg,
         yawRateDegPerSec = yawRateDegPerSec,
@@ -1164,6 +1182,32 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
         localAccelerationZ = localAccelerationZ,
         bumpImpulse = bumpImpulse
     }
+end
+
+function FS25RealFfbTelemetry:speedFromDelta(dx, dz, dtSec)
+    if type(dx) ~= "number" or type(dz) ~= "number" or type(dtSec) ~= "number" or dtSec <= 0 then
+        return nil
+    end
+
+    local horizontalDistance = math.sqrt((dx * dx) + (dz * dz))
+    if horizontalDistance < 0.03 then
+        return 0
+    end
+
+    return self:speedFromVelocity(dx / dtSec, dz / dtSec)
+end
+
+function FS25RealFfbTelemetry:speedFromVelocity(vx, vz)
+    if type(vx) ~= "number" or type(vz) ~= "number" then
+        return nil
+    end
+
+    local speed = math.sqrt((vx * vx) + (vz * vz)) * 3.6
+    if speed < 2 then
+        return 0
+    end
+
+    return math.min(speed, 300)
 end
 
 function FS25RealFfbTelemetry:getVehicleNode(vehicle)
