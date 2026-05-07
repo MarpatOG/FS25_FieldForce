@@ -582,6 +582,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SelectedDeviceStatus = $"{device.DisplayName} acquired";
             BackendStatus = "DirectInput FFB ready";
             _config.SelectedDeviceStableId = device.StableId;
+            _config.GameplayFfb.DeviceHapticProfileName = device.DisplayName;
             _configStore.Save(_config);
         }
         else
@@ -838,6 +839,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WetnessFeedback = _config.GameplayFfb.WetnessFeedback,
             MotionFeedback = _config.GameplayFfb.MotionFeedback,
             BumpFeedback = _config.GameplayFfb.BumpFeedback,
+            DeviceHapticProfileName = _config.GameplayFfb.DeviceHapticProfileName,
             VehicleCategoryEffectProfiles = _config.GameplayFfb.VehicleCategoryEffectProfiles
         };
     }

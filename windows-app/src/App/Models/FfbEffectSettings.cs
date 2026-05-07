@@ -447,6 +447,8 @@ public sealed class GameplayFfbSettings : GameplayFfbEffectProfile
 
     public bool Enabled { get; set; } = true;
 
+    public string DeviceHapticProfileName { get; set; } = "Logitech MOMO Racing Wheel";
+
     public Dictionary<string, GameplayFfbEffectProfile> VehicleCategoryEffectProfiles { get; set; }
 
     public Dictionary<string, VehicleCategoryFfbProfile> VehicleCategoryProfiles { get; set; } = VehicleCategoryFfbProfile.CreateDefaults();

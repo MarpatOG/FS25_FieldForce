@@ -130,6 +130,16 @@ public sealed class ConfigStore
             config.EffectsProfileVersion = 9;
         }
 
+        if (config.EffectsProfileVersion < 10)
+        {
+            if (string.IsNullOrWhiteSpace(config.GameplayFfb.DeviceHapticProfileName))
+            {
+                config.GameplayFfb.DeviceHapticProfileName = config.DeviceProfileName;
+            }
+
+            config.EffectsProfileVersion = 10;
+        }
+
         return config;
     }
 

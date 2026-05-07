@@ -31,6 +31,7 @@ function FS25RealFfbTelemetry.new()
     self.fileWarningLogged = false
     self.transportWarningLogged = false
     self.lastVehicleMotion = {}
+    self.lastSteeringSample = nil
     self.effectStatusPath = nil
     self.lastEffectStatusContent = nil
     self.lastEffectStatusReadTime = nil
@@ -208,6 +209,8 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local motion = inVehicle and self:getMotionTelemetry(vehicle) or {}
     local weather = inVehicle and self:getWeatherTelemetry() or {}
 
+    local steeringAngle = inVehicle and self:getSteeringAngle(vehicle) or nil
+
     return {
         timestamp = self:getTimestamp(),
         monotonicSeconds = self:getMonotonicSeconds(),
@@ -219,7 +222,8 @@ function FS25RealFfbTelemetry:collectTelemetry()
         wheelTireTypes = wheel.wheelTireTypes,
         wheelTireProfile = wheel.wheelTireProfile,
         speedKmh = inVehicle and (motion.speedKmh or self:getSpeedKmh(vehicle)) or nil,
-        steeringAngle = inVehicle and self:getSteeringAngle(vehicle) or nil,
+        steeringAngle = steeringAngle,
+        steeringRate = inVehicle and self:getSteeringRate(vehicle, steeringAngle) or nil,
         rpm = inVehicle and self:getRpm(vehicle) or nil,
         engineStarted = inVehicle and self:getEngineStarted(vehicle) or nil,
         mass = inVehicle and self:getMass(vehicle) or nil,
@@ -232,6 +236,8 @@ function FS25RealFfbTelemetry:collectTelemetry()
         wheelSlip = wheel.wheelSlip,
         maxWheelSlip = wheel.maxWheelSlip,
         groundContactRatio = wheel.groundContactRatio,
+        steeringGroundContactRatio = wheel.steeringGroundContactRatio,
+        steeringWheelSlip = wheel.steeringWheelSlip,
         pitchDeg = motion.pitchDeg,
         rollDeg = motion.rollDeg,
         yawRateDegPerSec = motion.yawRateDegPerSec,
@@ -239,7 +245,14 @@ function FS25RealFfbTelemetry:collectTelemetry()
         localAccelerationX = motion.localAccelerationX,
         localAccelerationY = motion.localAccelerationY,
         localAccelerationZ = motion.localAccelerationZ,
-        bumpImpulse = motion.bumpImpulse
+        bumpImpulse = motion.bumpImpulse,
+        suspensionImpulse = motion.bumpImpulse,
+        leftSuspensionImpulse = wheel.leftSuspensionImpulse,
+        rightSuspensionImpulse = wheel.rightSuspensionImpulse,
+        throttle = inVehicle and self:getFirstNumber(vehicle.axisForward, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisForward or nil) or nil,
+        brake = inVehicle and self:getFirstNumber(vehicle.axisBrake, vehicle.brakePedal, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisBrake or nil) or nil,
+        clutch = inVehicle and self:getFirstNumber(vehicle.axisClutch, vehicle.clutchPedal) or nil,
+        gear = inVehicle and self:getFirstNumber(vehicle.gear, vehicle.selectedGear, vehicle.spec_motorized ~= nil and vehicle.spec_motorized.gear) or nil
     }
 end
 
@@ -631,6 +644,32 @@ function FS25RealFfbTelemetry:getSteeringAngle(vehicle)
     )
 end
 
+function FS25RealFfbTelemetry:getSteeringRate(vehicle, steeringAngle)
+    if steeringAngle == nil then
+        return nil
+    end
+
+    local now = self:getMonotonicSeconds()
+    local vehicleId = tostring(vehicle.rootNode or vehicle)
+    local previous = self.lastSteeringSample
+    self.lastSteeringSample = {
+        vehicleId = vehicleId,
+        time = now,
+        angle = steeringAngle
+    }
+
+    if previous == nil or previous.vehicleId ~= vehicleId or previous.time == nil or previous.angle == nil then
+        return nil
+    end
+
+    local dt = now - previous.time
+    if dt <= 0 or dt > 1 then
+        return nil
+    end
+
+    return (steeringAngle - previous.angle) / dt
+end
+
 function FS25RealFfbTelemetry:getAverageWheelSteeringAngle(vehicle)
     local total = 0
     local count = 0
@@ -940,11 +979,20 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
     local slipCount = 0
     local maxSlip = 0
     local contactCount = 0
+    local steeringSlipTotal = 0
+    local steeringSlipCount = 0
+    local steeringContactCount = 0
+    local steeringWheelCount = 0
     local tireTypes = {}
     local tireTypeSet = {}
 
     for _, wheel in ipairs(wheels) do
         local physics = wheel.physics
+        local isSteeringWheel = math.abs(self:getFirstNumber(wheel.steeringAngle, wheel.rotatedTime, wheel.steeringInput, wheel.steeringAxis) or 0) > 0.0001
+        if isSteeringWheel then
+            steeringWheelCount = steeringWheelCount + 1
+        end
+
         if physics ~= nil then
             local tireType = self:getWheelTireTypeName(physics)
             if tireType ~= nil and tireType ~= "" and tireTypeSet[tireType] ~= true then
@@ -958,10 +1006,17 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
                 slipTotal = slipTotal + slip
                 slipCount = slipCount + 1
                 maxSlip = math.max(maxSlip, slip)
+                if isSteeringWheel then
+                    steeringSlipTotal = steeringSlipTotal + slip
+                    steeringSlipCount = steeringSlipCount + 1
+                end
             end
 
             if physics.hasGroundContact == true or physics.hasWaterContact == true or physics.hasSnowContact == true then
                 contactCount = contactCount + 1
+                if isSteeringWheel then
+                    steeringContactCount = steeringContactCount + 1
+                end
             end
         end
     end
@@ -970,6 +1025,8 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
         wheelSlip = slipCount > 0 and (slipTotal / slipCount) or nil,
         maxWheelSlip = slipCount > 0 and maxSlip or nil,
         groundContactRatio = #wheels > 0 and (contactCount / #wheels) or nil,
+        steeringWheelSlip = steeringSlipCount > 0 and (steeringSlipTotal / steeringSlipCount) or nil,
+        steeringGroundContactRatio = steeringWheelCount > 0 and (steeringContactCount / steeringWheelCount) or nil,
         wheelTireTypes = #tireTypes > 0 and table.concat(tireTypes, ",") or nil,
         wheelTireProfile = self:getWheelTireProfile(tireTypes)
     }
@@ -1639,8 +1696,11 @@ function FS25RealFfbTelemetry:encodeJson(packet)
         "vehicleName",
         "vehicleType",
         "vehicleCategory",
+        "wheelTireTypes",
+        "wheelTireProfile",
         "speedKmh",
         "steeringAngle",
+        "steeringRate",
         "rpm",
         "engineStarted",
         "mass",
@@ -1653,6 +1713,8 @@ function FS25RealFfbTelemetry:encodeJson(packet)
         "wheelSlip",
         "maxWheelSlip",
         "groundContactRatio",
+        "steeringGroundContactRatio",
+        "steeringWheelSlip",
         "pitchDeg",
         "rollDeg",
         "yawRateDegPerSec",
@@ -1660,7 +1722,14 @@ function FS25RealFfbTelemetry:encodeJson(packet)
         "localAccelerationX",
         "localAccelerationY",
         "localAccelerationZ",
-        "bumpImpulse"
+        "bumpImpulse",
+        "suspensionImpulse",
+        "leftSuspensionImpulse",
+        "rightSuspensionImpulse",
+        "throttle",
+        "brake",
+        "clutch",
+        "gear"
     }
 
     local parts = {}

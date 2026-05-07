@@ -208,6 +208,83 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Feature_extractor_uses_fallback_contact_with_lower_confidence()
+    {
+        var aggregate = GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(
+            Packet(speedKmh: 10, groundContactRatio: 0.5),
+            new GameplayFfbSettings());
+        var steering = GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(
+            Packet(speedKmh: 10, groundContactRatio: 0.5, steeringGroundContactRatio: 0.25),
+            new GameplayFfbSettings());
+
+        Assert.Equal(0.5, aggregate.ContactRatio);
+        Assert.InRange(aggregate.ContactConfidence, 0.5, 0.6);
+        Assert.Equal(0.25, steering.ContactRatio);
+        Assert.Equal(1.0, steering.ContactConfidence);
+    }
+
+    [Fact]
+    public void Speed_stability_adds_damping_without_changing_base_centering()
+    {
+        var context = new FfbFrameContext(
+            TimeSpan.FromMilliseconds(8),
+            TimeSpan.FromMilliseconds(50),
+            1,
+            VehicleCategoryFfbProfile.TractorWheeled,
+            DeviceHapticProfile.Generic);
+        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, 1, 1, 0, 0, 0, 0, 0, 0, 0);
+        var baseSteering = new SteeringModel(25, 10, 8);
+
+        var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Apply(baseSteering, features, context).Value;
+
+        Assert.Equal(baseSteering.Spring, stabilized.Spring);
+        Assert.True(stabilized.Damper > baseSteering.Damper);
+        Assert.Equal(baseSteering.Friction, stabilized.Friction);
+    }
+
+    [Fact]
+    public void Surface_and_load_layers_return_modifiers_not_additive_spring_forces()
+    {
+        var profile = new GameplayFfbSettings();
+        var context = new FfbFrameContext(TimeSpan.FromMilliseconds(8), TimeSpan.FromMilliseconds(50), 1, VehicleCategoryFfbProfile.TractorWheeled, DeviceHapticProfile.Generic);
+        var features = GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(
+            Packet(speedKmh: 20, isOnField: true, surfaceType: "field", mass: 6000, totalMass: 12000),
+            profile);
+
+        var surface = GameplayFfbCalculator.SurfaceTractionLayer.CalculateModifiers(features, profile, context).Value;
+        var load = GameplayFfbCalculator.LoadSlopeImplementLayer.CalculateModifiers(features, profile, context).Value;
+
+        Assert.NotEqual(1, surface.SpringGain);
+        Assert.Equal(0, surface.DamperAdditive);
+        Assert.NotEqual(1, load.DamperGain);
+        Assert.Equal(0, load.DamperAdditive);
+    }
+
+    [Fact]
+    public void Continuous_haptics_and_event_pulses_stay_separate()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, maxWheelSlip: 0.5, bumpImpulse: 0.8)), new GameplayFfbSettings(), DeviceHapticProfile.Generic);
+
+        Assert.True(output.SlipVibrationPercent > 0);
+        Assert.NotEqual(0, output.BumpImpulsePercent);
+        Assert.True(output.EventPulseActive);
+    }
+
+    [Fact]
+    public void Device_caps_limit_momo_haptics_more_than_generic()
+    {
+        var settings = new GameplayFfbSettings();
+        var packet = Packet(speedKmh: 25, isOnField: true, surfaceType: "field", maxWheelSlip: 0.8, rpm: 2200, bumpImpulse: 1.5);
+        var generic = _calculator.Calculate(State(packet), settings, DeviceHapticProfile.Generic);
+        var momo = _calculator.Calculate(State(packet), settings, DeviceHapticProfile.LogitechMomo);
+
+        Assert.True(momo.EngineVibrationPercent <= generic.EngineVibrationPercent);
+        Assert.True(momo.SurfaceVibrationPercent <= generic.SurfaceVibrationPercent);
+        Assert.True(momo.SlipVibrationPercent <= generic.SlipVibrationPercent);
+        Assert.True(Math.Abs(momo.BumpImpulsePercent) <= Math.Abs(generic.BumpImpulsePercent));
+    }
+
+    [Fact]
     public void Wetness_increases_field_surface_feel_only_when_telemetry_is_present()
     {
         var settings = new GameplayFfbSettings();
@@ -292,6 +369,8 @@ public sealed class GameplayFfbCalculatorTests
         double? groundWetness = null,
         double? rainScale = null,
         double? maxWheelSlip = null,
+        double? groundContactRatio = null,
+        double? steeringGroundContactRatio = null,
         double? pitchDeg = null,
         double? rollDeg = null,
         double? yawRateDegPerSec = null,
@@ -321,6 +400,8 @@ public sealed class GameplayFfbCalculatorTests
             GroundWetness = groundWetness,
             RainScale = rainScale,
             MaxWheelSlip = maxWheelSlip,
+            GroundContactRatio = groundContactRatio,
+            SteeringGroundContactRatio = steeringGroundContactRatio,
             PitchDeg = pitchDeg,
             RollDeg = rollDeg,
             YawRateDegPerSec = yawRateDegPerSec,

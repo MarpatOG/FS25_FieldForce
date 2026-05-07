@@ -16,7 +16,9 @@ public sealed record GameplayFfbOutput(
     double LoadFactor,
     double TelemetryFade,
     bool IsActive,
-    string ActiveCategory = VehicleCategoryFfbProfile.Unknown)
+    string ActiveCategory = VehicleCategoryFfbProfile.Unknown,
+    bool TerrainRumbleActive = false,
+    bool EventPulseActive = false)
 {
     public static GameplayFfbOutput Zero { get; } = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, false);
 
@@ -58,6 +60,11 @@ public sealed record GameplayFfbOutput(
             if (BumpImpulsePercent != 0)
             {
                 active.Add("Bump");
+            }
+
+            if (TerrainRumbleActive)
+            {
+                active.Add("Terrain");
             }
 
             return active.Count == 0 ? "None" : string.Join(", ", active);

@@ -66,7 +66,13 @@ public sealed class EffectStatusWriter
                 output.EngineVibrationPercent > 0,
                 output.SurfaceVibrationPercent > 0,
                 output.SlipVibrationPercent > 0,
-                output.BumpImpulsePercent != 0);
+                output.BumpImpulsePercent != 0,
+                output.SpringPercent > 0 || output.FrictionPercent > 0,
+                output.DamperPercent > 0,
+                output.SurfaceVibrationPercent > 0 || output.SlipVibrationPercent > 0,
+                output.BumpImpulsePercent != 0 || output.TerrainRumbleActive,
+                output.LoadFactor > 1.01,
+                output.EngineVibrationPercent > 0);
 
             File.WriteAllText(_statusPath, JsonSerializer.Serialize(status, JsonOptions));
             _lastWriteUtc = now;
@@ -87,5 +93,11 @@ public sealed class EffectStatusWriter
         [property: JsonPropertyName("rpmVibration")] bool RpmVibration,
         [property: JsonPropertyName("surfaceFeedback")] bool SurfaceFeedback,
         [property: JsonPropertyName("slipFeedback")] bool SlipFeedback,
-        [property: JsonPropertyName("bump")] bool Bump);
+        [property: JsonPropertyName("bump")] bool Bump,
+        [property: JsonPropertyName("steeringLoad")] bool SteeringLoad,
+        [property: JsonPropertyName("speedStability")] bool SpeedStability,
+        [property: JsonPropertyName("surfaceTraction")] bool SurfaceTraction,
+        [property: JsonPropertyName("suspensionTerrain")] bool SuspensionTerrain,
+        [property: JsonPropertyName("loadSlopeImplement")] bool LoadSlopeImplement,
+        [property: JsonPropertyName("engineDrivetrain")] bool EngineDrivetrain);
 }

@@ -2,7 +2,7 @@ namespace FS25FfbBridge.App.Models;
 
 public sealed class AppConfig
 {
-    public const int CurrentEffectsProfileVersion = 9;
+    public const int CurrentEffectsProfileVersion = 10;
 
     public int EffectsProfileVersion { get; set; } = CurrentEffectsProfileVersion;
     public string? SelectedDeviceStableId { get; set; }

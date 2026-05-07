@@ -34,6 +34,9 @@ public sealed class TelemetryPacket
     [JsonPropertyName("steeringAngle")]
     public double? SteeringAngle { get; set; }
 
+    [JsonPropertyName("steeringRate")]
+    public double? SteeringRate { get; set; }
+
     [JsonPropertyName("rpm")]
     public double? Rpm { get; set; }
 
@@ -70,6 +73,12 @@ public sealed class TelemetryPacket
     [JsonPropertyName("groundContactRatio")]
     public double? GroundContactRatio { get; set; }
 
+    [JsonPropertyName("steeringGroundContactRatio")]
+    public double? SteeringGroundContactRatio { get; set; }
+
+    [JsonPropertyName("steeringWheelSlip")]
+    public double? SteeringWheelSlip { get; set; }
+
     [JsonPropertyName("pitchDeg")]
     public double? PitchDeg { get; set; }
 
@@ -93,4 +102,25 @@ public sealed class TelemetryPacket
 
     [JsonPropertyName("bumpImpulse")]
     public double? BumpImpulse { get; set; }
+
+    [JsonPropertyName("suspensionImpulse")]
+    public double? SuspensionImpulse { get; set; }
+
+    [JsonPropertyName("leftSuspensionImpulse")]
+    public double? LeftSuspensionImpulse { get; set; }
+
+    [JsonPropertyName("rightSuspensionImpulse")]
+    public double? RightSuspensionImpulse { get; set; }
+
+    [JsonPropertyName("throttle")]
+    public double? Throttle { get; set; }
+
+    [JsonPropertyName("brake")]
+    public double? Brake { get; set; }
+
+    [JsonPropertyName("clutch")]
+    public double? Clutch { get; set; }
+
+    [JsonPropertyName("gear")]
+    public int? Gear { get; set; }
 }
