@@ -65,7 +65,7 @@ The current DirectInput test values are calibrated as a conservative Logitech MO
 
 ## MVP Effects
 
-The `Effects` tab controls gameplay FFB per vehicle category. Select a category tab, then edit each effect's Enabled, Strength, Max cap, and Curve values for that full category profile.
+The `Effects` tab controls gameplay FFB per vehicle category. Select a category tab, set the category's Overall FFB Strength, then edit each effect's Enabled, Strength, and Curve values for that full category profile.
 
 - `Speed Spring`: centers the wheel more strongly as speed increases.
 - `Speed Damper`: adds viscous resistance as speed increases.

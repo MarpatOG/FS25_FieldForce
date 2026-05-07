@@ -39,11 +39,11 @@ public sealed class GameplayFfbCalculatorTests
         var capped = _calculator.Calculate(State(Packet(speedKmh: 45)), settings);
 
         Assert.InRange(stopped.SpringPercent, 0, 2);
-        Assert.InRange(creeping.SpringPercent, 1, 3);
+        Assert.InRange(creeping.SpringPercent, 2, 4);
         Assert.InRange(light.SpringPercent, 4, 7);
         Assert.InRange(moderate.SpringPercent, 13, 17);
         Assert.InRange(stable.SpringPercent, 29, 33);
-        Assert.InRange(capped.SpringPercent, 34, 36);
+        Assert.InRange(capped.SpringPercent, 37, 39);
     }
 
     [Fact]

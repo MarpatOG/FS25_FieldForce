@@ -85,10 +85,10 @@ public sealed class BumpFeedbackSettings : FfbEffectSettings
 
 public class GameplayFfbEffectProfile
 {
-    public const int SpeedSpringStrengthDefault = 55;
+    public const int SpeedSpringStrengthDefault = 60;
     public const int SpeedSpringMaxOutputDefault = 65;
-    public const double SpeedSpringStandstillFloorDefault = 0.02;
-    public const double SpeedSpringReferenceKmhDefault = 45;
+    public const double SpeedSpringStandstillFloorDefault = 0.04;
+    public const double SpeedSpringReferenceKmhDefault = 50;
 
     public SpeedConditionSettings SpeedSpring { get; set; } = new()
     {
@@ -103,8 +103,8 @@ public class GameplayFfbEffectProfile
     public SpeedConditionSettings SpeedDamper { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 65,
-        MaxOutputPercent = 70,
+        StrengthPercent = 70,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
         StandstillFloor = 0.04,
         SpeedReferenceKmh = 55
@@ -113,8 +113,8 @@ public class GameplayFfbEffectProfile
     public MechanicalFrictionSettings MechanicalFriction { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 45,
-        MaxOutputPercent = 55,
+        StrengthPercent = 38,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
         BaseFriction = 0.18,
         LoadInfluence = 0.80,
@@ -124,8 +124,8 @@ public class GameplayFfbEffectProfile
     public LoadResistanceSettings LoadResistance { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 60,
-        MaxOutputPercent = 60,
+        StrengthPercent = 55,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
         AffectsSpring = true,
         AffectsDamper = true,
@@ -138,8 +138,8 @@ public class GameplayFfbEffectProfile
     public EngineVibrationSettings EngineVibration { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 45,
-        MaxOutputPercent = 45,
+        StrengthPercent = 31,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
         MinRpm = 500,
         MaxRpm = 2400,
@@ -150,8 +150,8 @@ public class GameplayFfbEffectProfile
     public SurfaceFeedbackSettings SurfaceFeedback { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 45,
-        MaxOutputPercent = 50,
+        StrengthPercent = 35,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
         MinSpeedKmh = 0.2,
         FieldFrequencyMinHz = 8,
@@ -164,8 +164,8 @@ public class GameplayFfbEffectProfile
     public SlipFeedbackSettings SlipFeedback { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 45,
-        MaxOutputPercent = 45,
+        StrengthPercent = 31,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
         MinSlip = 0.12,
         FullSlip = 0.65,
@@ -177,8 +177,8 @@ public class GameplayFfbEffectProfile
     public WetnessFeedbackSettings WetnessFeedback { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 35,
-        MaxOutputPercent = 40,
+        StrengthPercent = 22,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
         MinWetness = 0.05,
         DamperModifierPercent = 18,
@@ -188,8 +188,8 @@ public class GameplayFfbEffectProfile
     public MotionFeedbackSettings MotionFeedback { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 30,
-        MaxOutputPercent = 35,
+        StrengthPercent = 16,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
         FullRollDeg = 12,
         FullPitchDeg = 12,
@@ -202,8 +202,8 @@ public class GameplayFfbEffectProfile
     public BumpFeedbackSettings BumpFeedback { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 55,
-        MaxOutputPercent = 45,
+        StrengthPercent = 38,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Aggressive,
         MinImpulse = 0.12,
         FullImpulse = 1.0,
@@ -232,6 +232,7 @@ public class GameplayFfbEffectProfile
                 ApplyLegacyMultipliers(profile, legacyProfile);
             }
 
+            ApplyOverallOutputCap(profile, baseProfile.SpeedSpring.MaxOutputPercent);
             result[category] = profile;
         }
 
@@ -362,6 +363,31 @@ public class GameplayFfbEffectProfile
         settings.SpeedSpring.Curve = FfbCurveKind.Smooth;
         settings.SpeedSpring.StandstillFloor = SpeedSpringStandstillFloorDefault;
         settings.SpeedSpring.SpeedReferenceKmh = SpeedSpringReferenceKmhDefault;
+    }
+
+    public static void ApplyOverallOutputCap(GameplayFfbEffectProfile settings, int overallCapPercent)
+    {
+        var overallCap = Math.Clamp(overallCapPercent, 0, 100);
+        ApplyOverallOutputCap(settings.SpeedSpring, overallCap);
+        ApplyOverallOutputCap(settings.SpeedDamper, overallCap);
+        ApplyOverallOutputCap(settings.MechanicalFriction, overallCap);
+        ApplyOverallOutputCap(settings.LoadResistance, overallCap);
+        ApplyOverallOutputCap(settings.EngineVibration, overallCap);
+        ApplyOverallOutputCap(settings.SurfaceFeedback, overallCap);
+        ApplyOverallOutputCap(settings.SlipFeedback, overallCap);
+        ApplyOverallOutputCap(settings.WetnessFeedback, overallCap);
+        ApplyOverallOutputCap(settings.MotionFeedback, overallCap);
+        ApplyOverallOutputCap(settings.BumpFeedback, overallCap);
+    }
+
+    private static void ApplyOverallOutputCap(FfbEffectSettings settings, int overallCap)
+    {
+        var currentMax = Math.Clamp(settings.StrengthPercent, 0, 100) *
+                         (Math.Clamp(settings.MaxOutputPercent, 0, 100) / 100.0);
+        settings.StrengthPercent = overallCap == 0
+            ? 0
+            : ClampSettingPercent(currentMax * 100 / overallCap);
+        settings.MaxOutputPercent = overallCap;
     }
 
     private static void ApplyLegacyMultipliers(GameplayFfbEffectProfile settings, VehicleCategoryFfbProfile profile)

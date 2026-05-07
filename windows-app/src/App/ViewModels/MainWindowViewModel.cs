@@ -148,13 +148,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _gameplayFfbEnabled;
 
     [ObservableProperty]
+    private int _gameplayFfbOverallStrengthPercent;
+
+    [ObservableProperty]
     private bool _speedSpringEnabled;
 
     [ObservableProperty]
     private int _speedSpringStrengthPercent;
-
-    [ObservableProperty]
-    private int _speedSpringMaxPercent;
 
     [ObservableProperty]
     private FfbCurveKind _speedSpringCurve;
@@ -166,9 +166,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _speedDamperStrengthPercent;
 
     [ObservableProperty]
-    private int _speedDamperMaxPercent;
-
-    [ObservableProperty]
     private FfbCurveKind _speedDamperCurve;
 
     [ObservableProperty]
@@ -176,9 +173,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _mechanicalFrictionStrengthPercent;
-
-    [ObservableProperty]
-    private int _mechanicalFrictionMaxPercent;
 
     [ObservableProperty]
     private FfbCurveKind _mechanicalFrictionCurve;
@@ -190,9 +184,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _loadResistanceStrengthPercent;
 
     [ObservableProperty]
-    private int _loadResistanceMaxPercent;
-
-    [ObservableProperty]
     private FfbCurveKind _loadResistanceCurve;
 
     [ObservableProperty]
@@ -200,9 +191,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _engineVibrationStrengthPercent;
-
-    [ObservableProperty]
-    private int _engineVibrationMaxPercent;
 
     [ObservableProperty]
     private FfbCurveKind _engineVibrationCurve;
@@ -214,9 +202,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _surfaceFeedbackStrengthPercent;
 
     [ObservableProperty]
-    private int _surfaceFeedbackMaxPercent;
-
-    [ObservableProperty]
     private FfbCurveKind _surfaceFeedbackCurve;
 
     [ObservableProperty]
@@ -224,9 +209,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _slipFeedbackStrengthPercent;
-
-    [ObservableProperty]
-    private int _slipFeedbackMaxPercent;
 
     [ObservableProperty]
     private FfbCurveKind _slipFeedbackCurve;
@@ -238,9 +220,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _wetnessFeedbackStrengthPercent;
 
     [ObservableProperty]
-    private int _wetnessFeedbackMaxPercent;
-
-    [ObservableProperty]
     private FfbCurveKind _wetnessFeedbackCurve;
 
     [ObservableProperty]
@@ -250,9 +229,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _motionFeedbackStrengthPercent;
 
     [ObservableProperty]
-    private int _motionFeedbackMaxPercent;
-
-    [ObservableProperty]
     private FfbCurveKind _motionFeedbackCurve;
 
     [ObservableProperty]
@@ -260,9 +236,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _bumpFeedbackStrengthPercent;
-
-    [ObservableProperty]
-    private int _bumpFeedbackMaxPercent;
 
     [ObservableProperty]
     private FfbCurveKind _bumpFeedbackCurve;
@@ -595,6 +568,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             GameplayFfbRuntimeStatus = "FFB disabled";
         }
     }
+    partial void OnGameplayFfbOverallStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSelectedEffectCategoryChanged(string value)
     {
         if (_loadingConfig)
@@ -608,43 +582,33 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
     partial void OnSpeedSpringEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedSpringStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnSpeedSpringMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedSpringCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedDamperEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedDamperStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnSpeedDamperMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedDamperCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnMechanicalFrictionEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnMechanicalFrictionStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnMechanicalFrictionMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnMechanicalFrictionCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnLoadResistanceMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnEngineVibrationMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnSurfaceFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnSlipFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnSlipFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnSlipFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSlipFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnWetnessFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnWetnessFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnWetnessFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnWetnessFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnMotionFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnMotionFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnMotionFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnMotionFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnBumpFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnBumpFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnBumpFeedbackMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnBumpFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
 
     private void LoadGameplaySettingsIntoUi(GameplayFfbSettings settings)
@@ -655,45 +619,36 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void LoadGameplaySettingsIntoUi(GameplayFfbEffectProfile settings)
     {
+        GameplayFfbOverallStrengthPercent = settings.SpeedSpring.MaxOutputPercent;
         SpeedSpringEnabled = settings.SpeedSpring.Enabled;
         SpeedSpringStrengthPercent = settings.SpeedSpring.StrengthPercent;
-        SpeedSpringMaxPercent = settings.SpeedSpring.MaxOutputPercent;
         SpeedSpringCurve = settings.SpeedSpring.Curve;
         SpeedDamperEnabled = settings.SpeedDamper.Enabled;
         SpeedDamperStrengthPercent = settings.SpeedDamper.StrengthPercent;
-        SpeedDamperMaxPercent = settings.SpeedDamper.MaxOutputPercent;
         SpeedDamperCurve = settings.SpeedDamper.Curve;
         MechanicalFrictionEnabled = settings.MechanicalFriction.Enabled;
         MechanicalFrictionStrengthPercent = settings.MechanicalFriction.StrengthPercent;
-        MechanicalFrictionMaxPercent = settings.MechanicalFriction.MaxOutputPercent;
         MechanicalFrictionCurve = settings.MechanicalFriction.Curve;
         LoadResistanceEnabled = settings.LoadResistance.Enabled;
         LoadResistanceStrengthPercent = settings.LoadResistance.StrengthPercent;
-        LoadResistanceMaxPercent = settings.LoadResistance.MaxOutputPercent;
         LoadResistanceCurve = settings.LoadResistance.Curve;
         EngineVibrationEnabled = settings.EngineVibration.Enabled;
         EngineVibrationStrengthPercent = settings.EngineVibration.StrengthPercent;
-        EngineVibrationMaxPercent = settings.EngineVibration.MaxOutputPercent;
         EngineVibrationCurve = settings.EngineVibration.Curve;
         SurfaceFeedbackEnabled = settings.SurfaceFeedback.Enabled;
         SurfaceFeedbackStrengthPercent = settings.SurfaceFeedback.StrengthPercent;
-        SurfaceFeedbackMaxPercent = settings.SurfaceFeedback.MaxOutputPercent;
         SurfaceFeedbackCurve = settings.SurfaceFeedback.Curve;
         SlipFeedbackEnabled = settings.SlipFeedback.Enabled;
         SlipFeedbackStrengthPercent = settings.SlipFeedback.StrengthPercent;
-        SlipFeedbackMaxPercent = settings.SlipFeedback.MaxOutputPercent;
         SlipFeedbackCurve = settings.SlipFeedback.Curve;
         WetnessFeedbackEnabled = settings.WetnessFeedback.Enabled;
         WetnessFeedbackStrengthPercent = settings.WetnessFeedback.StrengthPercent;
-        WetnessFeedbackMaxPercent = settings.WetnessFeedback.MaxOutputPercent;
         WetnessFeedbackCurve = settings.WetnessFeedback.Curve;
         MotionFeedbackEnabled = settings.MotionFeedback.Enabled;
         MotionFeedbackStrengthPercent = settings.MotionFeedback.StrengthPercent;
-        MotionFeedbackMaxPercent = settings.MotionFeedback.MaxOutputPercent;
         MotionFeedbackCurve = settings.MotionFeedback.Curve;
         BumpFeedbackEnabled = settings.BumpFeedback.Enabled;
         BumpFeedbackStrengthPercent = settings.BumpFeedback.StrengthPercent;
-        BumpFeedbackMaxPercent = settings.BumpFeedback.MaxOutputPercent;
         BumpFeedbackCurve = settings.BumpFeedback.Curve;
     }
 
@@ -731,45 +686,47 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void SaveGameplaySettingsToProfile(GameplayFfbEffectProfile profile)
     {
+        var overallStrength = Math.Clamp(GameplayFfbOverallStrengthPercent, 0, 100);
+
         profile.SpeedSpring.Enabled = SpeedSpringEnabled;
         profile.SpeedSpring.StrengthPercent = Math.Clamp(SpeedSpringStrengthPercent, 0, 100);
-        profile.SpeedSpring.MaxOutputPercent = Math.Clamp(SpeedSpringMaxPercent, 0, 100);
+        profile.SpeedSpring.MaxOutputPercent = overallStrength;
         profile.SpeedSpring.Curve = SpeedSpringCurve;
         profile.SpeedDamper.Enabled = SpeedDamperEnabled;
         profile.SpeedDamper.StrengthPercent = Math.Clamp(SpeedDamperStrengthPercent, 0, 100);
-        profile.SpeedDamper.MaxOutputPercent = Math.Clamp(SpeedDamperMaxPercent, 0, 100);
+        profile.SpeedDamper.MaxOutputPercent = overallStrength;
         profile.SpeedDamper.Curve = SpeedDamperCurve;
         profile.MechanicalFriction.Enabled = MechanicalFrictionEnabled;
         profile.MechanicalFriction.StrengthPercent = Math.Clamp(MechanicalFrictionStrengthPercent, 0, 100);
-        profile.MechanicalFriction.MaxOutputPercent = Math.Clamp(MechanicalFrictionMaxPercent, 0, 100);
+        profile.MechanicalFriction.MaxOutputPercent = overallStrength;
         profile.MechanicalFriction.Curve = MechanicalFrictionCurve;
         profile.LoadResistance.Enabled = LoadResistanceEnabled;
         profile.LoadResistance.StrengthPercent = Math.Clamp(LoadResistanceStrengthPercent, 0, 100);
-        profile.LoadResistance.MaxOutputPercent = Math.Clamp(LoadResistanceMaxPercent, 0, 100);
+        profile.LoadResistance.MaxOutputPercent = overallStrength;
         profile.LoadResistance.Curve = LoadResistanceCurve;
         profile.EngineVibration.Enabled = EngineVibrationEnabled;
         profile.EngineVibration.StrengthPercent = Math.Clamp(EngineVibrationStrengthPercent, 0, 100);
-        profile.EngineVibration.MaxOutputPercent = Math.Clamp(EngineVibrationMaxPercent, 0, 100);
+        profile.EngineVibration.MaxOutputPercent = overallStrength;
         profile.EngineVibration.Curve = EngineVibrationCurve;
         profile.SurfaceFeedback.Enabled = SurfaceFeedbackEnabled;
         profile.SurfaceFeedback.StrengthPercent = Math.Clamp(SurfaceFeedbackStrengthPercent, 0, 100);
-        profile.SurfaceFeedback.MaxOutputPercent = Math.Clamp(SurfaceFeedbackMaxPercent, 0, 100);
+        profile.SurfaceFeedback.MaxOutputPercent = overallStrength;
         profile.SurfaceFeedback.Curve = SurfaceFeedbackCurve;
         profile.SlipFeedback.Enabled = SlipFeedbackEnabled;
         profile.SlipFeedback.StrengthPercent = Math.Clamp(SlipFeedbackStrengthPercent, 0, 100);
-        profile.SlipFeedback.MaxOutputPercent = Math.Clamp(SlipFeedbackMaxPercent, 0, 100);
+        profile.SlipFeedback.MaxOutputPercent = overallStrength;
         profile.SlipFeedback.Curve = SlipFeedbackCurve;
         profile.WetnessFeedback.Enabled = WetnessFeedbackEnabled;
         profile.WetnessFeedback.StrengthPercent = Math.Clamp(WetnessFeedbackStrengthPercent, 0, 100);
-        profile.WetnessFeedback.MaxOutputPercent = Math.Clamp(WetnessFeedbackMaxPercent, 0, 100);
+        profile.WetnessFeedback.MaxOutputPercent = overallStrength;
         profile.WetnessFeedback.Curve = WetnessFeedbackCurve;
         profile.MotionFeedback.Enabled = MotionFeedbackEnabled;
         profile.MotionFeedback.StrengthPercent = Math.Clamp(MotionFeedbackStrengthPercent, 0, 100);
-        profile.MotionFeedback.MaxOutputPercent = Math.Clamp(MotionFeedbackMaxPercent, 0, 100);
+        profile.MotionFeedback.MaxOutputPercent = overallStrength;
         profile.MotionFeedback.Curve = MotionFeedbackCurve;
         profile.BumpFeedback.Enabled = BumpFeedbackEnabled;
         profile.BumpFeedback.StrengthPercent = Math.Clamp(BumpFeedbackStrengthPercent, 0, 100);
-        profile.BumpFeedback.MaxOutputPercent = Math.Clamp(BumpFeedbackMaxPercent, 0, 100);
+        profile.BumpFeedback.MaxOutputPercent = overallStrength;
         profile.BumpFeedback.Curve = BumpFeedbackCurve;
     }
 

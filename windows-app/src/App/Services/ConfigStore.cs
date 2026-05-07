@@ -104,7 +104,7 @@ public sealed class ConfigStore
                 NormalizeVehicleCategoryEffectProfiles(config.GameplayFfb.VehicleCategoryEffectProfiles, config.GameplayFfb);
         }
 
-        if (config.EffectsProfileVersion < 7)
+        if (config.EffectsProfileVersion < 8)
         {
             GameplayFfbEffectProfile.ApplyCurrentSpeedSpringPreset(config.GameplayFfb);
             foreach (var profile in config.GameplayFfb.VehicleCategoryEffectProfiles.Values)
@@ -113,7 +113,21 @@ public sealed class ConfigStore
                 GameplayFfbEffectProfile.ApplyCurrentSpeedSpringPreset(profile);
             }
 
-            config.EffectsProfileVersion = 7;
+            config.EffectsProfileVersion = 8;
+        }
+
+        if (config.EffectsProfileVersion < 9)
+        {
+            GameplayFfbEffectProfile.ApplyOverallOutputCap(
+                config.GameplayFfb,
+                config.GameplayFfb.SpeedSpring.MaxOutputPercent);
+            foreach (var profile in config.GameplayFfb.VehicleCategoryEffectProfiles.Values)
+            {
+                GameplayFfbEffectProfile.NormalizeEffectSettings(profile);
+                GameplayFfbEffectProfile.ApplyOverallOutputCap(profile, profile.SpeedSpring.MaxOutputPercent);
+            }
+
+            config.EffectsProfileVersion = 9;
         }
 
         return config;
