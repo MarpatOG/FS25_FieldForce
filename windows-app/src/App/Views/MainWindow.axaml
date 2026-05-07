@@ -196,12 +196,19 @@
                         <TextBlock Text="{Binding TelemetryReadyText}"/>
                     </Border>
                     <Border Classes="badge"
+                            Classes.good="{Binding IsFfbOperational}"
+                            Classes.warn="{Binding IsFfbBlocked}">
+                        <TextBlock Text="{Binding FfbReadyText}"/>
+                    </Border>
+                    <Border Classes="badge"
                             Classes.good="{Binding IsFfbReady}"
                             Classes.warn="{Binding IsFfbInactive}">
-                        <TextBlock Text="{Binding FfbReadyText}"/>
+                        <TextBlock Text="{Binding WheelReadyText}"/>
                     </Border>
                     <Button Classes="danger"
                             Content="Emergency Stop"
+                            MinHeight="44"
+                            AutomationProperties.Name="Emergency stop all force feedback"
                             Command="{Binding StopAllEffectsCommand}"/>
                 </StackPanel>
             </Grid>
@@ -209,86 +216,97 @@
 
         <TabControl Grid.Row="1" Margin="18">
             <TabItem Header="Dashboard">
-                <Grid ColumnDefinitions="1.2*,1*" RowDefinitions="Auto,*" ColumnSpacing="16" RowSpacing="16" Margin="0,16,0,0">
-                    <Border Classes="panel">
-                        <StackPanel Spacing="12">
-                            <TextBlock Classes="section" Text="Current State"/>
-                            <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
-                                <TextBlock Classes="muted" Text="Selected wheel"/>
-                                <TextBlock Grid.Column="1" Text="{Binding SelectedDevice.DisplayName, FallbackValue=None}"/>
-                                <TextBlock Grid.Row="1" Classes="muted" Text="Device status"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDeviceStatus}"/>
-                                <TextBlock Grid.Row="2" Classes="muted" Text="FFB capability"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DeviceCapabilityStatus}"/>
-                                <TextBlock Grid.Row="3" Classes="muted" Text="Backend"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BackendStatus}"/>
-                                <TextBlock Grid.Row="4" Classes="muted" Text="Panic hotkey"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding PanicHotkey}"/>
-                                <TextBlock Grid.Row="5" Classes="muted" Text="Gameplay FFB"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding GameplayFfbEnabled}"/>
-                                <TextBlock Grid.Row="6" Classes="muted" Text="FFB runtime"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding GameplayFfbRuntimeStatus}"/>
-                                <TextBlock Grid.Row="7" Classes="muted" Text="Active effects"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Classes="output" Text="{Binding ActiveGameplayEffects}"/>
-                                <TextBlock Grid.Row="8" Classes="muted" Text="Active category"/>
-                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ActiveVehicleCategory}"/>
-                                <TextBlock Grid.Row="9" Classes="muted" Text="Spring / damper / friction"/>
-                                <TextBlock Grid.Row="9" Grid.Column="1">
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}{0} / {1} / {2}">
-                                            <Binding Path="SpringOutput"/>
-                                            <Binding Path="DamperOutput"/>
-                                            <Binding Path="FrictionOutput"/>
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                                <TextBlock Grid.Row="10" Classes="muted" Text="Vibration"/>
-                                <TextBlock Grid.Row="10" Grid.Column="1" Classes="output">
-                                    <TextBlock.Text>
-                                        <MultiBinding StringFormat="{}RPM {0}, Surface {1}, Slip {2}, Bump {3}">
-                                            <Binding Path="EngineVibrationOutput"/>
-                                            <Binding Path="SurfaceFeedbackOutput"/>
-                                            <Binding Path="SlipFeedbackOutput"/>
-                                            <Binding Path="BumpFeedbackOutput"/>
-                                        </MultiBinding>
-                                    </TextBlock.Text>
-                                </TextBlock>
-                                <TextBlock Grid.Row="11" Classes="muted" Text="Load factor"/>
-                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding LoadFactor}"/>
-                                <TextBlock Grid.Row="12" Classes="muted" Text="Telemetry fade"/>
-                                <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding TelemetryFade}"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                <ScrollViewer Margin="0,16,0,0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="16">
+                        <UniformGrid Columns="3" Rows="1">
+                            <Border Classes="panel" Margin="0,0,10,0" MinHeight="170">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Classes="section" Text="Wheel"/>
+                                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding WheelStatus}" TextWrapping="Wrap"/>
+                                    <TextBlock Classes="muted" Text="{Binding WheelReason}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding WheelNextAction}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="panel" Margin="0,0,10,0" MinHeight="170">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Classes="section" Text="FS25 Telemetry"/>
+                                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding TelemetryStatusText}" TextWrapping="Wrap"/>
+                                    <TextBlock Classes="muted" Text="{Binding TelemetryReason}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding TelemetryNextAction}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="panel" MinHeight="170">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Classes="section" Text="Force Feedback"/>
+                                    <TextBlock FontSize="20" FontWeight="SemiBold" Text="{Binding FfbStatus}" TextWrapping="Wrap"/>
+                                    <TextBlock Classes="muted" Text="{Binding FfbReason}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding FfbNextAction}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
 
-                    <Border Grid.Column="1" Classes="panel">
-                        <StackPanel Spacing="14">
-                            <TextBlock Classes="section" Text="Safety Limits"/>
-                            <TextBlock Classes="muted" Text="All test effects are capped by both limits."/>
-                            <Grid ColumnDefinitions="150,*,48" RowDefinitions="Auto,Auto" RowSpacing="12" ColumnSpacing="10">
-                                <TextBlock Text="Global limit" VerticalAlignment="Center"/>
-                                <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
-                                        IsSnapToTickEnabled="True"
-                                        Value="{Binding GlobalForceLimitPercent, Mode=TwoWay}"/>
-                                <TextBlock Grid.Column="2" Text="{Binding GlobalForceLimitPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                        <Border Grid.Row="1" Classes="panel">
+                            <StackPanel Spacing="14">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel>
+                                        <TextBlock Classes="section" Text="Global Force Limit"/>
+                                        <TextBlock Classes="muted" Text="One safety cap for every test, effect, wheel, and vehicle profile."/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Classes="danger"
+                                            Content="Emergency Stop"
+                                            MinHeight="44"
+                                            AutomationProperties.Name="Emergency stop all force feedback"
+                                            Command="{Binding StopAllEffectsCommand}"/>
+                                </Grid>
+                                <Grid ColumnDefinitions="150,*,52" RowDefinitions="44" RowSpacing="8" ColumnSpacing="10">
+                                    <TextBlock Text="Force limit" VerticalAlignment="Center"/>
+                                    <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
+                                            MinHeight="44"
+                                            AutomationProperties.Name="Global force limit for all force feedback"
+                                            IsSnapToTickEnabled="True"
+                                            Value="{Binding GlobalForceLimitPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding GlobalForceLimitPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
 
-                                <TextBlock Grid.Row="1" Text="Device limit" VerticalAlignment="Center"/>
-                                <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
-                                        IsSnapToTickEnabled="True"
-                                        Value="{Binding DeviceForceLimitPercent, Mode=TwoWay}"/>
-                                <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding DeviceForceLimitPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="panel">
-                        <StackPanel Spacing="10">
-                            <TextBlock Classes="section" Text="Paths"/>
-                            <TextBlock Classes="output" Text="{Binding ConfigPath}"/>
-                            <TextBlock Classes="output" Text="{Binding LogPath}"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                        <Expander Grid.Row="2" Header="Diagnostics">
+                            <Border Classes="panel">
+                                <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                    <TextBlock Classes="muted" Text="Backend"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding BackendStatus}" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Row="1" Classes="muted" Text="Panic hotkey"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PanicHotkey}"/>
+                                    <TextBlock Grid.Row="2" Classes="muted" Text="Active effects"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="output" Text="{Binding ActiveGameplayEffects}"/>
+                                    <TextBlock Grid.Row="3" Classes="muted" Text="Active category"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ActiveVehicleCategory}"/>
+                                    <TextBlock Grid.Row="4" Classes="muted" Text="Outputs"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Classes="output">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="{}Spring {0}, damper {1}, friction {2}, vibration {3}, surface {4}, slip {5}, bump {6}">
+                                                <Binding Path="SpringOutput"/>
+                                                <Binding Path="DamperOutput"/>
+                                                <Binding Path="FrictionOutput"/>
+                                                <Binding Path="EngineVibrationOutput"/>
+                                                <Binding Path="SurfaceFeedbackOutput"/>
+                                                <Binding Path="SlipFeedbackOutput"/>
+                                                <Binding Path="BumpFeedbackOutput"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
+                                    <TextBlock Grid.Row="5" Classes="muted" Text="Telemetry fade"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding TelemetryFade}"/>
+                                    <TextBlock Grid.Row="6" Classes="muted" Text="Config path"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Classes="output" Text="{Binding ConfigPath}"/>
+                                    <TextBlock Grid.Row="7" Classes="muted" Text="Log path"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="1" Classes="output" Text="{Binding LogPath}"/>
+                                </Grid>
+                            </Border>
+                        </Expander>
+                    </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Device">
@@ -300,7 +318,11 @@
                                     <TextBlock Classes="section" Text="DirectInput Devices"/>
                                     <TextBlock Classes="muted" Text="{Binding DeviceCountText}"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="Scan" Command="{Binding ScanDevicesCommand}"/>
+                                <Button Grid.Column="1"
+                                        Content="Scan"
+                                        MinHeight="44"
+                                        AutomationProperties.Name="Scan DirectInput devices"
+                                        Command="{Binding ScanDevicesCommand}"/>
                             </Grid>
                             <ListBox ItemsSource="{Binding Devices}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -322,18 +344,31 @@
                         <Border Classes="panel">
                             <StackPanel Spacing="10">
                                 <TextBlock Classes="section" Text="Selected Device"/>
-                                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                                <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
                                     <TextBlock Classes="muted" Text="Name"/>
                                     <TextBlock Grid.Column="1" Text="{Binding SelectedDevice.DisplayName, FallbackValue=None}"/>
-                                    <TextBlock Grid.Row="1" Classes="muted" Text="Stable ID"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDevice.StableId, FallbackValue=None}" TextWrapping="Wrap"/>
-                                    <TextBlock Grid.Row="2" Classes="muted" Text="Instance GUID"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedDevice.InstanceGuid, FallbackValue=None}"/>
-                                    <TextBlock Grid.Row="3" Classes="muted" Text="Axes"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SelectedDevice.AxesText, FallbackValue=None}" TextWrapping="Wrap"/>
-                                    <TextBlock Grid.Row="4" Classes="muted" Text="Effects"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SelectedDevice.EffectsText, FallbackValue=None}" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Row="1" Classes="muted" Text="Status"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDeviceStatus}" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Row="2" Classes="muted" Text="FFB support"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding DeviceCapabilityStatus}" TextWrapping="Wrap"/>
                                 </Grid>
+                                <Expander Header="More device details">
+                                    <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" Margin="0,8,0,0">
+                                        <TextBlock Classes="muted" Text="Stable ID"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding SelectedDevice.StableId, FallbackValue=None}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="1" Classes="muted" Text="Instance GUID"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SelectedDevice.InstanceGuid, FallbackValue=None}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="2" Classes="muted" Text="Axes / effects"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" TextWrapping="Wrap">
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}{0}; {1}">
+                                                    <Binding Path="SelectedDevice.AxesText" FallbackValue="None"/>
+                                                    <Binding Path="SelectedDevice.EffectsText" FallbackValue="None"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                    </Grid>
+                                </Expander>
                             </StackPanel>
                         </Border>
 
@@ -341,12 +376,12 @@
                             <StackPanel Spacing="12">
                                 <TextBlock Classes="section" Text="Test Effects"/>
                                 <UniformGrid Columns="3" Rows="2">
-                                    <Button Classes="test" Margin="0,0,8,8" Content="Spring" Command="{Binding SpringTestCommand}"/>
-                                    <Button Classes="test" Margin="0,0,8,8" Content="Damper" Command="{Binding DamperTestCommand}"/>
-                                    <Button Classes="test" Margin="0,0,0,8" Content="Vibration" Command="{Binding LowVibrationCommand}"/>
-                                    <Button Margin="0,0,8,0" Content="Constant Left" Command="{Binding ConstantLeftCommand}"/>
-                                    <Button Margin="0,0,8,0" Content="Constant Right" Command="{Binding ConstantRightCommand}"/>
-                                    <Button Classes="danger" Content="Stop All" Command="{Binding StopAllEffectsCommand}"/>
+                                    <Button Classes="test" Margin="0,0,8,8" MinHeight="44" Content="Spring" AutomationProperties.Name="Run spring test" Command="{Binding SpringTestCommand}"/>
+                                    <Button Classes="test" Margin="0,0,8,8" MinHeight="44" Content="Damper" AutomationProperties.Name="Run damper test" Command="{Binding DamperTestCommand}"/>
+                                    <Button Classes="test" Margin="0,0,0,8" MinHeight="44" Content="Vibration" AutomationProperties.Name="Run vibration test" Command="{Binding LowVibrationCommand}"/>
+                                    <Button Margin="0,0,8,0" MinHeight="44" Content="Left" AutomationProperties.Name="Run constant left test" Command="{Binding ConstantLeftCommand}"/>
+                                    <Button Margin="0,0,8,0" MinHeight="44" Content="Right" AutomationProperties.Name="Run constant right test" Command="{Binding ConstantRightCommand}"/>
+                                    <Button Classes="danger" MinHeight="44" Content="Stop All" AutomationProperties.Name="Stop all force feedback effects" Command="{Binding StopAllEffectsCommand}"/>
                                 </UniformGrid>
                                 <TextBlock Classes="muted"
                                            Text="Use low limits first on old wheels. Stop All is safe to press repeatedly."/>
@@ -437,19 +472,21 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="panel">
-                        <DockPanel LastChildFill="True">
-                            <TextBlock DockPanel.Dock="Top" Classes="section" Text="Raw Packet" Margin="0,0,0,10"/>
-                            <TextBox Classes="mono"
-                                     Text="{Binding RawTelemetryPreview}"
-                                     IsReadOnly="True"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                     MinHeight="180"/>
-                        </DockPanel>
-                    </Border>
+                    <Expander Grid.Row="1" Grid.ColumnSpan="2" Header="Diagnostics">
+                        <Border Classes="panel">
+                            <DockPanel LastChildFill="True">
+                                <TextBlock DockPanel.Dock="Top" Classes="section" Text="Raw Packet" Margin="0,0,0,10"/>
+                                <TextBox Classes="mono"
+                                         Text="{Binding RawTelemetryPreview}"
+                                         IsReadOnly="True"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         MinHeight="180"/>
+                            </DockPanel>
+                        </Border>
+                    </Expander>
                 </Grid>
             </TabItem>
 
@@ -472,6 +509,8 @@
                             </StackPanel>
                             <CheckBox Grid.Column="1"
                                       VerticalAlignment="Center"
+                                      MinHeight="44"
+                                      AutomationProperties.Name="Enable gameplay force feedback"
                                       Content="FFB Enabled"
                                       IsChecked="{Binding GameplayFfbEnabled, Mode=TwoWay}"/>
                         </Grid>
@@ -486,10 +525,16 @@
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Disabled">
                                 <TabControl x:Name="EffectCategoryTabs"
-                                            ItemsSource="{Binding EffectCategories}"
-                                            SelectedItem="{Binding SelectedEffectCategory, Mode=TwoWay}"
+                                            ItemsSource="{Binding EffectCategoryOptions}"
+                                            SelectedItem="{Binding SelectedEffectCategoryOption, Mode=TwoWay}"
                                             SelectionChanged="OnEffectCategorySelectionChanged"
-                                            Height="48"/>
+                                            Height="48">
+                                    <TabControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding DisplayName}"/>
+                                        </DataTemplate>
+                                    </TabControl.ItemTemplate>
+                                </TabControl>
                             </ScrollViewer>
                             <Button Grid.Column="2"
                                     Content="&gt;"
@@ -499,124 +544,167 @@
                         </Grid>
 
                         <Grid ColumnDefinitions="180,*,48" ColumnSpacing="10">
-                            <TextBlock Text="Overall FFB Strength" VerticalAlignment="Center"/>
+                            <TextBlock Text="Global Force Limit" VerticalAlignment="Center"/>
                             <Slider Grid.Column="1" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Global force limit for all profiles"
                                     IsSnapToTickEnabled="True"
-                                    Value="{Binding GameplayFfbOverallStrengthPercent, Mode=TwoWay}"/>
+                                    Value="{Binding GlobalForceLimitPercent, Mode=TwoWay}"/>
                             <TextBlock Grid.Column="2"
-                                       Text="{Binding GameplayFfbOverallStrengthPercent, StringFormat={}{0}%}"
+                                       Text="{Binding GlobalForceLimitPercent, StringFormat={}{0}%}"
                                        VerticalAlignment="Center"/>
                         </Grid>
 
-                        <Grid ColumnDefinitions="145,72,*,112,130"
+                        <Grid ColumnDefinitions="132,86,*,50,112,130"
                               RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                               RowSpacing="10"
                               ColumnSpacing="12">
                             <TextBlock Classes="muted" Text="Effect"/>
                             <TextBlock Grid.Column="1" Classes="muted" Text="Enabled"/>
                             <TextBlock Grid.Column="2" Classes="muted" Text="Strength"/>
-                            <TextBlock Grid.Column="3" Classes="muted" Text="Curve"/>
-                            <TextBlock Grid.Column="4" Classes="muted" Text="Live output"/>
+                            <TextBlock Grid.Column="3" Classes="muted" Text="Value"/>
+                            <TextBlock Grid.Column="4" Classes="muted" Text="Curve"/>
+                            <TextBlock Grid.Column="5" Classes="muted" Text="Live output"/>
 
-                            <TextBlock Grid.Row="1" Text="Speed Spring" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding SpeedSpringEnabled, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="1" Text="Steering spring" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="1" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable steering spring" IsChecked="{Binding SpeedSpringEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="1" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Steering spring strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding SpeedSpringStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="1" Grid.Column="3"
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding SpeedSpringStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="1" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SpeedSpringCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="1" Grid.Column="4" Classes="output" Text="{Binding SpringOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="1" Grid.Column="5" Classes="output" Text="{Binding SpringOutput}" VerticalAlignment="Center"/>
 
-                            <TextBlock Grid.Row="2" Text="Speed Damper" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding SpeedDamperEnabled, Mode=TwoWay}"/>
+                            <TextBlock Grid.Row="2" Text="Road damping" VerticalAlignment="Center"/>
+                            <CheckBox Grid.Row="2" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable road damping" IsChecked="{Binding SpeedDamperEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="2" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Road damping strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding SpeedDamperStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="2" Grid.Column="3"
+                            <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding SpeedDamperStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="2" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SpeedDamperCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="2" Grid.Column="4" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="2" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="3" Text="Mechanical Friction" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="3" Grid.Column="1" IsChecked="{Binding MechanicalFrictionEnabled, Mode=TwoWay}"/>
+                            <CheckBox Grid.Row="3" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable mechanical friction" IsChecked="{Binding MechanicalFrictionEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="3" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Mechanical friction strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding MechanicalFrictionStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="3" Grid.Column="3"
+                            <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding MechanicalFrictionStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="3" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding MechanicalFrictionCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="3" Grid.Column="4" Classes="output" Text="{Binding FrictionOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="3" Grid.Column="5" Classes="output" Text="{Binding FrictionOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="4" Text="Load Resistance" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="4" Grid.Column="1" IsChecked="{Binding LoadResistanceEnabled, Mode=TwoWay}"/>
+                            <CheckBox Grid.Row="4" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable load resistance" IsChecked="{Binding LoadResistanceEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="4" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Load resistance strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding LoadResistanceStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="4" Grid.Column="3"
+                            <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding LoadResistanceStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="4" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding LoadResistanceCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="4" Grid.Column="4" Classes="output" Text="{Binding LoadFactor}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="4" Grid.Column="5" Classes="output" Text="{Binding LoadFactor}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="5" Text="RPM Vibration" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="5" Grid.Column="1" IsChecked="{Binding EngineVibrationEnabled, Mode=TwoWay}"/>
+                            <CheckBox Grid.Row="5" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable RPM vibration" IsChecked="{Binding EngineVibrationEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="5" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="RPM vibration strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding EngineVibrationStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="5" Grid.Column="3"
+                            <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding EngineVibrationStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="5" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding EngineVibrationCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="5" Grid.Column="4" Classes="output" Text="{Binding EngineVibrationOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="5" Grid.Column="5" Classes="output" Text="{Binding EngineVibrationOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="6" Text="Surface Feedback" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding SurfaceFeedbackEnabled, Mode=TwoWay}"/>
+                            <CheckBox Grid.Row="6" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable surface feedback" IsChecked="{Binding SurfaceFeedbackEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="6" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Surface feedback strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding SurfaceFeedbackStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="6" Grid.Column="3"
+                            <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding SurfaceFeedbackStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="6" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SurfaceFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="6" Grid.Column="4" Classes="output" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="6" Grid.Column="5" Classes="output" Text="{Binding SurfaceFeedbackOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="7" Text="Slip Feedback" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding SlipFeedbackEnabled, Mode=TwoWay}"/>
+                            <CheckBox Grid.Row="7" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable slip feedback" IsChecked="{Binding SlipFeedbackEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="7" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Slip feedback strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding SlipFeedbackStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="7" Grid.Column="3"
+                            <TextBlock Grid.Row="7" Grid.Column="3" Text="{Binding SlipFeedbackStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="7" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding SlipFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="7" Grid.Column="4" Classes="output" Text="{Binding SlipFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="7" Grid.Column="5" Classes="output" Text="{Binding SlipFeedbackOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="8" Text="Wetness" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding WetnessFeedbackEnabled, Mode=TwoWay}"/>
+                            <CheckBox Grid.Row="8" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable wetness feedback" IsChecked="{Binding WetnessFeedbackEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="8" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Wetness feedback strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding WetnessFeedbackStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="8" Grid.Column="3"
+                            <TextBlock Grid.Row="8" Grid.Column="3" Text="{Binding WetnessFeedbackStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="8" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding WetnessFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="8" Grid.Column="4" Classes="output" Text="{Binding WetnessFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="8" Grid.Column="5" Classes="output" Text="{Binding WetnessFeedbackOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="9" Text="Motion" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="9" Grid.Column="1" IsChecked="{Binding MotionFeedbackEnabled, Mode=TwoWay}"/>
+                            <CheckBox Grid.Row="9" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable motion feedback" IsChecked="{Binding MotionFeedbackEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="9" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Motion feedback strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding MotionFeedbackStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="9" Grid.Column="3"
+                            <TextBlock Grid.Row="9" Grid.Column="3" Text="{Binding MotionFeedbackStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="9" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding MotionFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="9" Grid.Column="4" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="9" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
 
                             <TextBlock Grid.Row="10" Text="Bump" VerticalAlignment="Center"/>
-                            <CheckBox Grid.Row="10" Grid.Column="1" IsChecked="{Binding BumpFeedbackEnabled, Mode=TwoWay}"/>
+                            <CheckBox Grid.Row="10" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable bump feedback" IsChecked="{Binding BumpFeedbackEnabled, Mode=TwoWay}"/>
                             <Slider Grid.Row="10" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5"
+                                    MinHeight="44"
+                                    AutomationProperties.Name="Bump feedback strength"
                                     IsSnapToTickEnabled="True"
                                     Value="{Binding BumpFeedbackStrengthPercent, Mode=TwoWay}"/>
-                            <ComboBox Grid.Row="10" Grid.Column="3"
+                            <TextBlock Grid.Row="10" Grid.Column="3" Text="{Binding BumpFeedbackStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="10" Grid.Column="4"
+                                      MinHeight="44"
                                       ItemsSource="{Binding CurveKinds}"
                                       SelectedItem="{Binding BumpFeedbackCurve, Mode=TwoWay}"/>
-                            <TextBlock Grid.Row="10" Grid.Column="4" Classes="output" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="10" Grid.Column="5" Classes="output" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -631,12 +719,22 @@
                             <TextBlock Classes="muted" Text="{Binding LogPath}"/>
                         </StackPanel>
                         <ListBox Classes="logList"
-                                 ItemsSource="{Binding Logs}"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ItemsSource="{Binding LogEvents}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Classes="logLine" Text="{Binding}"/>
+                                    <Expander>
+                                        <Expander.Header>
+                                            <Grid ColumnDefinitions="64,92,*,52" ColumnSpacing="10" MinHeight="44">
+                                                <TextBlock Classes="logLine" Text="{Binding Time}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Classes="logLine" Text="{Binding Level}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Classes="logLine" Text="{Binding Summary}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="3" Classes="logLine" Text="{Binding CountText}" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Expander.Header>
+                                        <TextBlock Classes="logLine" Text="{Binding Details}" TextWrapping="Wrap" Margin="74,6,0,10"/>
+                                    </Expander>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>

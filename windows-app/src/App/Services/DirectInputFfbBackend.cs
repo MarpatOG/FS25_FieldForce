@@ -33,7 +33,6 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private IDirectInputDevice8? _device;
     private int _primaryAxisOffset;
     private int _globalLimitPercent = 40;
-    private int _deviceLimitPercent = 35;
     private DateTimeOffset _lastBumpPulseAt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastAcquireWarningAt = DateTimeOffset.MinValue;
     private GameplayFfbOutput _lastGameplayOutput = GameplayFfbOutput.Zero;
@@ -133,7 +132,6 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     public void UpdateForceLimits(int globalLimitPercent, int deviceLimitPercent)
     {
         _globalLimitPercent = Math.Clamp(globalLimitPercent, 0, 100);
-        _deviceLimitPercent = Math.Clamp(deviceLimitPercent, 0, 100);
     }
 
     public void StartTestEffect(FfbEffectKind kind)
@@ -593,7 +591,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
     private int ScaleMagnitude(int magnitude)
     {
-        var limit = Math.Min(_globalLimitPercent, _deviceLimitPercent) / 100.0;
+        var limit = _globalLimitPercent / 100.0;
         return Math.Clamp((int)Math.Round(Math.Abs(magnitude) * limit), 0, DirectInputMax);
     }
 
