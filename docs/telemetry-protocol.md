@@ -60,6 +60,7 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 - `vehicleCategory`: normalized category used by the Windows app to select a full category effect profile. Values are `TractorWheeled`, `TractorTracked`, `HeavyTractorWheeled`, `HeavyTractorTracked`, `Harvester`, `Truck`, `LoaderTelehandler`, `LightVehicle`, and `Unknown`.
 - `wheelTireTypes`: comma-separated unique FS25 wheel tire type names read from `wheel.physics.tireType` through `WheelsUtil.getTireTypeName(...)` when available, for example `street`, `mud`, `offRoad`, or `crawler`.
 - `wheelTireProfile`: normalized tire profile: `street`, `agricultural`, `mixed`, `tracked`, or `unknown`.
+- `speedKmh`: in-game vehicle speed in km/h. The Lua mod uses `vehicle:getLastSpeed()` directly when available; `lastSpeedReal` is a fallback converted with `* 3600`.
 - `steeringAngle`: best-effort normalized/vehicle steering value for Milestone 2.
 - `rpm`: best-effort motor RPM.
 - `mass` and `totalMass`: best-effort vehicle mass values.

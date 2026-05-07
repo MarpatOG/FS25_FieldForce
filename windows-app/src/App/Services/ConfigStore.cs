@@ -104,6 +104,18 @@ public sealed class ConfigStore
                 NormalizeVehicleCategoryEffectProfiles(config.GameplayFfb.VehicleCategoryEffectProfiles, config.GameplayFfb);
         }
 
+        if (config.EffectsProfileVersion < 7)
+        {
+            GameplayFfbEffectProfile.ApplyCurrentSpeedSpringPreset(config.GameplayFfb);
+            foreach (var profile in config.GameplayFfb.VehicleCategoryEffectProfiles.Values)
+            {
+                GameplayFfbEffectProfile.NormalizeEffectSettings(profile);
+                GameplayFfbEffectProfile.ApplyCurrentSpeedSpringPreset(profile);
+            }
+
+            config.EffectsProfileVersion = 7;
+        }
+
         return config;
     }
 

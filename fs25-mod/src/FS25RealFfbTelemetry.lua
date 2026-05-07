@@ -574,7 +574,7 @@ function FS25RealFfbTelemetry:getSpeedKmh(vehicle)
             return vehicle:getLastSpeed()
         end)
         if ok and speed ~= nil then
-            return speed * 3600
+            return speed
         end
     end
 

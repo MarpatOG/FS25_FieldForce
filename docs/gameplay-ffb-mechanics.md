@@ -42,11 +42,11 @@ Tire profile detection reads FS25 `wheel.physics.tireType` and normalizes unique
 
 ## Category Profiles
 
-Effects profile version `6` stores full per-category effect profiles in `GameplayFfbSettings.VehicleCategoryEffectProfiles`. The Windows app uses `packet.VehicleCategory` to select a profile, falls back to `Unknown`, then to the base profile. Version 5 `VehicleCategoryProfiles` multipliers are legacy migration input only; v5 configs are migrated by cloning the current base profile per category and applying those multipliers once.
+Effects profile version `7` stores full per-category effect profiles in `GameplayFfbSettings.VehicleCategoryEffectProfiles`. The Windows app uses `packet.VehicleCategory` to select a profile, falls back to `Unknown`, then to the base profile. Version 5 `VehicleCategoryProfiles` multipliers are legacy migration input only; v5 configs are migrated by cloning the current base profile per category and applying those multipliers once. Version 7 applies the same Speed Spring baseline to every category profile.
 
 ## Effects
 
-- `Speed Spring`: DirectInput Spring condition; grows with speed using `SpeedSpring.SpeedReferenceKmh` and a small standstill floor.
+- `Speed Spring`: DirectInput Spring condition; grows with in-game vehicle speed using `SpeedSpring.SpeedReferenceKmh` and a small standstill floor. Version 7 defaults use a 45 km/h speed reference, 0.02 standstill floor, 55% strength, 65% max output, and Smooth curve so 0-5 km/h has almost no centering, 10 km/h is light, 20 km/h is moderate, and 35-45 km/h gives stable centering without strong hand resistance.
 - `Speed Damper`: DirectInput Damper condition; grows with speed and provides high-speed resistance.
 - `Mechanical Friction`: DirectInput Friction condition; baseline steering friction, increased by load and field modifiers.
 - `Load Resistance`: modifier over spring, damper, and friction using `totalMass / mass`, clamped to a load factor range of `1..4`.

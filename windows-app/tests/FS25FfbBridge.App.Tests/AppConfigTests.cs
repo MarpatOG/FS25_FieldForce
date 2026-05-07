@@ -11,7 +11,7 @@ public sealed class AppConfigTests
     {
         var config = new AppConfig();
 
-        Assert.Equal(6, config.EffectsProfileVersion);
+        Assert.Equal(7, config.EffectsProfileVersion);
         Assert.Equal("Logitech MOMO Racing Wheel", config.DeviceProfileName);
         Assert.Equal(270, config.RotationDegrees);
         Assert.Equal(40, config.GlobalForceLimitPercent);
@@ -20,9 +20,10 @@ public sealed class AppConfigTests
         Assert.True(config.GameplayFfb.SpeedSpring.Enabled);
         Assert.True(config.GameplayFfb.SpeedDamper.Enabled);
         Assert.True(config.GameplayFfb.MechanicalFriction.Enabled);
-        Assert.Equal(60, config.GameplayFfb.SpeedSpring.StrengthPercent);
+        Assert.Equal(55, config.GameplayFfb.SpeedSpring.StrengthPercent);
         Assert.Equal(65, config.GameplayFfb.SpeedSpring.MaxOutputPercent);
-        Assert.Equal(50, config.GameplayFfb.SpeedSpring.SpeedReferenceKmh);
+        Assert.Equal(45, config.GameplayFfb.SpeedSpring.SpeedReferenceKmh);
+        Assert.Equal(0.02, config.GameplayFfb.SpeedSpring.StandstillFloor);
         Assert.Equal(65, config.GameplayFfb.SpeedDamper.StrengthPercent);
         Assert.Equal(70, config.GameplayFfb.SpeedDamper.MaxOutputPercent);
         Assert.Equal(55, config.GameplayFfb.SpeedDamper.SpeedReferenceKmh);
@@ -51,6 +52,13 @@ public sealed class AppConfigTests
         Assert.Equal(80, config.GameplayFfb.BumpFeedback.DurationMs);
         Assert.Contains(VehicleCategoryFfbProfile.TractorWheeled, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
         Assert.Contains(VehicleCategoryFfbProfile.HeavyTractorTracked, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
+        Assert.All(config.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
+        {
+            Assert.Equal(55, profile.SpeedSpring.StrengthPercent);
+            Assert.Equal(65, profile.SpeedSpring.MaxOutputPercent);
+            Assert.Equal(45, profile.SpeedSpring.SpeedReferenceKmh);
+            Assert.Equal(0.02, profile.SpeedSpring.StandstillFloor);
+        });
         Assert.Equal(78, config.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorTracked].SpeedDamper.StrengthPercent);
     }
 
@@ -93,12 +101,12 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(6, migrated.EffectsProfileVersion);
-        Assert.Equal(42, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
+        Assert.Equal(7, migrated.EffectsProfileVersion);
+        Assert.Equal(55, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
         Assert.Equal(51, migrated.GameplayFfb.SpeedDamper.MaxOutputPercent);
         Assert.Contains(VehicleCategoryFfbProfile.TractorTracked, migrated.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
         Assert.Contains(VehicleCategoryFfbProfile.Unknown, migrated.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
-        Assert.Equal(42, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring.StrengthPercent);
+        Assert.Equal(55, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring.StrengthPercent);
     }
 
     [Fact]
@@ -120,8 +128,38 @@ public sealed class AppConfigTests
         store.Save(migrated);
         var loadedAgain = store.Load();
 
-        Assert.Equal(6, loadedAgain.EffectsProfileVersion);
+        Assert.Equal(7, loadedAgain.EffectsProfileVersion);
         Assert.Equal(70, loadedAgain.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedDamper.StrengthPercent);
         Assert.Equal(50, loadedAgain.GameplayFfb.SpeedDamper.StrengthPercent);
+    }
+
+    [Fact]
+    public void Config_v6_migration_applies_current_speed_spring_to_every_profile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"), "config.json");
+        var store = new ConfigStore(path);
+        var oldConfig = new AppConfig
+        {
+            EffectsProfileVersion = 6
+        };
+        oldConfig.GameplayFfb.SpeedSpring.StrengthPercent = 90;
+        oldConfig.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedSpring.StrengthPercent = 90;
+        oldConfig.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.LightVehicle].SpeedSpring.MaxOutputPercent = 10;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(oldConfig));
+
+        var migrated = store.Load();
+
+        Assert.Equal(7, migrated.EffectsProfileVersion);
+        Assert.Equal(55, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
+        Assert.All(migrated.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
+        {
+            Assert.Equal(55, profile.SpeedSpring.StrengthPercent);
+            Assert.Equal(65, profile.SpeedSpring.MaxOutputPercent);
+            Assert.Equal(45, profile.SpeedSpring.SpeedReferenceKmh);
+            Assert.Equal(0.02, profile.SpeedSpring.StandstillFloor);
+            Assert.Equal(FfbCurveKind.Smooth, profile.SpeedSpring.Curve);
+        });
     }
 }

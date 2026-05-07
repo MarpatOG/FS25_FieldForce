@@ -28,6 +28,25 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Speed_spring_matches_low_speed_centering_targets()
+    {
+        var settings = new GameplayFfbSettings();
+        var stopped = _calculator.Calculate(State(Packet(speedKmh: 0)), settings);
+        var creeping = _calculator.Calculate(State(Packet(speedKmh: 5)), settings);
+        var light = _calculator.Calculate(State(Packet(speedKmh: 10)), settings);
+        var moderate = _calculator.Calculate(State(Packet(speedKmh: 20)), settings);
+        var stable = _calculator.Calculate(State(Packet(speedKmh: 35)), settings);
+        var capped = _calculator.Calculate(State(Packet(speedKmh: 45)), settings);
+
+        Assert.InRange(stopped.SpringPercent, 0, 2);
+        Assert.InRange(creeping.SpringPercent, 1, 3);
+        Assert.InRange(light.SpringPercent, 4, 7);
+        Assert.InRange(moderate.SpringPercent, 13, 17);
+        Assert.InRange(stable.SpringPercent, 29, 33);
+        Assert.InRange(capped.SpringPercent, 34, 36);
+    }
+
+    [Fact]
     public void Speed_below_two_kmh_is_treated_as_standstill()
     {
         var settings = new GameplayFfbSettings();
@@ -58,7 +77,7 @@ public sealed class GameplayFfbCalculatorTests
 
         Assert.True(tracked.DamperPercent > wheeled.DamperPercent);
         Assert.True(tracked.FrictionPercent > wheeled.FrictionPercent);
-        Assert.True(tracked.SpringPercent < wheeled.SpringPercent);
+        Assert.Equal(wheeled.SpringPercent, tracked.SpringPercent);
     }
 
     [Fact]

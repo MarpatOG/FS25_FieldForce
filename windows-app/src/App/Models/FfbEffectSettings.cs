@@ -85,14 +85,19 @@ public sealed class BumpFeedbackSettings : FfbEffectSettings
 
 public class GameplayFfbEffectProfile
 {
+    public const int SpeedSpringStrengthDefault = 55;
+    public const int SpeedSpringMaxOutputDefault = 65;
+    public const double SpeedSpringStandstillFloorDefault = 0.02;
+    public const double SpeedSpringReferenceKmhDefault = 45;
+
     public SpeedConditionSettings SpeedSpring { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 60,
-        MaxOutputPercent = 65,
+        StrengthPercent = SpeedSpringStrengthDefault,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
-        StandstillFloor = 0.04,
-        SpeedReferenceKmh = 50
+        StandstillFloor = SpeedSpringStandstillFloorDefault,
+        SpeedReferenceKmh = SpeedSpringReferenceKmhDefault
     };
 
     public SpeedConditionSettings SpeedDamper { get; set; } = new()
@@ -349,6 +354,16 @@ public class GameplayFfbEffectProfile
         settings.BumpFeedback ??= new BumpFeedbackSettings();
     }
 
+    public static void ApplyCurrentSpeedSpringPreset(GameplayFfbEffectProfile settings)
+    {
+        settings.SpeedSpring.Enabled = true;
+        settings.SpeedSpring.StrengthPercent = SpeedSpringStrengthDefault;
+        settings.SpeedSpring.MaxOutputPercent = SpeedSpringMaxOutputDefault;
+        settings.SpeedSpring.Curve = FfbCurveKind.Smooth;
+        settings.SpeedSpring.StandstillFloor = SpeedSpringStandstillFloorDefault;
+        settings.SpeedSpring.SpeedReferenceKmh = SpeedSpringReferenceKmhDefault;
+    }
+
     private static void ApplyLegacyMultipliers(GameplayFfbEffectProfile settings, VehicleCategoryFfbProfile profile)
     {
         ApplySpeedProfile(settings.SpeedSpring, profile.SpeedSpringStrengthMultiplier, profile.SpeedSpringMaxMultiplier, profile.SpeedSpringReferenceMultiplier);
@@ -462,8 +477,6 @@ public sealed class VehicleCategoryFfbProfile
             [TractorWheeled] = new(),
             [TractorTracked] = new()
             {
-                SpeedSpringStrengthMultiplier = 0.85,
-                SpeedSpringMaxMultiplier = 0.90,
                 SpeedDamperStrengthMultiplier = 1.20,
                 MechanicalFrictionStrengthMultiplier = 1.18,
                 LoadResistanceStrengthMultiplier = 1.20,
@@ -478,8 +491,6 @@ public sealed class VehicleCategoryFfbProfile
             },
             [HeavyTractorTracked] = new()
             {
-                SpeedSpringStrengthMultiplier = 0.75,
-                SpeedSpringMaxMultiplier = 0.85,
                 SpeedDamperStrengthMultiplier = 1.35,
                 SpeedDamperMaxMultiplier = 1.10,
                 MechanicalFrictionStrengthMultiplier = 1.35,
@@ -497,22 +508,17 @@ public sealed class VehicleCategoryFfbProfile
             },
             [Truck] = new()
             {
-                SpeedSpringStrengthMultiplier = 1.15,
-                SpeedSpringMaxMultiplier = 1.10,
                 SurfaceFeedbackStrengthMultiplier = 0.70,
                 SurfaceFeedbackMaxMultiplier = 0.80
             },
             [LoaderTelehandler] = new()
             {
-                SpeedSpringReferenceMultiplier = 0.75,
                 SpeedDamperReferenceMultiplier = 0.85,
                 MechanicalFrictionStrengthMultiplier = 1.20,
                 BumpFeedbackStrengthMultiplier = 1.20
             },
             [LightVehicle] = new()
             {
-                SpeedSpringMaxMultiplier = 0.70,
-                SpeedSpringReferenceMultiplier = 0.75,
                 SpeedDamperMaxMultiplier = 0.70,
                 SpeedDamperReferenceMultiplier = 0.75,
                 MechanicalFrictionMaxMultiplier = 0.75,
