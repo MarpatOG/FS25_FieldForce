@@ -54,6 +54,10 @@ Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/teleme
 
 Manual transport checks are documented in `docs/telemetry-protocol.md`.
 
+## Mod Versioning
+
+Mandatory rule: any change to files shipped inside `fs25-mod/` must update the FS25 mod version in both `fs25-mod/modDesc.xml` and [fs25-mod/VERSION.md](fs25-mod/VERSION.md), unless the commit message explicitly states why the shipped mod package is unaffected.
+
 ## Milestone 1 Baseline
 
 The current DirectInput test values are calibrated as a conservative Logitech MOMO baseline:

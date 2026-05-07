@@ -21,11 +21,16 @@ The resulting layout should be:
 ```text
 FS25_RealFfbTelemetry/
   modDesc.xml
+  VERSION.md
   config/
   src/
 ```
 
 Enable `FS25 Real FFB Telemetry` in a savegame. Start the Windows bridge before or after FS25; if the bridge is not running, the mod must not crash the game.
+
+## Versioning
+
+The current mod version and bump rules are tracked in [VERSION.md](VERSION.md). Any shipped change under `fs25-mod/` must keep that file and `modDesc.xml` in sync, unless the commit message explicitly explains why the mod package is unaffected.
 
 ## Config
 
