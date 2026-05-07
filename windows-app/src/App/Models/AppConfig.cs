@@ -16,6 +16,8 @@ public sealed class AppConfig
     public int TelemetryPort { get; set; } = 34325;
     public int TelemetryLostTimeoutMs { get; set; } = 1000;
     public int TelemetryStaleWarningMs { get; set; } = 300;
+    public int TelemetryFfbUpdateRateHz { get; set; } = 125;
+    public int TelemetryUiRefreshMs { get; set; } = 100;
     public string? TelemetryFilePath { get; set; }
     public GameplayFfbSettings GameplayFfb { get; set; } = new();
 }

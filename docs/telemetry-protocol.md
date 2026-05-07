@@ -9,12 +9,13 @@ The telemetry mod uses UDP JSON over localhost when FS25 Lua socket support is a
 - Default port: `34325`
 - Sender: FS25 Lua mod
 - Receiver: Windows app
-- Default send rate: `30 Hz`
+- Default UDP target send rate: `125 Hz`
+- File fallback target write rate: `30 Hz`
 - File fallback: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
 - Effect status return file: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json`
 
 Packet loss is acceptable for UDP. The receiver always keeps the last valid packet visible and changes status to `Lost` when packets or file updates stop.
-The Windows receiver reports UDP status, file fallback status, last valid packet source, parser status, and the latest transport error separately so a UDP bind failure does not hide file fallback diagnostics.
+The Windows receiver reports UDP status, file fallback status, last valid packet source, parser status, and the latest transport error separately so a UDP bind failure does not hide file fallback diagnostics. Fresh UDP packets are the primary source; file fallback is accepted only before UDP is available, when UDP bind failed, or after UDP has timed out.
 
 ## Packet Shape
 
@@ -60,7 +61,7 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 - `vehicleCategory`: normalized category used by the Windows app to select a full category effect profile. Values are `TractorWheeled`, `TractorTracked`, `HeavyTractorWheeled`, `HeavyTractorTracked`, `Harvester`, `Truck`, `LoaderTelehandler`, `LightVehicle`, and `Unknown`.
 - `wheelTireTypes`: comma-separated unique FS25 wheel tire type names read from `wheel.physics.tireType` through `WheelsUtil.getTireTypeName(...)` when available, for example `street`, `mud`, `offRoad`, or `crawler`.
 - `wheelTireProfile`: normalized tire profile: `street`, `agricultural`, `mixed`, `tracked`, or `unknown`.
-- `speedKmh`: in-game vehicle speed in km/h. The Lua mod primarily derives this from rootNode world-position delta with a `2 km/h` standstill deadband and ignores horizontal movement below `0.03 m` per telemetry sample so FFB speed effects do not react to stale API spikes or physics jitter while parked. When rootNode position exists but there is not enough history yet, speed is reported as `0`. Raw game speed fields are used only as fallbacks when rootNode position is unavailable and are not multiplied by `3600`.
+- `speedKmh`: in-game vehicle speed in km/h. The Lua mod primarily derives this from rootNode world-position delta with a `2 km/h` standstill deadband scaled by sample `dt`, so FFB speed effects do not react to stale API spikes or physics jitter while parked. When rootNode position exists but there is not enough history yet, speed is reported as `0`. Raw game speed fields are used only as fallbacks when rootNode position is unavailable and are not multiplied by `3600`.
 - `steeringAngle`: best-effort normalized/vehicle steering value for Milestone 2.
 - `rpm`: best-effort motor RPM.
 - `mass` and `totalMass`: best-effort vehicle mass values.

@@ -33,7 +33,8 @@ Edit `config/TelemetryConfig.lua`:
 
 - `host`: default `127.0.0.1`
 - `port`: default `34325`
-- `updateRateHz`: default `30`
+- `updateRateHz`: default `125` for UDP telemetry
+- `fileFallbackRateHz`: default `30` for diagnostic/compatibility file fallback writes
 - `debug`: default `false`
 - `overlay.enabled`: default `true`; draws the in-game telemetry debug overlay
 - `overlay.x`, `overlay.y`: screen-space overlay position, where `0,0` is bottom-left
@@ -44,7 +45,7 @@ Edit `config/TelemetryConfig.lua`:
 
 The mod tries UDP first through `require("socket")`. If FS25 does not expose LuaSocket, the log includes the `require` error plus `package.path` and `package.cpath`, then the mod tries the file fallback.
 
-File fallback writes the same JSON packet to:
+File fallback writes the same JSON packet to the fallback file at `fileFallbackRateHz`; UDP remains the primary transport when LuaSocket is available.
 
 ```text
 Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json

@@ -16,6 +16,7 @@ public sealed class TelemetryReceiverService : IDisposable
 
     private readonly AppLogService _log;
     private readonly ConcurrentQueue<DateTimeOffset> _packetTimes = new();
+    private readonly object _stateLock = new();
     private CancellationTokenSource? _cts;
     private UdpClient? _udpClient;
     private System.Threading.Timer? _statusTimer;
@@ -32,6 +33,8 @@ public sealed class TelemetryReceiverService : IDisposable
     private string? _lastTransportError;
     private TelemetryStatus _status = TelemetryStatus.Waiting;
     private int _lostTimeoutMs;
+    private int _uiRefreshMs;
+    private bool _udpBindFailed;
     private bool _loggedConnected;
 
     public TelemetryReceiverService(AppLogService log)
@@ -40,14 +43,25 @@ public sealed class TelemetryReceiverService : IDisposable
     }
 
     public event Action<TelemetryReceiverState>? StateChanged;
+    public event Action<TelemetryReceiverState>? FfbStateChanged;
 
     public string Endpoint { get; private set; } = "127.0.0.1:34325";
+    public int FfbUpdateRateHz { get; private set; } = 125;
 
-    public void Start(string host, int port, int lostTimeoutMs, string? filePath = null, bool includeDefaultFilePath = true)
+    public void Start(
+        string host,
+        int port,
+        int lostTimeoutMs,
+        string? filePath = null,
+        bool includeDefaultFilePath = true,
+        int ffbUpdateRateHz = 125,
+        int uiRefreshMs = 100)
     {
         Stop();
 
         _lostTimeoutMs = Math.Max(250, lostTimeoutMs);
+        FfbUpdateRateHz = Math.Clamp(ffbUpdateRateHz, 1, 1000);
+        _uiRefreshMs = Math.Clamp(uiRefreshMs, 20, 1000);
         _cts = new CancellationTokenSource();
         _packetTimes.Clear();
         _lastPacket = null;
@@ -58,6 +72,7 @@ public sealed class TelemetryReceiverService : IDisposable
         _fileStatus = "Not started";
         _lastPacketSource = "none";
         _lastTransportError = null;
+        _udpBindFailed = false;
         _loggedConnected = false;
         _status = TelemetryStatus.Waiting;
 
@@ -68,7 +83,7 @@ public sealed class TelemetryReceiverService : IDisposable
         _lastFileWriteTimeUtc = DateTime.MinValue;
         _fileStatus = $"Waiting: {FormatFileCandidates(_fileCandidates)}";
         Endpoint = $"{udpEndpoint} | {FormatFileCandidates(_fileCandidates)}";
-        _statusTimer = new System.Threading.Timer(_ => PublishState(), null, TimeSpan.Zero, TimeSpan.FromMilliseconds(200));
+        _statusTimer = new System.Threading.Timer(_ => PublishState(), null, TimeSpan.Zero, TimeSpan.FromMilliseconds(_uiRefreshMs));
 
         try
         {
@@ -80,13 +95,17 @@ public sealed class TelemetryReceiverService : IDisposable
         {
             _udpStatus = $"Bind failed: {udpEndpoint}";
             _lastTransportError = $"UDP bind failed on {udpEndpoint}: {ex.SocketErrorCode}";
+            _udpBindFailed = true;
             _log.Error(ex, "Telemetry UDP bind failed on {Endpoint}", udpEndpoint);
+            PublishState();
         }
         catch (Exception ex)
         {
             _udpStatus = $"Bind failed: {udpEndpoint}";
             _lastTransportError = $"UDP bind failed on {udpEndpoint}: {ex.Message}";
+            _udpBindFailed = true;
             _log.Error(ex, "Telemetry UDP bind failed on {Endpoint}", udpEndpoint);
+            PublishState();
         }
 
         _ = Task.Run(() => FileLoopAsync(_cts.Token));
@@ -133,7 +152,7 @@ public sealed class TelemetryReceiverService : IDisposable
 
                 var result = await _udpClient.ReceiveAsync(cancellationToken);
                 var raw = Encoding.UTF8.GetString(result.Buffer).Trim();
-                HandlePacket(raw, $"udp://{result.RemoteEndPoint}");
+                HandlePacket(raw, $"udp://{result.RemoteEndPoint}", isUdp: true);
             }
             catch (OperationCanceledException)
             {
@@ -178,7 +197,7 @@ public sealed class TelemetryReceiverService : IDisposable
                         if (!string.IsNullOrWhiteSpace(raw))
                         {
                             _lastFileWriteTimeUtc = writeTime;
-                            HandlePacket(raw.Trim(), $"file://{filePath}");
+                            HandlePacket(raw.Trim(), $"file://{filePath}", isUdp: false);
                         }
                     }
                 }
@@ -215,9 +234,18 @@ public sealed class TelemetryReceiverService : IDisposable
         return await File.ReadAllTextAsync(path, cancellationToken);
     }
 
-    private void HandlePacket(string raw, string source)
+    private void HandlePacket(string raw, string source, bool isUdp)
     {
-        _lastRawPacket = raw;
+        if (!isUdp)
+        {
+            lock (_stateLock)
+            {
+                if (!CanAcceptFilePacket())
+                {
+                    return;
+                }
+            }
+        }
 
         try
         {
@@ -227,42 +255,87 @@ public sealed class TelemetryReceiverService : IDisposable
                 throw new JsonException("Packet decoded as null.");
             }
 
-            _lastPacketAt = DateTimeOffset.UtcNow;
-            _packetTimes.Enqueue(_lastPacketAt.Value);
-            TrimPacketTimes();
-            _lastPacket = packet;
-            _lastParseError = null;
-            _lastPacketSource = source;
-            SetStatus(TelemetryStatus.Connected);
+            TelemetryReceiverState state;
+            var publishUiImmediately = false;
+            lock (_stateLock)
+            {
+                if (!isUdp && !CanAcceptFilePacket())
+                {
+                    return;
+                }
+
+                _lastRawPacket = raw;
+                _lastPacketAt = DateTimeOffset.UtcNow;
+                if (isUdp)
+                {
+                    _packetTimes.Enqueue(_lastPacketAt.Value);
+                }
+
+                TrimPacketTimes();
+                _lastPacket = packet;
+                _lastParseError = null;
+                _lastPacketSource = source;
+                publishUiImmediately = SetStatus(TelemetryStatus.Connected);
+                state = CreateState();
+            }
+
             if (!_loggedConnected)
             {
                 _loggedConnected = true;
                 _log.Information("Telemetry connected from {Source}", source);
             }
+
+            FfbStateChanged?.Invoke(state);
+            if (publishUiImmediately)
+            {
+                StateChanged?.Invoke(state);
+            }
         }
         catch (JsonException ex)
         {
-            _lastParseError = ex.Message;
-            _log.Warning("Telemetry parse error: {Error}", ex.Message);
-        }
+            lock (_stateLock)
+            {
+                _lastRawPacket = raw;
+                _lastParseError = ex.Message;
+            }
 
-        PublishState();
+            _log.Warning("Telemetry parse error: {Error}", ex.Message);
+            PublishState();
+        }
     }
 
     private void PublishState()
     {
-        if (_lastPacketAt is null)
+        TelemetryReceiverState state;
+        var publishFfb = false;
+        lock (_stateLock)
         {
-            SetStatus(TelemetryStatus.Waiting);
-        }
-        else
-        {
-            var age = DateTimeOffset.UtcNow - _lastPacketAt.Value;
-            SetStatus(age.TotalMilliseconds > _lostTimeoutMs ? TelemetryStatus.Lost : TelemetryStatus.Connected);
+            if (_lastPacketAt is null)
+            {
+                SetStatus(TelemetryStatus.Waiting);
+            }
+            else
+            {
+                var age = DateTimeOffset.UtcNow - _lastPacketAt.Value;
+                publishFfb = SetStatus(age.TotalMilliseconds > _lostTimeoutMs ? TelemetryStatus.Lost : TelemetryStatus.Connected) &&
+                    _status == TelemetryStatus.Lost;
+            }
+
+            TrimPacketTimes();
+            state = CreateState();
         }
 
-        TrimPacketTimes();
-        StateChanged?.Invoke(new TelemetryReceiverState(
+        if (publishFfb)
+        {
+            FfbStateChanged?.Invoke(state);
+        }
+
+        StateChanged?.Invoke(state);
+    }
+
+    private TelemetryReceiverState CreateState()
+    {
+        return new TelemetryReceiverState(
             _status,
             _lastPacket,
             _lastRawPacket,
@@ -273,18 +346,19 @@ public sealed class TelemetryReceiverService : IDisposable
             _udpStatus,
             _fileStatus,
             _lastPacketSource,
-            _lastTransportError));
+            _lastTransportError);
     }
 
-    private void SetStatus(TelemetryStatus status)
+    private bool SetStatus(TelemetryStatus status)
     {
         if (_status == status)
         {
-            return;
+            return false;
         }
 
         _status = status;
         _log.Information("Telemetry status changed: {Status}", status);
+        return true;
     }
 
     private void TrimPacketTimes()
@@ -294,6 +368,26 @@ public sealed class TelemetryReceiverService : IDisposable
         {
             _packetTimes.TryDequeue(out _);
         }
+    }
+
+    private bool CanAcceptFilePacket()
+    {
+        if (_udpBindFailed)
+        {
+            return true;
+        }
+
+        if (_lastPacketAt is null)
+        {
+            return true;
+        }
+
+        if (!_lastPacketSource.StartsWith("udp://", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return DateTimeOffset.UtcNow - _lastPacketAt.Value > TimeSpan.FromMilliseconds(_lostTimeoutMs);
     }
 
     private static IPAddress ParseAddress(string host)

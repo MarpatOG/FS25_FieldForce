@@ -338,8 +338,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         _backend.UpdateForceLimits(GlobalForceLimitPercent, DeviceForceLimitPercent);
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
-        _telemetryReceiver.Start(_config.TelemetryHost, _config.TelemetryPort, _config.TelemetryLostTimeoutMs, _config.TelemetryFilePath);
-        _gameplayFfb = new GameplayFfbController(_telemetryReceiver, _backend, _log, GetRuntimeGameplaySettings, OnGameplayOutputChanged, OnGameplayApplyResultChanged, _effectStatusWriter);
+        _telemetryReceiver.Start(
+            _config.TelemetryHost,
+            _config.TelemetryPort,
+            _config.TelemetryLostTimeoutMs,
+            _config.TelemetryFilePath,
+            ffbUpdateRateHz: _config.TelemetryFfbUpdateRateHz,
+            uiRefreshMs: _config.TelemetryUiRefreshMs);
+        _gameplayFfb = new GameplayFfbController(
+            _telemetryReceiver,
+            _backend,
+            _log,
+            GetRuntimeGameplaySettings,
+            OnGameplayOutputChanged,
+            OnGameplayApplyResultChanged,
+            _effectStatusWriter,
+            _config.TelemetryFfbUpdateRateHz);
         _log.Information("Application initialized. Config={ConfigPath}", ConfigPath);
     }
 

@@ -7,8 +7,10 @@ function FS25RealFfbTelemetry.new()
     self.config = FS25RealFfbTelemetryConfig or {}
     self.host = self.config.host or "127.0.0.1"
     self.port = tonumber(self.config.port) or 34325
-    self.updateRateHz = math.max(1, tonumber(self.config.updateRateHz) or 30)
+    self.updateRateHz = math.max(1, tonumber(self.config.updateRateHz) or 125)
+    self.fileFallbackRateHz = math.max(1, tonumber(self.config.fileFallbackRateHz) or 30)
     self.intervalMs = 1000 / self.updateRateHz
+    self.fileFallbackIntervalMs = 1000 / self.fileFallbackRateHz
     self.debug = self.config.debug == true
     self.elapsedMs = 0
     self.socket = nil
@@ -18,6 +20,10 @@ function FS25RealFfbTelemetry.new()
     self.lastPacket = nil
     self.lastPayload = nil
     self.lastPacketTime = nil
+    self.lastSendTime = nil
+    self.sendTimes = {}
+    self.actualSendRate = 0
+    self.lastFileFallbackWriteMs = nil
     self.lastPacketSource = "none"
     self.lastWriteError = nil
     self.overlayConfig = self.config.overlay or {}
@@ -169,7 +175,7 @@ function FS25RealFfbTelemetry:sendTelemetry()
         end
     end
 
-    if self.fileEnabled and self.filePath ~= nil then
+    if self.fileEnabled and self.filePath ~= nil and self:shouldWriteFileFallback(packet) then
         local ok, writeError = self:writeFile(self.filePath, payload)
         if not ok then
             self.lastWriteError = tostring(writeError)
@@ -187,7 +193,11 @@ function FS25RealFfbTelemetry:sendTelemetry()
     self.lastPacket = packet
     self.lastPayload = payload
     self.lastPacketTime = packet.timestamp
+    self.lastSendTime = packet.monotonicSeconds
     self.lastPacketSource = self:getTransportLabel(sent)
+    if sent then
+        self:recordSend(packet.monotonicSeconds)
+    end
 end
 
 function FS25RealFfbTelemetry:collectTelemetry()
@@ -200,6 +210,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
 
     return {
         timestamp = self:getTimestamp(),
+        monotonicSeconds = self:getMonotonicSeconds(),
         gameState = self:getGameState(),
         isPlayerInVehicle = inVehicle,
         vehicleName = inVehicle and self:getVehicleName(vehicle) or nil,
@@ -308,6 +319,18 @@ end
 function FS25RealFfbTelemetry:getTimestamp()
     if g_time ~= nil then
         return g_time
+    end
+
+    if os ~= nil and type(os.clock) == "function" then
+        return os.clock()
+    end
+
+    return 0
+end
+
+function FS25RealFfbTelemetry:getMonotonicSeconds()
+    if g_time ~= nil and type(g_time) == "number" then
+        return g_time / 1000
     end
 
     if os ~= nil and type(os.clock) == "function" then
@@ -1114,7 +1137,7 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
     local pitchDeg = rx ~= nil and math.deg(rx) or nil
     local rollDeg = rz ~= nil and math.deg(rz) or nil
     local slopeDeg = wx ~= nil and self:getSlopeDeg(wx, wy or 0, wz) or nil
-    local now = self:getTimestamp()
+    local now = self:getMonotonicSeconds()
     local key = tostring(vehicle)
     local previous = self.lastVehicleMotion[key]
     local speedKmh = nil
@@ -1124,7 +1147,7 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
 
     if previous ~= nil and wx ~= nil and wy ~= nil and wz ~= nil then
         local dtSec = self:getDeltaSeconds(now, previous.time)
-        if dtSec ~= nil and dtSec >= 0.015 and dtSec < 2 then
+        if dtSec ~= nil and dtSec >= 0.004 and dtSec < 2 then
             local dx = wx - previous.x
             local dy = wy - previous.y
             local dz = wz - previous.z
@@ -1190,7 +1213,8 @@ function FS25RealFfbTelemetry:speedFromDelta(dx, dz, dtSec)
     end
 
     local horizontalDistance = math.sqrt((dx * dx) + (dz * dz))
-    if horizontalDistance < 0.03 then
+    local standstillDistance = (2 / 3.6) * dtSec
+    if horizontalDistance < standstillDistance then
         return 0
     end
 
@@ -1300,6 +1324,38 @@ function FS25RealFfbTelemetry:getDeltaSeconds(now, previous)
     return delta
 end
 
+function FS25RealFfbTelemetry:shouldWriteFileFallback(packet)
+    if not self.fileEnabled then
+        return false
+    end
+
+    local nowMs = (packet ~= nil and type(packet.monotonicSeconds) == "number") and (packet.monotonicSeconds * 1000) or nil
+    if nowMs == nil then
+        return true
+    end
+
+    if self.lastFileFallbackWriteMs ~= nil and (nowMs - self.lastFileFallbackWriteMs) < self.fileFallbackIntervalMs then
+        return false
+    end
+
+    self.lastFileFallbackWriteMs = nowMs
+    return true
+end
+
+function FS25RealFfbTelemetry:recordSend(monotonicSeconds)
+    if type(monotonicSeconds) ~= "number" then
+        return
+    end
+
+    table.insert(self.sendTimes, monotonicSeconds)
+    local threshold = monotonicSeconds - 1
+    while #self.sendTimes > 0 and self.sendTimes[1] < threshold do
+        table.remove(self.sendTimes, 1)
+    end
+
+    self.actualSendRate = #self.sendTimes
+end
+
 function FS25RealFfbTelemetry:angleDifference(current, previous)
     local diff = current - previous
     while diff > math.pi do
@@ -1373,7 +1429,8 @@ function FS25RealFfbTelemetry:getOverlayLines(packet, effectStatus)
         "transport: " .. transport,
         "source: " .. tostring(self.lastPacketSource or "none"),
         "age: " .. age,
-        "rate: " .. tostring(self.updateRateHz) .. " Hz"
+        "configured: " .. tostring(self.updateRateHz) .. " Hz",
+        "actual: " .. tostring(self.actualSendRate or 0) .. " pkt/s"
     }
 
     self:addEffectStatusOverlayLines(lines, effectStatus)
