@@ -232,7 +232,7 @@ public sealed class GameplayFfbCalculatorTests
             1,
             VehicleCategoryFfbProfile.TractorWheeled,
             DeviceHapticProfile.Generic);
-        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, 1, 1, 0, 0, 0, 0, 0, 0, 0);
+        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0);
         var baseSteering = new SteeringModel(25, 10, 8);
 
         var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Apply(baseSteering, features, context).Value;
@@ -296,6 +296,40 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Wetness_below_minimum_does_not_change_field_output()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.WetnessFeedback.MinWetness = 0.2;
+        var dry = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field")), settings);
+        var barelyWet = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field", groundWetness: 0.1, rainScale: 0.05)), settings);
+
+        Assert.Equal(dry.DamperPercent, barelyWet.DamperPercent);
+        Assert.Equal(dry.SurfaceVibrationPercent, barelyWet.SurfaceVibrationPercent);
+    }
+
+    [Fact]
+    public void Rain_scale_can_drive_wetness_feedback()
+    {
+        var settings = new GameplayFfbSettings();
+        var dry = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field")), settings);
+        var raining = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field", rainScale: 0.85)), settings);
+
+        Assert.True(raining.DamperPercent >= dry.DamperPercent);
+        Assert.True(raining.SurfaceVibrationPercent >= dry.SurfaceVibrationPercent);
+    }
+
+    [Fact]
+    public void Wet_field_without_numeric_wetness_uses_fallback()
+    {
+        var settings = new GameplayFfbSettings();
+        var field = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field")), settings);
+        var wetField = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: false, surfaceType: "wetField")), settings);
+
+        Assert.True(wetField.SurfaceVibrationPercent >= field.SurfaceVibrationPercent);
+        Assert.True(wetField.DamperPercent >= field.DamperPercent);
+    }
+
+    [Fact]
     public void Motion_feedback_modifies_condition_effects_but_stays_clamped()
     {
         var settings = new GameplayFfbSettings();
@@ -313,6 +347,80 @@ public sealed class GameplayFfbCalculatorTests
         Assert.True(motion.DamperPercent >= flat.DamperPercent);
         Assert.InRange(motion.SpringPercent, 0, 100);
         Assert.InRange(motion.DamperPercent, 0, 100);
+    }
+
+    [Fact]
+    public void Motion_feedback_disabled_matches_flat_packet()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.MotionFeedback.Enabled = false;
+
+        var flat = _calculator.Calculate(State(Packet(speedKmh: 25)), settings);
+        var motion = _calculator.Calculate(State(Packet(speedKmh: 25, pitchDeg: 8, yawRateDegPerSec: 30)), settings);
+
+        Assert.Equal(flat.SpringPercent, motion.SpringPercent);
+        Assert.Equal(flat.DamperPercent, motion.DamperPercent);
+    }
+
+    [Fact]
+    public void Motion_feedback_zero_strength_matches_flat_packet()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.MotionFeedback.StrengthPercent = 0;
+
+        var flat = _calculator.Calculate(State(Packet(speedKmh: 25)), settings);
+        var motion = _calculator.Calculate(State(Packet(speedKmh: 25, pitchDeg: 8, yawRateDegPerSec: 30)), settings);
+
+        Assert.Equal(flat.SpringPercent, motion.SpringPercent);
+        Assert.Equal(flat.DamperPercent, motion.DamperPercent);
+    }
+
+    [Fact]
+    public void Terrain_rumble_is_exposed_as_output_channel()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, bumpImpulse: 0.6)), new GameplayFfbSettings(), DeviceHapticProfile.Generic);
+
+        Assert.True(output.TerrainRumblePercent > 0);
+        Assert.True(output.TerrainRumbleHz > 0);
+        Assert.True(output.TerrainRumbleActive);
+        Assert.Contains("Terrain", output.ActiveEffectsText);
+    }
+
+    [Fact]
+    public void Drivetrain_pulse_fires_on_gear_change_but_not_steady_state()
+    {
+        var settings = new GameplayFfbSettings();
+        var first = _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 2)), settings);
+        var shifted = _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 3)), settings);
+        var repeated = _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 3)), settings);
+
+        Assert.False(first.EventPulseActive);
+        Assert.True(shifted.EventPulseActive);
+        Assert.False(repeated.EventPulseActive);
+    }
+
+    [Fact]
+    public void Drivetrain_pulse_fires_on_large_throttle_delta()
+    {
+        var settings = new GameplayFfbSettings();
+        _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.1, gear: 2)), settings);
+        var output = _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.8, gear: 2)), settings);
+
+        Assert.True(output.EventPulseActive);
+        Assert.NotEqual(0, output.BumpImpulsePercent);
+    }
+
+    [Fact]
+    public void Device_limit_is_independent_cap_on_directinput_magnitude()
+    {
+        var method = typeof(DirectInputFfbBackend).GetMethod("ScaleMagnitudeForLimits", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var globalLimited = (int)method!.Invoke(null, [10_000, 40, 80])!;
+        var deviceLimited = (int)method.Invoke(null, [10_000, 80, 35])!;
+
+        Assert.Equal(4000, globalLimited);
+        Assert.Equal(3500, deviceLimited);
     }
 
     [Fact]
@@ -378,6 +486,10 @@ public sealed class GameplayFfbCalculatorTests
         double? localAccelerationY = null,
         double? localAccelerationZ = null,
         double? bumpImpulse = null,
+        double? throttle = null,
+        double? brake = null,
+        double? clutch = null,
+        int? gear = null,
         string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled)
     {
         return new TelemetryPacket
@@ -408,7 +520,12 @@ public sealed class GameplayFfbCalculatorTests
             LocalAccelerationX = localAccelerationX,
             LocalAccelerationY = localAccelerationY,
             LocalAccelerationZ = localAccelerationZ,
-            BumpImpulse = bumpImpulse
+            BumpImpulse = bumpImpulse,
+            SuspensionImpulse = bumpImpulse,
+            Throttle = throttle,
+            Brake = brake,
+            Clutch = clutch,
+            Gear = gear
         };
     }
 }

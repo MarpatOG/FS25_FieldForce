@@ -55,8 +55,8 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
   "localAccelerationZ": -0.6,
   "bumpImpulse": 0.42,
   "suspensionImpulse": 0.42,
-  "leftSuspensionImpulse": null,
-  "rightSuspensionImpulse": null,
+  "leftSuspensionImpulse": 0.18,
+  "rightSuspensionImpulse": 0.06,
   "throttle": 0.6,
   "brake": 0.0,
   "clutch": 0.0,
@@ -86,8 +86,8 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 - `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, and `slopeDeg`: vehicle attitude and terrain slope values.
 - `localAccelerationX/Y/Z`: acceleration in vehicle-local axes when enough motion history is available.
 - `bumpImpulse` and `suspensionImpulse`: normalized vertical impulse derived from local acceleration. The current sender writes the same value to both fields.
-- `leftSuspensionImpulse` and `rightSuspensionImpulse`: reserved side-specific suspension impulse fields consumed by the Windows calculator. The current sender leaves them `null`.
-- `throttle`, `brake`, `clutch`, and `gear`: best-effort drivetrain/control fields. They are currently decoded and used only for drivetrain-confidence plumbing; no drivetrain pulse effect is emitted yet.
+- `leftSuspensionImpulse` and `rightSuspensionImpulse`: side-specific best-effort suspension impulse fields. The sender prefers wheel suspension/load fields when available, and falls back to distributing `bumpImpulse` by left/right wheel contact ratio.
+- `throttle`, `brake`, `clutch`, and `gear`: best-effort drivetrain/control fields. The Windows calculator uses transitions in these fields for drivetrain event pulses.
 - Missing values are sent as `null`.
 
 ## Vehicle Categories

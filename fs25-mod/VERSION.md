@@ -1,11 +1,11 @@
 # FS25 Mod Versioning
 
-Current FS25 telemetry mod version: `0.2.0.1`
+Current FS25 telemetry mod version: `0.3.0.0`
 
 The version above must match `fs25-mod/modDesc.xml`:
 
 ```xml
-<version>0.2.0.1</version>
+<version>0.3.0.0</version>
 ```
 
 ## Required Rule

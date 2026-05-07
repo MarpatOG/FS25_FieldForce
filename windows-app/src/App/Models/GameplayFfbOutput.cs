@@ -8,6 +8,8 @@ public sealed record GameplayFfbOutput(
     int EngineVibrationHz,
     int SurfaceVibrationPercent,
     int SurfaceVibrationHz,
+    int TerrainRumblePercent,
+    int TerrainRumbleHz,
     int SlipVibrationPercent,
     int SlipVibrationHz,
     int BumpImpulsePercent,
@@ -20,7 +22,7 @@ public sealed record GameplayFfbOutput(
     bool TerrainRumbleActive = false,
     bool EventPulseActive = false)
 {
-    public static GameplayFfbOutput Zero { get; } = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, false);
+    public static GameplayFfbOutput Zero { get; } = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, false);
 
     public string ActiveEffectsText
     {
@@ -52,6 +54,11 @@ public sealed record GameplayFfbOutput(
                 active.Add("Surface");
             }
 
+            if (TerrainRumblePercent > 0)
+            {
+                active.Add("Terrain");
+            }
+
             if (SlipVibrationPercent > 0)
             {
                 active.Add("Slip");
@@ -60,11 +67,6 @@ public sealed record GameplayFfbOutput(
             if (BumpImpulsePercent != 0)
             {
                 active.Add("Bump");
-            }
-
-            if (TerrainRumbleActive)
-            {
-                active.Add("Terrain");
             }
 
             return active.Count == 0 ? "None" : string.Join(", ", active);

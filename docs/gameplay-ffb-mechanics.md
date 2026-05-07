@@ -59,7 +59,7 @@ Important source details:
 - `groundContactRatio` counts wheels with ground, water, or snow contact divided by wheel count.
 - `wheelTireTypes` is the unique normalized tire type list. `wheelTireProfile` is `street`, `agricultural`, `mixed`, `tracked`, or `unknown`.
 - `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, local acceleration, and `bumpImpulse` come from root-node transform history. `bumpImpulse = min(abs(localAccelerationY) / 9.81, 2)`.
-- `leftSuspensionImpulse` and `rightSuspensionImpulse` are packet fields consumed by the calculator, but the current Lua sender does not populate them yet.
+- `leftSuspensionImpulse` and `rightSuspensionImpulse` are side-specific best-effort values. The sender prefers wheel suspension/load fields when exposed by FS25; otherwise it distributes the root-node `bumpImpulse` by left/right wheel contact ratio.
 
 ## Feature Extraction
 
@@ -73,6 +73,7 @@ loadRatio = clamp((loadFactor - 1) / 2, 0, 1)
 slip = clamp(max(steeringWheelSlip, maxWheelSlip, wheelSlip, 0), 0, 1)
 contactRatio = clamp(steeringGroundContactRatio ?? groundContactRatio ?? 1, 0, 1)
 surfaceClass = field/wetField when exact field surface or legacy isOnField fallback matches, otherwise road
+wetness = max(groundWetness, rainScale) when either telemetry value exists; wetField fallback is 0.6
 rpmRatio = clamp((rpm - EngineVibration.MinRpm) / (EngineVibration.MaxRpm - EngineVibration.MinRpm), 0, 1)
 yawRateRatio = clamp(abs(yawRateDegPerSec) / MotionFeedback.FullYawRateDegPerSec, 0, 1)
 slopeRatio = max(abs(pitchDeg), abs(slopeDeg)) normalized by MotionFeedback.FullPitchDeg
@@ -135,8 +136,7 @@ All steering percentages are clamped to `0..100`. Bump pulse output is signed an
 
 ```text
 springBase = speedCondition(SpeedSpring)
-yawAlign = 1 + yawRateRatio * speedRatio * 0.08
-spring = springBase * yawAlign
+spring = springBase
 ```
 
 `Speed Damper` maps to a DirectInput Damper condition:
@@ -164,11 +164,13 @@ DamperGain *= 1 + FieldDamperModifierPercent / 100
 FrictionGain *= 1 + FieldFrictionModifierPercent / 100
 ```
 
-For `wetField`, the current implementation uses fixed wetness `0.6` and, when Wetness Feedback is enabled:
+`Wetness Feedback` applies only on field surfaces when enabled and `wetness > MinWetness`:
 
 ```text
-SpringGain *= 0.92
-DamperGain *= 1 + 0.6 * WetnessFeedback.DamperModifierPercent / 100
+wetnessRatio = clamp((wetness - MinWetness) / max(0.01, 1 - MinWetness), 0, 1)
+wetnessEffect = maxCapped(WetnessFeedback) / 100 * curve(wetnessRatio)
+SpringGain *= lerp(1, 0.92, wetnessEffect)
+DamperGain *= 1 + wetnessEffect * WetnessFeedback.DamperModifierPercent / 100
 ```
 
 `Load Resistance` modifies spring, damper, and friction when enabled:
@@ -177,14 +179,22 @@ DamperGain *= 1 + 0.6 * WetnessFeedback.DamperModifierPercent / 100
 loadResistance = StrengthPercent / 100
                * MaxOutputPercent / 100
                * curve(loadRatio)
-slopeAssist = slopeRatio * 0.12
 
-SpringGain *= 1 + loadResistance * SpringScale + slopeAssist
-DamperGain *= 1 + loadResistance * DamperScale + slopeAssist
+SpringGain *= 1 + loadResistance * SpringScale
+DamperGain *= 1 + loadResistance * DamperScale
 FrictionGain *= 1 + loadResistance * FrictionScale
 ```
 
 Each target is only modified if the matching `AffectsSpring`, `AffectsDamper`, or `AffectsFriction` flag is enabled.
+
+`Motion Feedback` is the only yaw/slope steering layer. It is fully disabled when `MotionFeedback.Enabled == false`, and `StrengthPercent`, `MaxOutputPercent`, and `Curve` weight the effect:
+
+```text
+motionRatio = max(yawRateRatio * speedRatio, slopeRatio)
+motionEffect = maxCapped(MotionFeedback) / 100 * curve(motionRatio)
+SpringGain *= 1 + motionEffect * MotionFeedback.SpringModifierPercent / 100
+DamperGain *= 1 + motionEffect * MotionFeedback.DamperModifierPercent / 100
+```
 
 `Contact Traction` reduces centering when steering contact is lost or slip rises:
 
@@ -203,8 +213,6 @@ antiOscillation = speedRatio > 0.45 and abs(steeringAngle) < 0.04 ? 3.0 : 0.0
 damper += speedDamping + rateDamping + antiOscillation
 ```
 
-The current calculator uses `MotionFeedback.FullYawRateDegPerSec` and `MotionFeedback.FullPitchDeg` as normalization scales, but it does not gate these yaw/slope contributions by `MotionFeedback.Enabled` or `MotionFeedback.StrengthPercent`.
-
 ## Continuous Haptics
 
 `RPM Vibration` maps to a DirectInput Sine periodic effect:
@@ -221,8 +229,8 @@ It is active only when Engine Vibration is enabled, `engineStarted == true`, `rp
 
 ```text
 surfacePercent = maxCapped(SurfaceFeedback)
-if wetField and WetnessFeedback.Enabled:
-    surfacePercent *= 1 + 0.6 * WetnessFeedback.SurfaceVibrationModifierPercent / 100
+if wetnessEffect > 0:
+    surfacePercent *= 1 + wetnessEffect * WetnessFeedback.SurfaceVibrationModifierPercent / 100
 
 surfaceHz = quantize2(FieldFrequencyMinHz
           + (FieldFrequencyMaxHz - FieldFrequencyMinHz)
@@ -266,6 +274,16 @@ cooldownMs = clamp(BumpFeedback.CooldownMs, 20, 500)
 
 The pulse kind is `LeftSuspensionHit` or `RightSuspensionHit` when one side impulse is at least `1.25x` the other side; otherwise it is `Bump`. The current DirectInput backend only uses signed magnitude, duration, and cooldown.
 
+`Engine Drivetrain` reuses the same finite ConstantForce pulse path. It emits one transition pulse after the calculator has a previous drivetrain sample:
+
+```text
+EngineStartStop: engineStarted changed
+DrivetrainJerk: gear changed, or abs(delta throttle/brake) >= 0.35
+percent = maxCapped(BumpFeedback) * curve(pulseRatio) * 0.65
+durationMs = clamp(BumpFeedback.DurationMs * 0.75, 20, 160)
+cooldownMs = clamp(BumpFeedback.CooldownMs, 20, 500)
+```
+
 ## DirectInput Output
 
 The backend owns one DirectInput effect per gameplay channel:
@@ -276,6 +294,7 @@ DamperPercent          -> EffectGuid.Damper condition
 FrictionPercent        -> EffectGuid.Friction condition
 EngineVibrationPercent -> EffectGuid.Sine periodic
 SurfaceVibrationPercent-> EffectGuid.Sine periodic
+TerrainRumblePercent   -> EffectGuid.Sine periodic
 SlipVibrationPercent   -> EffectGuid.Sine periodic
 BumpImpulsePercent     -> EffectGuid.ConstantForce finite pulse
 ```
@@ -284,10 +303,9 @@ Percent output is converted to DirectInput magnitude with:
 
 ```text
 directInputMagnitude = round(10000 * clamp(percent, 0, 100) / 100)
-scaledMagnitude = round(abs(directInputMagnitude) * globalLimitPercent / 100)
+effectiveLimit = min(globalLimitPercent, deviceLimitPercent)
+scaledMagnitude = round(abs(directInputMagnitude) * effectiveLimit / 100)
 ```
-
-The Windows UI also has a device force limit, but the current backend applies `_globalLimitPercent` in `ScaleMagnitude`; the passed `deviceLimitPercent` is not used there.
 
 DirectInput details:
 

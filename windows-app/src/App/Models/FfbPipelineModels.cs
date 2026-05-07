@@ -62,6 +62,7 @@ public sealed record TelemetryFeatures(
     double ContactConfidence,
     string SurfaceClass,
     double SurfaceConfidence,
+    double? Wetness,
     double LoadFactor,
     double LoadConfidence,
     double SlopeRatio,

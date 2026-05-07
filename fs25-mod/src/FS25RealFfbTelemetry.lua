@@ -247,8 +247,8 @@ function FS25RealFfbTelemetry:collectTelemetry()
         localAccelerationZ = motion.localAccelerationZ,
         bumpImpulse = motion.bumpImpulse,
         suspensionImpulse = motion.bumpImpulse,
-        leftSuspensionImpulse = wheel.leftSuspensionImpulse,
-        rightSuspensionImpulse = wheel.rightSuspensionImpulse,
+        leftSuspensionImpulse = self:calculateSideSuspensionImpulse(motion.bumpImpulse, wheel.leftSuspensionImpulse, wheel.leftContactRatio),
+        rightSuspensionImpulse = self:calculateSideSuspensionImpulse(motion.bumpImpulse, wheel.rightSuspensionImpulse, wheel.rightContactRatio),
         throttle = inVehicle and self:getFirstNumber(vehicle.axisForward, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisForward or nil) or nil,
         brake = inVehicle and self:getFirstNumber(vehicle.axisBrake, vehicle.brakePedal, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisBrake or nil) or nil,
         clutch = inVehicle and self:getFirstNumber(vehicle.axisClutch, vehicle.clutchPedal) or nil,
@@ -983,14 +983,28 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
     local steeringSlipCount = 0
     local steeringContactCount = 0
     local steeringWheelCount = 0
+    local leftContactCount = 0
+    local rightContactCount = 0
+    local leftWheelCount = 0
+    local rightWheelCount = 0
+    local leftSuspensionImpulse = 0
+    local rightSuspensionImpulse = 0
+    local leftSuspensionCount = 0
+    local rightSuspensionCount = 0
     local tireTypes = {}
     local tireTypeSet = {}
 
     for _, wheel in ipairs(wheels) do
         local physics = wheel.physics
+        local side = self:getWheelSide(vehicle, wheel)
         local isSteeringWheel = math.abs(self:getFirstNumber(wheel.steeringAngle, wheel.rotatedTime, wheel.steeringInput, wheel.steeringAxis) or 0) > 0.0001
         if isSteeringWheel then
             steeringWheelCount = steeringWheelCount + 1
+        end
+        if side < 0 then
+            leftWheelCount = leftWheelCount + 1
+        elseif side > 0 then
+            rightWheelCount = rightWheelCount + 1
         end
 
         if physics ~= nil then
@@ -1012,10 +1026,27 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
                 end
             end
 
-            if physics.hasGroundContact == true or physics.hasWaterContact == true or physics.hasSnowContact == true then
+            local hasContact = physics.hasGroundContact == true or physics.hasWaterContact == true or physics.hasSnowContact == true
+            if hasContact then
                 contactCount = contactCount + 1
                 if isSteeringWheel then
                     steeringContactCount = steeringContactCount + 1
+                end
+                if side < 0 then
+                    leftContactCount = leftContactCount + 1
+                elseif side > 0 then
+                    rightContactCount = rightContactCount + 1
+                end
+            end
+
+            local suspensionImpulse = self:getWheelSuspensionImpulse(wheel, physics)
+            if suspensionImpulse ~= nil then
+                if side < 0 then
+                    leftSuspensionImpulse = math.max(leftSuspensionImpulse, suspensionImpulse)
+                    leftSuspensionCount = leftSuspensionCount + 1
+                elseif side > 0 then
+                    rightSuspensionImpulse = math.max(rightSuspensionImpulse, suspensionImpulse)
+                    rightSuspensionCount = rightSuspensionCount + 1
                 end
             end
         end
@@ -1027,9 +1058,69 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
         groundContactRatio = #wheels > 0 and (contactCount / #wheels) or nil,
         steeringWheelSlip = steeringSlipCount > 0 and (steeringSlipTotal / steeringSlipCount) or nil,
         steeringGroundContactRatio = steeringWheelCount > 0 and (steeringContactCount / steeringWheelCount) or nil,
+        leftContactRatio = leftWheelCount > 0 and (leftContactCount / leftWheelCount) or nil,
+        rightContactRatio = rightWheelCount > 0 and (rightContactCount / rightWheelCount) or nil,
+        leftSuspensionImpulse = leftSuspensionCount > 0 and leftSuspensionImpulse or nil,
+        rightSuspensionImpulse = rightSuspensionCount > 0 and rightSuspensionImpulse or nil,
         wheelTireTypes = #tireTypes > 0 and table.concat(tireTypes, ",") or nil,
         wheelTireProfile = self:getWheelTireProfile(tireTypes)
     }
+end
+
+function FS25RealFfbTelemetry:calculateSideSuspensionImpulse(bumpImpulse, wheelImpulse, sideContactRatio)
+    if type(wheelImpulse) == "number" then
+        return math.max(0, math.min(2, wheelImpulse))
+    end
+
+    if type(bumpImpulse) ~= "number" or type(sideContactRatio) ~= "number" then
+        return nil
+    end
+
+    return math.max(0, math.min(2, bumpImpulse * math.max(0, math.min(1, sideContactRatio))))
+end
+
+function FS25RealFfbTelemetry:getWheelSide(vehicle, wheel)
+    local side = self:getFirstNumber(wheel.positionX, wheel.x, wheel.restLoadX, wheel.widthOffset)
+    if side ~= nil and math.abs(side) > 0.0001 then
+        return side < 0 and -1 or 1
+    end
+
+    local node = wheel.node or wheel.repr or wheel.driveNode
+    local vehicleNode = self:getVehicleNode(vehicle)
+    if node ~= nil and vehicleNode ~= nil and type(getWorldTranslation) == "function" and type(worldToLocal) == "function" then
+        local ok, wx, wy, wz = pcall(getWorldTranslation, node)
+        if ok then
+            local okLocal, lx = pcall(worldToLocal, vehicleNode, wx, wy, wz)
+            if okLocal and type(lx) == "number" and math.abs(lx) > 0.0001 then
+                return lx < 0 and -1 or 1
+            end
+        end
+    end
+
+    return 0
+end
+
+function FS25RealFfbTelemetry:getWheelSuspensionImpulse(wheel, physics)
+    local value = self:getFirstNumber(
+        wheel.suspensionCompression,
+        wheel.suspensionLoad,
+        wheel.lastSuspensionCompression,
+        physics.suspensionCompression,
+        physics.suspensionLoad,
+        physics.wheelLoad)
+    if type(value) ~= "number" then
+        return nil
+    end
+
+    if value < 0 then
+        value = math.abs(value)
+    end
+
+    if value > 2 then
+        value = value / 1000
+    end
+
+    return math.max(0, math.min(2, value))
 end
 
 function FS25RealFfbTelemetry:getWheelTireTypeName(physics)

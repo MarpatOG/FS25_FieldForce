@@ -5,6 +5,7 @@ namespace FS25FfbBridge.App.Services;
 public sealed class GameplayFfbCalculator
 {
     private const double MovingSpeedThresholdKmh = 2.0;
+    private DrivetrainSample? _lastDrivetrainSample;
 
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings)
     {
@@ -15,6 +16,7 @@ public sealed class GameplayFfbCalculator
     {
         if (!settings.Enabled)
         {
+            _lastDrivetrainSample = null;
             return GameplayFfbOutput.Zero;
         }
 
@@ -22,6 +24,7 @@ public sealed class GameplayFfbCalculator
         var fade = CalculateTelemetryFade(state.LastPacketAge);
         if (fade <= 0 || packet is null || packet.IsPlayerInVehicle != true)
         {
+            _lastDrivetrainSample = null;
             return GameplayFfbOutput.Zero;
         }
 
@@ -39,6 +42,7 @@ public sealed class GameplayFfbCalculator
         var modifiers = SteeringModifierMixer.Combine(
             SurfaceTractionLayer.CalculateModifiers(features, profile, context),
             LoadSlopeImplementLayer.CalculateModifiers(features, profile, context),
+            MotionFeedbackLayer.CalculateModifiers(features, profile, context),
             ContactTractionLayer.CalculateModifiers(features, profile, context));
         steering = SteeringModifierMixer.Apply(steering, modifiers);
         steering = SpeedStabilityLayer.Apply(steering, features, context).Value;
@@ -50,7 +54,7 @@ public sealed class GameplayFfbCalculator
             SuspensionTerrainLayer.CalculateContinuous(features, profile, context));
         var pulses = HapticMixer.CombinePulses(
             SuspensionTerrainLayer.CalculatePulses(packet, features, profile, context),
-            EngineDrivetrainLayer.CalculatePulses(packet, features, profile, context));
+            CalculateDrivetrainPulses(packet, features, profile, context));
 
         var capped = DeviceCaps.Apply(steering, haptics, pulses, context.DeviceProfile);
         var bump = capped.Pulses.FirstOrDefault();
@@ -63,6 +67,8 @@ public sealed class GameplayFfbCalculator
             capped.Haptics.EnginePercent > 0 ? capped.Haptics.EngineHz : 0,
             ClampPercent(capped.Haptics.SurfacePercent),
             capped.Haptics.SurfacePercent > 0 ? capped.Haptics.SurfaceHz : 0,
+            ClampPercent(capped.Haptics.TerrainRumblePercent),
+            capped.Haptics.TerrainRumblePercent > 0 ? capped.Haptics.TerrainRumbleHz : 0,
             ClampPercent(capped.Haptics.SlipPercent),
             capped.Haptics.SlipPercent > 0 ? capped.Haptics.SlipHz : 0,
             bump is null ? 0 : ClampSignedPercent(bump.Percent * Math.Sign(bump.Direction == 0 ? bump.Percent : bump.Direction)),
@@ -82,6 +88,7 @@ public sealed class GameplayFfbCalculator
                        output.FrictionPercent > 0 ||
                        output.EngineVibrationPercent > 0 ||
                        output.SurfaceVibrationPercent > 0 ||
+                       output.TerrainRumblePercent > 0 ||
                        output.SlipVibrationPercent > 0 ||
                        output.BumpImpulsePercent != 0 ||
                        output.TerrainRumbleActive
@@ -285,6 +292,7 @@ public sealed class GameplayFfbCalculator
                 contactConfidence,
                 IsFieldSurface(surfaceType, packet.IsOnField) ? surfaceType : "road",
                 packet.SurfaceType is not null ? 1.0 : packet.IsOnField is not null ? 0.7 : 0.0,
+                CalculateFeatureWetness(packet, surfaceType),
                 loadFactor,
                 packet.Mass is not null && packet.TotalMass is not null ? 1.0 : 0.0,
                 Math.Max(NormalizeAbs(packet.PitchDeg, profile.MotionFeedback.FullPitchDeg), NormalizeAbs(packet.SlopeDeg, profile.MotionFeedback.FullPitchDeg)),
@@ -302,10 +310,9 @@ public sealed class GameplayFfbCalculator
         public static LayerContribution<SteeringModel> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var spring = CalculateSpeedEffect(profile.SpeedSpring, features.SpeedKmh, context.TelemetryFade);
-            var yawAlign = 1 + (features.YawRateRatio * features.SpeedRatio * 0.08);
             var damper = CalculateSpeedEffect(profile.SpeedDamper, features.SpeedKmh, context.TelemetryFade);
             var friction = CalculateMechanicalFriction(profile.MechanicalFriction, CalculateLoadRatio(features.LoadFactor), features.SurfaceClass is "field" or "wetField", context.TelemetryFade);
-            return new(new SteeringModel(spring * yawAlign, damper, friction), 1.0);
+            return new(new SteeringModel(spring, damper, friction), 1.0);
         }
 
         private static double CalculateMechanicalFriction(MechanicalFrictionSettings settings, double loadRatio, bool surfaceActive, double fade)
@@ -344,13 +351,13 @@ public sealed class GameplayFfbCalculator
                 FrictionGain = 1 + (profile.SurfaceFeedback.FieldFrictionModifierPercent / 100.0)
             };
 
-            var wetness = features.SurfaceClass == "wetField" ? 0.6 : 0;
-            if (wetness > 0 && profile.WetnessFeedback.Enabled)
+            var wetnessEffect = CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, context.TelemetryFade);
+            if (wetnessEffect > 0)
             {
                 modifiers = modifiers with
                 {
-                    SpringGain = modifiers.SpringGain * 0.92,
-                    DamperGain = modifiers.DamperGain * (1 + wetness * profile.WetnessFeedback.DamperModifierPercent / 100.0)
+                    SpringGain = modifiers.SpringGain * Lerp(1, 0.92, wetnessEffect),
+                    DamperGain = modifiers.DamperGain * (1 + wetnessEffect * profile.WetnessFeedback.DamperModifierPercent / 100.0)
                 };
             }
 
@@ -366,9 +373,10 @@ public sealed class GameplayFfbCalculator
             }
 
             var surface = CalculateMaxCapped(profile.SurfaceFeedback, context.TelemetryFade);
-            if (features.SurfaceClass == "wetField" && profile.WetnessFeedback.Enabled)
+            var wetnessEffect = CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, context.TelemetryFade);
+            if (wetnessEffect > 0)
             {
-                surface *= 1 + (0.6 * profile.WetnessFeedback.SurfaceVibrationModifierPercent / 100.0);
+                surface *= 1 + (wetnessEffect * profile.WetnessFeedback.SurfaceVibrationModifierPercent / 100.0);
             }
 
             var hz = CalculateSurfaceFrequency(profile.SurfaceFeedback, features.SpeedKmh, profile.SpeedDamper.SpeedReferenceKmh);
@@ -419,13 +427,38 @@ public sealed class GameplayFfbCalculator
             var loadResistance = (profile.LoadResistance.StrengthPercent / 100.0) *
                                  (profile.LoadResistance.MaxOutputPercent / 100.0) *
                                  ApplyCurve(CalculateLoadRatio(features.LoadFactor), profile.LoadResistance.Curve);
-            var slopeAssist = features.SlopeRatio * 0.12;
             return new(new SteeringModifiers(
-                profile.LoadResistance.AffectsSpring ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.SpringScale, 0, 2)) + slopeAssist : 1,
-                profile.LoadResistance.AffectsDamper ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.DamperScale, 0, 2)) + slopeAssist : 1,
+                profile.LoadResistance.AffectsSpring ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.SpringScale, 0, 2)) : 1,
+                profile.LoadResistance.AffectsDamper ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.DamperScale, 0, 2)) : 1,
                 profile.LoadResistance.AffectsFriction ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.FrictionScale, 0, 2)) : 1,
                 0,
                 0), features.LoadConfidence);
+        }
+    }
+
+    public static class MotionFeedbackLayer
+    {
+        public static LayerContribution<SteeringModifiers> CalculateModifiers(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        {
+            var settings = profile.MotionFeedback;
+            if (!settings.Enabled)
+            {
+                return new(new SteeringModifiers(1, 1, 1, 0, 0), 1.0);
+            }
+
+            var motionRatio = Math.Max(features.YawRateRatio * features.SpeedRatio, features.SlopeRatio);
+            if (motionRatio <= 0)
+            {
+                return new(new SteeringModifiers(1, 1, 1, 0, 0), 1.0);
+            }
+
+            var weighted = (CalculateMaxCapped(settings, context.TelemetryFade) / 100.0) * ApplyCurve(motionRatio, settings.Curve);
+            return new(new SteeringModifiers(
+                1 + (weighted * Math.Clamp(settings.SpringModifierPercent, -100, 100) / 100.0),
+                1 + (weighted * Math.Clamp(settings.DamperModifierPercent, -100, 100) / 100.0),
+                1,
+                0,
+                0), 1.0);
         }
     }
 
@@ -565,15 +598,6 @@ public sealed class GameplayFfbCalculator
             return new(new ContinuousHaptics(0, 0, 0, 0, percent, hz, 0, 0), 1.0);
         }
 
-        public static IReadOnlyList<EventPulse> CalculatePulses(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
-        {
-            if (features.DrivetrainConfidence < 1.0)
-            {
-                return [];
-            }
-
-            return [];
-        }
     }
 
     public static class HapticMixer
@@ -649,4 +673,86 @@ public sealed class GameplayFfbCalculator
     {
         return from + ((to - from) * Math.Clamp(ratio, 0, 1));
     }
+
+    private IReadOnlyList<EventPulse> CalculateDrivetrainPulses(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+    {
+        if (features.DrivetrainConfidence < 1.0)
+        {
+            _lastDrivetrainSample = null;
+            return [];
+        }
+
+        var current = new DrivetrainSample(packet.VehicleName, packet.EngineStarted, packet.Throttle, packet.Brake, packet.Clutch, packet.Gear);
+        var previous = _lastDrivetrainSample;
+        _lastDrivetrainSample = current;
+        if (previous is null || !string.Equals(previous.VehicleName, current.VehicleName, StringComparison.Ordinal))
+        {
+            return [];
+        }
+
+        var pulseRatio = 0.0;
+        var kind = FfbPulseKind.DrivetrainJerk;
+        if (previous.EngineStarted != current.EngineStarted)
+        {
+            pulseRatio = 0.55;
+            kind = FfbPulseKind.EngineStartStop;
+        }
+
+        if (previous.Gear is not null && current.Gear is not null && previous.Gear != current.Gear)
+        {
+            pulseRatio = Math.Max(pulseRatio, 0.70);
+            kind = FfbPulseKind.DrivetrainJerk;
+        }
+
+        var throttleDelta = Math.Abs((current.Throttle ?? 0) - (previous.Throttle ?? 0));
+        var brakeDelta = Math.Abs((current.Brake ?? 0) - (previous.Brake ?? 0));
+        var pedalDelta = Math.Max(throttleDelta, brakeDelta);
+        if (pedalDelta >= 0.35)
+        {
+            pulseRatio = Math.Max(pulseRatio, Math.Clamp((pedalDelta - 0.35) / 0.65, 0.25, 1.0));
+            kind = FfbPulseKind.DrivetrainJerk;
+        }
+
+        if (pulseRatio <= 0)
+        {
+            return [];
+        }
+
+        var direction = (current.Brake ?? 0) > (previous.Brake ?? 0) ? -1 : 1;
+        return
+        [
+            new EventPulse(
+                kind,
+                CalculateMaxCapped(profile.BumpFeedback, context.TelemetryFade) * ApplyCurve(pulseRatio, profile.BumpFeedback.Curve) * 0.65,
+                Math.Clamp((int)Math.Round(profile.BumpFeedback.DurationMs * 0.75), 20, 160),
+                Math.Clamp(profile.BumpFeedback.CooldownMs, 20, 500),
+                direction,
+                1.0)
+        ];
+    }
+
+    private static double? CalculateFeatureWetness(TelemetryPacket packet, string surfaceType)
+    {
+        return CalculateWetness(packet) ?? (surfaceType == "wetField" ? 0.6 : null);
+    }
+
+    private static double CalculateWetnessEffect(WetnessFeedbackSettings settings, double? wetness, double fade)
+    {
+        if (!settings.Enabled || wetness is null)
+        {
+            return 0;
+        }
+
+        var minWetness = Math.Clamp(settings.MinWetness, 0, 1);
+        var value = Math.Clamp(wetness.Value, 0, 1);
+        if (value <= minWetness)
+        {
+            return 0;
+        }
+
+        var ratio = Math.Clamp((value - minWetness) / Math.Max(0.01, 1 - minWetness), 0, 1);
+        return Math.Clamp(CalculateMaxCapped(settings, fade) / 100.0, 0, 1) * ApplyCurve(ratio, settings.Curve);
+    }
+
+    private sealed record DrivetrainSample(string? VehicleName, bool? EngineStarted, double? Throttle, double? Brake, double? Clutch, int? Gear);
 }

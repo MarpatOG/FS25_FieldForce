@@ -66,11 +66,11 @@ public sealed class EffectStatusWriter
                 output.EngineVibrationPercent > 0,
                 output.SurfaceVibrationPercent > 0,
                 output.SlipVibrationPercent > 0,
-                output.BumpImpulsePercent != 0,
+                output.BumpImpulsePercent != 0 || output.TerrainRumblePercent > 0,
                 output.SpringPercent > 0 || output.FrictionPercent > 0,
                 output.DamperPercent > 0,
-                output.SurfaceVibrationPercent > 0 || output.SlipVibrationPercent > 0,
-                output.BumpImpulsePercent != 0 || output.TerrainRumbleActive,
+                output.SurfaceVibrationPercent > 0 || output.TerrainRumblePercent > 0 || output.SlipVibrationPercent > 0,
+                output.BumpImpulsePercent != 0 || output.TerrainRumblePercent > 0,
                 output.LoadFactor > 1.01,
                 output.EngineVibrationPercent > 0);
 
