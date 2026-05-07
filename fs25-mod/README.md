@@ -57,11 +57,3 @@ Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/teleme
 ```
 
 If file fallback cannot start, the log reports the exact missing API or filesystem step, such as `io.open`, `getUserProfileAppPath`, `createFolder`, or `os.rename`.
-
-The overlay also reads Windows-app effect status from:
-
-```text
-Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json
-```
-
-If that file is missing or stale for more than one second, all effect lamps are shown red and the overlay marks the status as stale.

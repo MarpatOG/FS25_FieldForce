@@ -32,10 +32,6 @@ function FS25RealFfbTelemetry.new()
     self.transportWarningLogged = false
     self.lastVehicleMotion = {}
     self.lastSteeringSample = nil
-    self.effectStatusPath = nil
-    self.lastEffectStatusContent = nil
-    self.lastEffectStatusReadTime = nil
-    self.overlayEffectLampRows = {}
     return self
 end
 
@@ -73,7 +69,6 @@ end
 
 function FS25RealFfbTelemetry:initTransport()
     print(string.format("[FS25 Real FFB] Initializing telemetry transport: udp://%s:%d", tostring(self.host), self.port))
-    self:initEffectStatusPath()
 
     local okSocket, socketLib = pcall(require, "socket")
     if not okSocket or socketLib == nil then
@@ -1535,14 +1530,13 @@ end
 
 function FS25RealFfbTelemetry:drawDebugOverlay()
     local packet = self.lastPacket
-    local effectStatus = self:readEffectStatus()
     local x = tonumber(self.overlayConfig.x) or 0.015
     local y = tonumber(self.overlayConfig.y) or 0.965
     local width = tonumber(self.overlayConfig.width) or 0.32
     local padding = tonumber(self.overlayConfig.padding) or 0.008
     local fontSize = tonumber(self.overlayConfig.fontSize) or 0.014
     local lineHeight = tonumber(self.overlayConfig.lineHeight) or 0.018
-    local lines = self:getOverlayLines(packet, effectStatus)
+    local lines = self:getOverlayLines(packet)
 
     self:drawOverlayContainer(x, y, width, padding, lineHeight, #lines)
     self:setOverlayTextStyle(false)
@@ -1556,11 +1550,6 @@ function FS25RealFfbTelemetry:drawDebugOverlay()
 
         local textX = x + padding
         local textY = y - padding - ((index - 1) * lineHeight)
-        local lamp = self.overlayEffectLampRows[index]
-        if lamp ~= nil then
-            self:drawEffectLamp(textX, textY, lineHeight, lamp.active)
-            textX = textX + (lineHeight * 0.95)
-        end
 
         renderText(textX, textY, fontSize, line)
     end
@@ -1568,10 +1557,9 @@ function FS25RealFfbTelemetry:drawDebugOverlay()
     self:resetOverlayTextStyle()
 end
 
-function FS25RealFfbTelemetry:getOverlayLines(packet, effectStatus)
+function FS25RealFfbTelemetry:getOverlayLines(packet)
     local transport = self:getTransportLabel(false)
     local age = self:getPacketAgeText()
-    self.overlayEffectLampRows = {}
     local lines = {
         "FS25 Real FFB Telemetry",
         "transport: " .. transport,
@@ -1580,8 +1568,6 @@ function FS25RealFfbTelemetry:getOverlayLines(packet, effectStatus)
         "configured: " .. tostring(self.updateRateHz) .. " Hz",
         "actual: " .. tostring(self.actualSendRate or 0) .. " pkt/s"
     }
-
-    self:addEffectStatusOverlayLines(lines, effectStatus)
 
     if self.lastWriteError ~= nil then
         table.insert(lines, "fileError: " .. self:truncateText(self.lastWriteError, 90))
@@ -1633,43 +1619,6 @@ function FS25RealFfbTelemetry:getOverlayLines(packet, effectStatus)
     table.insert(lines, "accelY/bump: " .. self:formatNumber(packet.localAccelerationY, "", 2) .. " / " .. self:formatNumber(packet.bumpImpulse, "", 2))
 
     return lines
-end
-
-function FS25RealFfbTelemetry:addEffectStatusOverlayLines(lines, effectStatus)
-    local staleText = effectStatus.stale and " stale" or ""
-    table.insert(lines, "effectStatus: " .. tostring(effectStatus.activeCategory or "Unknown") .. staleText)
-    table.insert(lines, "activeEffects: " .. tostring(effectStatus.activeEffectsText or "None"))
-
-    self:addEffectLampLine(lines, "Speed Spring", effectStatus.speedSpring == true and not effectStatus.stale)
-    self:addEffectLampLine(lines, "Speed Damper", effectStatus.speedDamper == true and not effectStatus.stale)
-    self:addEffectLampLine(lines, "Friction", effectStatus.friction == true and not effectStatus.stale)
-    self:addEffectLampLine(lines, "RPM Vibration", effectStatus.rpmVibration == true and not effectStatus.stale)
-    self:addEffectLampLine(lines, "Surface Feedback", effectStatus.surfaceFeedback == true and not effectStatus.stale)
-    self:addEffectLampLine(lines, "Slip Feedback", effectStatus.slipFeedback == true and not effectStatus.stale)
-    self:addEffectLampLine(lines, "Bump", effectStatus.bump == true and not effectStatus.stale)
-end
-
-function FS25RealFfbTelemetry:addEffectLampLine(lines, label, active)
-    table.insert(lines, label)
-    self.overlayEffectLampRows[#lines] = {
-        active = active == true
-    }
-end
-
-function FS25RealFfbTelemetry:drawEffectLamp(x, textY, lineHeight, active)
-    local size = lineHeight * 0.55
-    local y = textY - (lineHeight * 0.52)
-    local color = active and { 0.10, 0.80, 0.25, 0.95 } or { 0.85, 0.08, 0.08, 0.95 }
-
-    if type(drawFilledRect) == "function" then
-        pcall(function()
-            drawFilledRect(x, y, size, size, color[1], color[2], color[3], color[4])
-        end)
-    elseif type(renderFilledRect) == "function" then
-        pcall(function()
-            renderFilledRect(x, y, size, size, color[1], color[2], color[3], color[4])
-        end)
-    end
 end
 
 function FS25RealFfbTelemetry:drawOverlayContainer(x, y, width, padding, lineHeight, lineCount)
@@ -1873,112 +1822,6 @@ function FS25RealFfbTelemetry:getFileApiError()
     end
 
     return nil
-end
-
-function FS25RealFfbTelemetry:initEffectStatusPath()
-    local basePath = self:getModSettingsPath()
-    if basePath ~= nil then
-        self.effectStatusPath = basePath .. "/effectStatus.json"
-    end
-end
-
-function FS25RealFfbTelemetry:readEffectStatus()
-    local zero = self:getZeroEffectStatus(true)
-    if self.effectStatusPath == nil then
-        return zero
-    end
-
-    if io == nil or type(io.open) ~= "function" then
-        return zero
-    end
-
-    local file = io.open(self.effectStatusPath, "r")
-    if file == nil then
-        return zero
-    end
-
-    local content = file:read("*a")
-    file:close()
-    if content == nil or content == "" then
-        return zero
-    end
-
-    local now = self:getTimestamp()
-    if content ~= self.lastEffectStatusContent then
-        self.lastEffectStatusContent = content
-        self.lastEffectStatusReadTime = now
-    end
-
-    local status = {
-        activeCategory = self:parseJsonStringField(content, "activeCategory") or "Unknown",
-        activeEffectsText = self:parseJsonStringField(content, "activeEffectsText") or "None",
-        speedSpring = self:parseJsonBoolField(content, "speedSpring"),
-        speedDamper = self:parseJsonBoolField(content, "speedDamper"),
-        friction = self:parseJsonBoolField(content, "friction"),
-        rpmVibration = self:parseJsonBoolField(content, "rpmVibration"),
-        surfaceFeedback = self:parseJsonBoolField(content, "surfaceFeedback"),
-        slipFeedback = self:parseJsonBoolField(content, "slipFeedback"),
-        bump = self:parseJsonBoolField(content, "bump"),
-        stale = true
-    }
-
-    local contentFresh = false
-    if type(now) == "number" and type(self.lastEffectStatusReadTime) == "number" then
-        contentFresh = self:normalizeDeltaSeconds(now - self.lastEffectStatusReadTime) <= 1.0
-    end
-
-    local timestampMs = self:parseJsonNumberField(content, "timestampMs")
-    if timestampMs ~= nil and os ~= nil and type(os.time) == "function" then
-        local ageMs = (os.time() * 1000) - timestampMs
-        status.stale = not ((ageMs >= 0 and ageMs <= 1000) or contentFresh)
-    else
-        status.stale = not contentFresh
-    end
-
-    return status
-end
-
-function FS25RealFfbTelemetry:getZeroEffectStatus(stale)
-    return {
-        activeCategory = "Unknown",
-        activeEffectsText = "None",
-        speedSpring = false,
-        speedDamper = false,
-        friction = false,
-        rpmVibration = false,
-        surfaceFeedback = false,
-        slipFeedback = false,
-        bump = false,
-        stale = stale == true
-    }
-end
-
-function FS25RealFfbTelemetry:parseJsonStringField(content, fieldName)
-    local pattern = '"' .. fieldName .. '"%s*:%s*"([^"]*)"'
-    local value = string.match(content, pattern)
-    if value == nil then
-        return nil
-    end
-
-    value = string.gsub(value, '\\"', '"')
-    value = string.gsub(value, "\\\\", "\\")
-    return value
-end
-
-function FS25RealFfbTelemetry:parseJsonBoolField(content, fieldName)
-    if string.match(content, '"' .. fieldName .. '"%s*:%s*true') ~= nil then
-        return true
-    elseif string.match(content, '"' .. fieldName .. '"%s*:%s*false') ~= nil then
-        return false
-    end
-
-    return false
-end
-
-function FS25RealFfbTelemetry:parseJsonNumberField(content, fieldName)
-    local pattern = '"' .. fieldName .. '"%s*:%s*(-?%d+%.?%d*)'
-    local value = string.match(content, pattern)
-    return value ~= nil and tonumber(value) or nil
 end
 
 function FS25RealFfbTelemetry:logTransportWarning(message)

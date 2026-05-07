@@ -12,7 +12,7 @@ The telemetry mod uses UDP JSON over localhost when FS25 Lua socket support is a
 - Default UDP target send rate: `125 Hz`
 - File fallback target write rate: `30 Hz`
 - File fallback: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
-- Effect status return file: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json`
+- Effect status diagnostic file: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json`
 
 Packet loss is acceptable for UDP. The receiver always keeps the last valid packet visible and changes status to `Lost` when packets or file updates stop.
 The Windows receiver reports UDP status, file fallback status, last valid packet source, parser status, and the latest transport error separately so a UDP bind failure does not hide file fallback diagnostics. Fresh UDP packets are the primary source; file fallback is accepted only before UDP is available, when UDP bind failed, or after UDP has timed out.
@@ -109,7 +109,7 @@ If the UDP port is already in use, the app reports the bind error and continues 
 
 ## Effect Status Return File
 
-The Windows app writes `effectStatus.json` at up to 10 Hz, plus immediate zero-status writes on Stop All, telemetry loss, and shutdown/dispose. The in-game overlay reads this file and marks all lamps stale/red if the status timestamp is older than one second or the file is unavailable.
+The Windows app writes `effectStatus.json` at up to 10 Hz, plus immediate zero-status writes on Stop All, telemetry loss, and shutdown/dispose. The FS25 Lua overlay no longer reads this file; live effect activation lamps are shown in the Windows app from the same gameplay FFB output that drives DirectInput.
 
 ```json
 {

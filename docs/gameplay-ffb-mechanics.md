@@ -328,7 +328,7 @@ The Windows app writes `effectStatus.json` under:
 Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json
 ```
 
-It writes at up to `10 Hz`, plus immediate zero-status writes on Stop All, telemetry loss, and dispose. The FS25 overlay reads this file and marks lamps stale/red if the status timestamp is older than one second or the file cannot be read.
+It writes at up to `10 Hz`, plus immediate zero-status writes on Stop All, telemetry loss, and dispose. The FS25 Lua overlay does not read this file anymore; effect activation lamps are displayed in the Windows app from the live gameplay FFB output.
 
 The status file reports user-facing effect lamps:
 

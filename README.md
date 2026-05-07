@@ -2,7 +2,7 @@
 
 Windows-first force feedback bridge for Farming Simulator 25.
 
-Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a FS25 Lua telemetry mod and a UDP/file telemetry receiver. The current MVP stage adds gameplay-driven FFB effects and a fuller in-game telemetry overlay.
+Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a FS25 Lua telemetry mod and a UDP/file telemetry receiver. The current MVP stage adds gameplay-driven FFB effects, a fuller in-game telemetry overlay, and Windows-side effect activation indicators.
 
 ## Current Status
 
@@ -10,7 +10,8 @@ Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a
 - FS25 Lua telemetry mod: implemented for Milestone 2 as a defensive UDP sender.
 - Telemetry receiver: implemented in the Windows app with UDP and file fallback.
 - Gameplay-driven FFB effects: Speed Spring, Speed Damper, Mechanical Friction, Load Resistance, RPM Vibration, Surface Feedback, Slip Feedback, Wetness, Motion, and Bump Feedback are implemented with conservative Logitech MOMO defaults.
-- FS25 overlay: displays a compact vertical diagnostic panel with every transmitted telemetry field plus live Windows effect-status lamps.
+- FS25 overlay: displays a compact vertical diagnostic panel with transmitted telemetry fields.
+- Windows app overlay: displays live effect activation lamps from the actual gameplay FFB output.
 
 ## Requirements
 

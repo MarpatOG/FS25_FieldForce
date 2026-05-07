@@ -241,6 +241,27 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string _activeVehicleCategory = "Unknown";
 
     [ObservableProperty]
+    private bool _speedSpringActive;
+
+    [ObservableProperty]
+    private bool _speedDamperActive;
+
+    [ObservableProperty]
+    private bool _mechanicalFrictionActive;
+
+    [ObservableProperty]
+    private bool _rpmVibrationActive;
+
+    [ObservableProperty]
+    private bool _surfaceFeedbackActive;
+
+    [ObservableProperty]
+    private bool _slipFeedbackActive;
+
+    [ObservableProperty]
+    private bool _bumpFeedbackActive;
+
+    [ObservableProperty]
     private string _gameplayFfbRuntimeStatus = "FFB enabled";
 
     [ObservableProperty]
@@ -872,6 +893,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             ActiveGameplayEffects = output.ActiveEffectsText;
             ActiveVehicleCategory = output.IsActive ? output.ActiveCategory : ActiveVehicleCategory;
+            SpeedSpringActive = output.SpringPercent > 0;
+            SpeedDamperActive = output.DamperPercent > 0;
+            MechanicalFrictionActive = output.FrictionPercent > 0;
+            RpmVibrationActive = output.EngineVibrationPercent > 0;
+            SurfaceFeedbackActive = output.SurfaceVibrationPercent > 0 || output.TerrainRumblePercent > 0;
+            SlipFeedbackActive = output.SlipVibrationPercent > 0;
+            BumpFeedbackActive = output.BumpImpulsePercent != 0;
             SpringOutput = $"{output.SpringPercent}%";
             DamperOutput = $"{output.DamperPercent}%";
             FrictionOutput = $"{output.FrictionPercent}%";
