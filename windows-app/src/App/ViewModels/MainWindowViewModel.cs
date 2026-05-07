@@ -145,6 +145,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _gameplayFfbEnabled;
 
     [ObservableProperty]
+    private bool _effectOverlayEnabled;
+
+    [ObservableProperty]
+    private bool _effectOverlayClickThrough;
+
+    [ObservableProperty]
+    private int _effectOverlayX;
+
+    [ObservableProperty]
+    private int _effectOverlayY;
+
+    [ObservableProperty]
     private bool _speedSpringEnabled;
 
     [ObservableProperty]
@@ -320,6 +332,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         UseGlobalForceLimitOnly(_config.GameplayFfb);
         _loadingConfig = true;
         _globalForceLimitPercent = _config.GlobalForceLimitPercent;
+        _effectOverlayEnabled = _config.EffectOverlayEnabled;
+        _effectOverlayClickThrough = _config.EffectOverlayClickThrough;
+        _effectOverlayX = _config.EffectOverlayX;
+        _effectOverlayY = _config.EffectOverlayY;
         GameplayFfbEnabled = _config.GameplayFfb.Enabled;
         LoadGameplaySettingsIntoUi(GetSelectedCategoryProfile(SelectedEffectCategory));
         _loadingConfig = false;
@@ -458,6 +474,42 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         GlobalForceLimitPercent = Math.Clamp(value, 0, 100);
         SaveForceLimits();
+    }
+
+    partial void OnEffectOverlayEnabledChanged(bool value)
+    {
+        if (_loadingConfig)
+        {
+            return;
+        }
+
+        _config.EffectOverlayEnabled = value;
+        _configStore.Save(_config);
+    }
+
+    partial void OnEffectOverlayClickThroughChanged(bool value)
+    {
+        if (_loadingConfig)
+        {
+            return;
+        }
+
+        _config.EffectOverlayClickThrough = value;
+        _configStore.Save(_config);
+    }
+
+    public void SaveEffectOverlayPosition(int x, int y)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        EffectOverlayX = Math.Clamp(x, -10000, 10000);
+        EffectOverlayY = Math.Clamp(y, -10000, 10000);
+        _config.EffectOverlayX = EffectOverlayX;
+        _config.EffectOverlayY = EffectOverlayY;
+        _configStore.Save(_config);
     }
 
     [RelayCommand]

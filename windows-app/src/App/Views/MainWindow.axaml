@@ -271,12 +271,21 @@
                                         <TextBlock Classes="section" Text="Global Force Limit"/>
                                         <TextBlock Classes="muted" Text="One safety cap for every test, effect, wheel, and vehicle profile."/>
                                     </StackPanel>
-                                    <Button Grid.Column="1"
-                                            Classes="danger"
-                                            Content="Emergency Stop"
-                                            MinHeight="44"
-                                            AutomationProperties.Name="Emergency stop all force feedback"
-                                            Command="{Binding StopAllEffectsCommand}"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                        <CheckBox MinHeight="44"
+                                                  Content="Overlay"
+                                                  AutomationProperties.Name="Show effect activation overlay window"
+                                                  IsChecked="{Binding EffectOverlayEnabled, Mode=TwoWay}"/>
+                                        <CheckBox MinHeight="44"
+                                                  Content="Click-through"
+                                                  AutomationProperties.Name="Make effect activation overlay click-through"
+                                                  IsChecked="{Binding EffectOverlayClickThrough, Mode=TwoWay}"/>
+                                        <Button Classes="danger"
+                                                Content="Emergency Stop"
+                                                MinHeight="44"
+                                                AutomationProperties.Name="Emergency stop all force feedback"
+                                                Command="{Binding StopAllEffectsCommand}"/>
+                                    </StackPanel>
                                 </Grid>
                                 <Grid ColumnDefinitions="150,*,52" RowDefinitions="44" RowSpacing="8" ColumnSpacing="10">
                                     <TextBlock Text="Force limit" VerticalAlignment="Center"/>

@@ -19,5 +19,9 @@ public sealed class AppConfig
     public int TelemetryFfbUpdateRateHz { get; set; } = 125;
     public int TelemetryUiRefreshMs { get; set; } = 100;
     public string? TelemetryFilePath { get; set; }
+    public bool EffectOverlayEnabled { get; set; } = true;
+    public bool EffectOverlayClickThrough { get; set; }
+    public int EffectOverlayX { get; set; } = 40;
+    public int EffectOverlayY { get; set; } = 40;
     public GameplayFfbSettings GameplayFfb { get; set; } = new();
 }

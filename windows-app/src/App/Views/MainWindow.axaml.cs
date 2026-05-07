@@ -4,12 +4,15 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using System.ComponentModel;
 using FS25FfbBridge.App.ViewModels;
 
 namespace FS25FfbBridge.App.Views;
 
 public partial class MainWindow : Window
 {
+    private EffectOverlayWindow? _effectOverlayWindow;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -24,6 +27,8 @@ public partial class MainWindow : Window
         {
             var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
             viewModel.InitializeWindowHandle(handle);
+            viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            SyncEffectOverlayWindow(viewModel);
         }
     }
 
@@ -31,9 +36,55 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel viewModel)
         {
+            viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            CloseEffectOverlayWindow();
             viewModel.HandleClosing();
             viewModel.Dispose();
         }
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.EffectOverlayEnabled) &&
+            sender is MainWindowViewModel viewModel)
+        {
+            SyncEffectOverlayWindow(viewModel);
+        }
+    }
+
+    private void SyncEffectOverlayWindow(MainWindowViewModel viewModel)
+    {
+        if (!viewModel.EffectOverlayEnabled)
+        {
+            _effectOverlayWindow?.Hide();
+            return;
+        }
+
+        if (_effectOverlayWindow is null)
+        {
+            _effectOverlayWindow = new EffectOverlayWindow
+            {
+                DataContext = viewModel
+            };
+            _effectOverlayWindow.Closed += (_, _) => _effectOverlayWindow = null;
+        }
+
+        if (!_effectOverlayWindow.IsVisible)
+        {
+            _effectOverlayWindow.Show(this);
+        }
+    }
+
+    private void CloseEffectOverlayWindow()
+    {
+        if (_effectOverlayWindow is null)
+        {
+            return;
+        }
+
+        var overlay = _effectOverlayWindow;
+        _effectOverlayWindow = null;
+        overlay.Close();
     }
 
     private void OnKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)

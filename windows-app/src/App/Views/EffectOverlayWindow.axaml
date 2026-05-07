@@ -1,0 +1,80 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FS25FfbBridge.App.ViewModels"
+        x:Class="FS25FfbBridge.App.Views.EffectOverlayWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Width="332"
+        Height="72"
+        MinWidth="332"
+        MinHeight="72"
+        MaxWidth="332"
+        MaxHeight="72"
+        CanResize="False"
+        ShowInTaskbar="False"
+        SystemDecorations="None"
+        Topmost="True"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        Title="FS25 FFB Overlay">
+    <Window.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="#F6F2E9"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="Border.shell">
+            <Setter Property="Background" Value="#D8191B18"/>
+            <Setter Property="BorderBrush" Value="#664B514B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="10,8"/>
+        </Style>
+        <Style Selector="Border.lamp">
+            <Setter Property="Width" Value="13"/>
+            <Setter Property="Height" Value="13"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Background" Value="#5F6861"/>
+            <Setter Property="BorderBrush" Value="#9BA39C"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.lamp.active">
+            <Setter Property="Background" Value="#22C55E"/>
+            <Setter Property="BorderBrush" Value="#B9F7C9"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Classes="shell" PointerPressed="OnOverlayPointerPressed">
+        <UniformGrid Columns="7" Rows="1">
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding SpeedSpringActive}"/>
+                <TextBlock Text="Spring"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding SpeedDamperActive}"/>
+                <TextBlock Text="Damper"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding MechanicalFrictionActive}"/>
+                <TextBlock Text="Friction"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding RpmVibrationActive}"/>
+                <TextBlock Text="RPM"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding SurfaceFeedbackActive}"/>
+                <TextBlock Text="Surface"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding SlipFeedbackActive}"/>
+                <TextBlock Text="Slip"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding BumpFeedbackActive}"/>
+                <TextBlock Text="Bump"/>
+            </StackPanel>
+        </UniformGrid>
+    </Border>
+</Window>

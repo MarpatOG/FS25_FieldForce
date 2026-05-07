@@ -93,6 +93,8 @@ Every gameplay FFB mechanic must be documented in `docs/gameplay-ffb-mechanics.m
 - Logs: `%LOCALAPPDATA%/FS25FFBBridge/logs/bridge-.log`
 - Effect status file: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json`
 
+The Windows app can show a compact topmost effect overlay window. Use borderless/windowed fullscreen in FS25 if the overlay does not appear over exclusive fullscreen. Disable `Click-through` before dragging the overlay, then enable it again before driving.
+
 ## Repository Layout
 
 ```text
