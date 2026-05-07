@@ -78,8 +78,8 @@ The `Effects` tab controls gameplay FFB per vehicle category. Select a category 
 - `RPM Vibration`: capped sine vibration from RPM while the engine is started.
 - `Surface Feedback`: low-frequency exact field/wet-field vibration with conservative spring/damper/friction modifiers.
 - `Slip Feedback`: sine vibration when wheel slip rises above threshold.
-- `Wetness`: increases damping and surface vibration when ground wetness or rain telemetry is available.
-- `Motion`: uses pitch, roll, slope, yaw rate, and local acceleration as small spring/damper modifiers.
+- `Wetness`: increases damping and surface vibration for exact `wetField` surface telemetry; `groundWetness` and `rainScale` are transmitted for diagnostics/future tuning.
+- `Motion`: yaw rate and pitch/slope telemetry feed current stability/load calculations; the UI motion strength toggle is not yet a separate gated output layer.
 - `Bump Feedback`: short signed constant-force pulses from bump impulse telemetry.
 
 `Emergency Stop` disables gameplay FFB until `FFB Enabled` is checked again in the `Effects` tab.

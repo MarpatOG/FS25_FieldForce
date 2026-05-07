@@ -31,6 +31,7 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
   "wheelTireProfile": "mixed",
   "speedKmh": 12.4,
   "steeringAngle": 0.13,
+  "steeringRate": 0.8,
   "rpm": 850,
   "engineStarted": true,
   "mass": 6200,
@@ -43,6 +44,8 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
   "wheelSlip": 0.12,
   "maxWheelSlip": 0.24,
   "groundContactRatio": 1.0,
+  "steeringGroundContactRatio": 1.0,
+  "steeringWheelSlip": 0.18,
   "pitchDeg": 3.1,
   "rollDeg": -2.4,
   "yawRateDegPerSec": 8.5,
@@ -50,7 +53,14 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
   "localAccelerationX": 0.3,
   "localAccelerationY": 1.8,
   "localAccelerationZ": -0.6,
-  "bumpImpulse": 0.42
+  "bumpImpulse": 0.42,
+  "suspensionImpulse": 0.42,
+  "leftSuspensionImpulse": null,
+  "rightSuspensionImpulse": null,
+  "throttle": 0.6,
+  "brake": 0.0,
+  "clutch": 0.0,
+  "gear": 3
 }
 ```
 
@@ -62,17 +72,22 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 - `wheelTireTypes`: comma-separated unique FS25 wheel tire type names read from `wheel.physics.tireType` through `WheelsUtil.getTireTypeName(...)` when available, for example `street`, `mud`, `offRoad`, or `crawler`.
 - `wheelTireProfile`: normalized tire profile: `street`, `agricultural`, `mixed`, `tracked`, or `unknown`.
 - `speedKmh`: in-game vehicle speed in km/h. The Lua mod primarily derives this from rootNode world-position delta with a `2 km/h` standstill deadband scaled by sample `dt`, so FFB speed effects do not react to stale API spikes or physics jitter while parked. When rootNode position exists but there is not enough history yet, speed is reported as `0`. Raw game speed fields are used only as fallbacks when rootNode position is unavailable and are not multiplied by `3600`.
-- `steeringAngle`: best-effort normalized/vehicle steering value for Milestone 2.
+- `steeringAngle`: first available vehicle or wheel steering value.
+- `steeringRate`: steering delta per second for the same vehicle, derived from consecutive `steeringAngle` samples when the sample gap is valid.
 - `rpm`: best-effort motor RPM.
+- `engineStarted`: best-effort motor running state from vehicle/motorized APIs.
 - `mass` and `totalMass`: best-effort vehicle mass values.
 - `isOnField`: legacy compatibility field; new surface logic prefers `surfaceType`.
 - `surfaceType`: strict exact surface label. Supported exact labels are `asphalt`, `field`, `wetField`, `grass`, `shallowWater`, `snow`, `dirt`, `gravel`, `mud`, and `unknown`. `dirt`, `gravel`, and `mud` are emitted only if FS25 returns those exact names or an exact wheel surface sound mapping for the raw terrain attribute.
 - `surfaceAttribute`: raw terrain attribute number. It is not mapped to dirt/gravel/mud by guesswork.
 - `groundWetness` and `rainScale`: best-effort normalized `0..1` weather values when available.
-- `wheelSlip`, `maxWheelSlip`, and `groundContactRatio`: aggregated wheel physics values.
+- `wheelSlip`, `maxWheelSlip`, and `groundContactRatio`: aggregated wheel physics values. `wheelSlip` is average wheel slip, `maxWheelSlip` is the maximum wheel slip, and `groundContactRatio` is contacted wheels divided by wheel count.
+- `steeringWheelSlip` and `steeringGroundContactRatio`: steering-wheel-specific slip and contact values. The Windows app prefers these for steering-load decisions and falls back to all-wheel values.
 - `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, and `slopeDeg`: vehicle attitude and terrain slope values.
 - `localAccelerationX/Y/Z`: acceleration in vehicle-local axes when enough motion history is available.
-- `bumpImpulse`: normalized vertical impulse derived from local acceleration.
+- `bumpImpulse` and `suspensionImpulse`: normalized vertical impulse derived from local acceleration. The current sender writes the same value to both fields.
+- `leftSuspensionImpulse` and `rightSuspensionImpulse`: reserved side-specific suspension impulse fields consumed by the Windows calculator. The current sender leaves them `null`.
+- `throttle`, `brake`, `clutch`, and `gear`: best-effort drivetrain/control fields. They are currently decoded and used only for drivetrain-confidence plumbing; no drivetrain pulse effect is emitted yet.
 - Missing values are sent as `null`.
 
 ## Vehicle Categories
@@ -107,7 +122,13 @@ The Windows app writes `effectStatus.json` at up to 10 Hz, plus immediate zero-s
   "rpmVibration": false,
   "surfaceFeedback": false,
   "slipFeedback": false,
-  "bump": false
+  "bump": false,
+  "steeringLoad": true,
+  "speedStability": true,
+  "surfaceTraction": false,
+  "suspensionTerrain": false,
+  "loadSlopeImplement": true,
+  "engineDrivetrain": false
 }
 ```
 

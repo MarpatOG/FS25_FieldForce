@@ -37,8 +37,8 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `RPM Vibration`: no vibration when the engine is off; vibration appears when RPM rises.
 - `Surface Feedback`: exact `field` or `wetField` surface state enables soft low-frequency vibration above minimum speed.
 - `Slip Feedback`: high `maxWheelSlip` enables slip vibration and low slip stays quiet.
-- `Wetness`: `groundWetness` or `rainScale` increases damping/surface feel only when those fields are present.
-- `Motion`: pitch/roll/slope/yaw/local acceleration visibly change live spring/damper output within caps.
+- `Wetness`: exact `wetField` telemetry increases damping/surface feel; `groundWetness` and `rainScale` should still appear in the overlay when available.
+- `Motion`: yaw rate and pitch/slope telemetry should affect stability/load behavior; the UI motion toggle is not currently a separate gated output layer.
 - `Bump Feedback`: bump impulse produces a short signed pulse and then returns to zero.
 - Each effect can be enabled/disabled independently and each strength slider changes the live output value.
 - Stop the engine, leave the vehicle, or stop telemetry; gameplay outputs fade or stop safely.

@@ -9,6 +9,7 @@
   "wheelTireProfile": "street",
   "speedKmh": 12.5,
   "steeringAngle": 0.1,
+  "steeringRate": 0.2,
   "rpm": 850,
   "engineStarted": true,
   "mass": 6200,
@@ -21,6 +22,8 @@
   "wheelSlip": 0.03,
   "maxWheelSlip": 0.05,
   "groundContactRatio": 1.0,
+  "steeringGroundContactRatio": 1.0,
+  "steeringWheelSlip": 0.04,
   "pitchDeg": 1.2,
   "rollDeg": -0.4,
   "yawRateDegPerSec": 2.5,
@@ -28,5 +31,12 @@
   "localAccelerationX": 0.1,
   "localAccelerationY": 0.0,
   "localAccelerationZ": -0.2,
-  "bumpImpulse": 0.0
+  "bumpImpulse": 0.0,
+  "suspensionImpulse": 0.0,
+  "leftSuspensionImpulse": null,
+  "rightSuspensionImpulse": null,
+  "throttle": 0.25,
+  "brake": 0.0,
+  "clutch": 0.0,
+  "gear": 2
 }
