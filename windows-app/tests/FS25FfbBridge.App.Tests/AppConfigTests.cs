@@ -11,7 +11,7 @@ public sealed class AppConfigTests
     {
         var config = new AppConfig();
 
-        Assert.Equal(11, config.EffectsProfileVersion);
+        Assert.Equal(12, config.EffectsProfileVersion);
         Assert.Equal("Logitech MOMO Racing Wheel", config.DeviceProfileName);
         Assert.Equal(270, config.RotationDegrees);
         Assert.Equal(40, config.GlobalForceLimitPercent);
@@ -56,15 +56,15 @@ public sealed class AppConfigTests
         Assert.Equal(16, config.GameplayFfb.MotionFeedback.StrengthPercent);
         Assert.Equal(65, config.GameplayFfb.MotionFeedback.MaxOutputPercent);
         Assert.True(config.GameplayFfb.BumpFeedback.Enabled);
-        Assert.Equal(38, config.GameplayFfb.BumpFeedback.StrengthPercent);
+        Assert.Equal(34, config.GameplayFfb.BumpFeedback.StrengthPercent);
         Assert.Equal(65, config.GameplayFfb.BumpFeedback.MaxOutputPercent);
-        Assert.Equal(0.20, config.GameplayFfb.BumpFeedback.MinImpulse);
-        Assert.Equal(80, config.GameplayFfb.BumpFeedback.DurationMs);
-        Assert.Equal(130, config.GameplayFfb.BumpFeedback.CooldownMs);
+        Assert.Equal(0.28, config.GameplayFfb.BumpFeedback.MinImpulse);
+        Assert.Equal(65, config.GameplayFfb.BumpFeedback.DurationMs);
+        Assert.Equal(150, config.GameplayFfb.BumpFeedback.CooldownMs);
         Assert.Equal(30, config.GameplayFfb.SuspensionHitFeedback.StrengthPercent);
         Assert.Equal(34, config.GameplayFfb.LandingFeedback.StrengthPercent);
         Assert.Equal(40, config.GameplayFfb.CollisionFeedback.StrengthPercent);
-        Assert.Equal(22, config.GameplayFfb.TerrainRumble.StrengthPercent);
+        Assert.Equal(28, config.GameplayFfb.TerrainRumble.StrengthPercent);
         Assert.Equal(18, config.GameplayFfb.DrivetrainPulse.StrengthPercent);
         Assert.Contains(VehicleCategoryFfbProfile.TractorWheeled, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
         Assert.Contains(VehicleCategoryFfbProfile.HeavyTractorTracked, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
@@ -117,7 +117,7 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(11, migrated.EffectsProfileVersion);
+        Assert.Equal(12, migrated.EffectsProfileVersion);
         Assert.Equal(60, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
         Assert.Equal(55, migrated.GameplayFfb.SpeedDamper.StrengthPercent);
         Assert.Equal(65, migrated.GameplayFfb.SpeedDamper.MaxOutputPercent);
@@ -145,7 +145,7 @@ public sealed class AppConfigTests
         store.Save(migrated);
         var loadedAgain = store.Load();
 
-        Assert.Equal(11, loadedAgain.EffectsProfileVersion);
+        Assert.Equal(12, loadedAgain.EffectsProfileVersion);
         Assert.Equal(70, loadedAgain.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedDamper.StrengthPercent);
         Assert.Equal(50, loadedAgain.GameplayFfb.SpeedDamper.StrengthPercent);
     }
@@ -168,7 +168,7 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(11, migrated.EffectsProfileVersion);
+        Assert.Equal(12, migrated.EffectsProfileVersion);
         Assert.Equal(60, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
         Assert.All(migrated.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
         {
@@ -181,7 +181,7 @@ public sealed class AppConfigTests
     }
 
     [Fact]
-    public void Config_v10_migration_preserves_existing_bump_settings_and_adds_split_pulse_settings()
+    public void Config_v10_migration_updates_suspension_terrain_settings_and_adds_split_pulse_settings()
     {
         var path = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"), "config.json");
         var store = new ConfigStore(path);
@@ -198,14 +198,43 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(11, migrated.EffectsProfileVersion);
-        Assert.Equal(0.12, migrated.GameplayFfb.BumpFeedback.MinImpulse);
-        Assert.Equal(90, migrated.GameplayFfb.BumpFeedback.CooldownMs);
-        Assert.Equal(44, migrated.GameplayFfb.BumpFeedback.StrengthPercent);
+        Assert.Equal(12, migrated.EffectsProfileVersion);
+        Assert.Equal(0.28, migrated.GameplayFfb.BumpFeedback.MinImpulse);
+        Assert.Equal(150, migrated.GameplayFfb.BumpFeedback.CooldownMs);
+        Assert.Equal(34, migrated.GameplayFfb.BumpFeedback.StrengthPercent);
         Assert.True(migrated.GameplayFfb.SuspensionHitFeedback.Enabled);
         Assert.True(migrated.GameplayFfb.LandingFeedback.Enabled);
         Assert.True(migrated.GameplayFfb.CollisionFeedback.Enabled);
         Assert.True(migrated.GameplayFfb.TerrainRumble.Enabled);
         Assert.True(migrated.GameplayFfb.DrivetrainPulse.Enabled);
+    }
+
+    [Fact]
+    public void Config_v11_migration_applies_suspension_terrain_preset_to_every_profile()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"), "config.json");
+        var store = new ConfigStore(path);
+        var oldConfig = new AppConfig
+        {
+            EffectsProfileVersion = 11
+        };
+        oldConfig.GameplayFfb.BumpFeedback.StrengthPercent = 44;
+        oldConfig.GameplayFfb.TerrainRumble.StrengthPercent = 12;
+        oldConfig.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].BumpFeedback.MinImpulse = 0.10;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(oldConfig));
+
+        var migrated = store.Load();
+
+        Assert.Equal(12, migrated.EffectsProfileVersion);
+        Assert.Equal(34, migrated.GameplayFfb.BumpFeedback.StrengthPercent);
+        Assert.Equal(28, migrated.GameplayFfb.TerrainRumble.StrengthPercent);
+        Assert.All(migrated.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
+        {
+            Assert.Equal(0.28, profile.BumpFeedback.MinImpulse);
+            Assert.Equal(0.26, profile.SuspensionHitFeedback.MinImpulse);
+            Assert.Equal(28, profile.TerrainRumble.StrengthPercent);
+        });
     }
 }

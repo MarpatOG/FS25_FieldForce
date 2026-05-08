@@ -416,12 +416,72 @@ public sealed class GameplayFfbCalculatorTests
     [Fact]
     public void Terrain_rumble_is_exposed_as_output_channel()
     {
-        var output = _calculator.Calculate(State(Packet(speedKmh: 15, bumpImpulse: 0.6)), new GameplayFfbSettings(), DeviceHapticProfile.Generic);
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, isOnField: true, surfaceType: "field", bumpImpulse: 0.6)), new GameplayFfbSettings(), DeviceHapticProfile.Generic);
 
         Assert.True(output.TerrainRumblePercent > 0);
         Assert.True(output.TerrainRumbleHz > 0);
         Assert.True(output.TerrainRumbleActive);
         Assert.Contains("Terrain", output.ActiveEffectsText);
+    }
+
+    [Fact]
+    public void Asphalt_small_and_medium_suspension_impulses_do_not_create_terrain_rumble()
+    {
+        var settings = new GameplayFfbSettings();
+        var small = _calculator.Calculate(State(Packet(speedKmh: 18, surfaceType: "asphalt", suspensionImpulse: 0.16)), settings, DeviceHapticProfile.Generic);
+        var medium = _calculator.Calculate(State(Packet(speedKmh: 18, surfaceType: "asphalt", suspensionImpulse: 0.32)), settings, DeviceHapticProfile.Generic);
+
+        Assert.Equal(0, small.TerrainRumblePercent);
+        Assert.Equal(0, medium.TerrainRumblePercent);
+    }
+
+    [Fact]
+    public void Asphalt_side_suspension_impulse_is_suppressed()
+    {
+        var output = _calculator.Calculate(
+            State(Packet(speedKmh: 18, surfaceType: "asphalt", verticalImpactImpulse: 0.35, leftSuspensionImpulse: 0.8, rightSuspensionImpulse: 0.15, groundContactRatio: 1)),
+            new GameplayFfbSettings(),
+            DeviceHapticProfile.Generic);
+
+        Assert.True(output.BumpImpulsePercent is >= -3 and <= 3);
+    }
+
+    [Theory]
+    [InlineData("field")]
+    [InlineData("wetField")]
+    [InlineData("dirt")]
+    [InlineData("gravel")]
+    public void Offroad_surface_gives_stronger_suspension_output_than_asphalt(string surfaceType)
+    {
+        var settings = new GameplayFfbSettings();
+        var asphalt = _calculator.Calculate(State(Packet(speedKmh: 18, surfaceType: "asphalt", suspensionImpulse: 0.5, verticalImpactImpulse: 0.55, leftSuspensionImpulse: 0.55, rightSuspensionImpulse: 0.25, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+        var offroad = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: surfaceType == "field", surfaceType: surfaceType, suspensionImpulse: 0.5, verticalImpactImpulse: 0.55, leftSuspensionImpulse: 0.55, rightSuspensionImpulse: 0.25, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(offroad.TerrainRumblePercent > asphalt.TerrainRumblePercent);
+        Assert.True(Math.Abs(offroad.BumpImpulsePercent) > Math.Abs(asphalt.BumpImpulsePercent));
+    }
+
+    [Fact]
+    public void Extra_total_mass_amplifies_offroad_suspension_haptics_softly()
+    {
+        var settings = new GameplayFfbSettings();
+        var empty = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: true, surfaceType: "field", mass: 6000, totalMass: 6000, suspensionImpulse: 0.42, verticalImpactImpulse: 0.52, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+        var loaded = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: true, surfaceType: "field", mass: 6000, totalMass: 12000, suspensionImpulse: 0.42, verticalImpactImpulse: 0.52, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(loaded.TerrainRumblePercent > empty.TerrainRumblePercent);
+        Assert.True(Math.Abs(loaded.BumpImpulsePercent) > Math.Abs(empty.BumpImpulsePercent));
+        Assert.True(loaded.TerrainRumblePercent <= empty.TerrainRumblePercent * 1.5);
+    }
+
+    [Fact]
+    public void Unknown_surface_without_field_flag_stays_conservative_for_suspension_haptics()
+    {
+        var settings = new GameplayFfbSettings();
+        var unknown = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: false, surfaceType: "unknown", suspensionImpulse: 0.32, verticalImpactImpulse: 0.35, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+        var field = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: true, surfaceType: "unknown", suspensionImpulse: 0.32, verticalImpactImpulse: 0.35, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.Equal(0, unknown.TerrainRumblePercent);
+        Assert.True(field.TerrainRumblePercent > unknown.TerrainRumblePercent);
     }
 
     [Fact]
@@ -492,7 +552,7 @@ public sealed class GameplayFfbCalculatorTests
     [Fact]
     public void Terrain_rumble_does_not_create_event_pulse_by_itself()
     {
-        var output = _calculator.Calculate(State(Packet(speedKmh: 15, suspensionImpulse: 0.12, verticalImpactImpulse: 0.05, groundContactRatio: 1)), new GameplayFfbSettings());
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, isOnField: true, surfaceType: "field", suspensionImpulse: 0.20, verticalImpactImpulse: 0.05, groundContactRatio: 1)), new GameplayFfbSettings());
 
         Assert.True(output.TerrainRumblePercent > 0);
         Assert.False(output.EventPulseActive);

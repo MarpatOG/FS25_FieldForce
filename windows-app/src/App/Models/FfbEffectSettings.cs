@@ -79,10 +79,10 @@ public sealed class BumpFeedbackSettings : ImpulsePulseFeedbackSettings
 {
     public BumpFeedbackSettings()
     {
-        MinImpulse = 0.20;
-        FullImpulse = 1.0;
-        DurationMs = 80;
-        CooldownMs = 130;
+        MinImpulse = 0.28;
+        FullImpulse = 1.2;
+        DurationMs = 65;
+        CooldownMs = 150;
     }
 }
 
@@ -102,10 +102,10 @@ public sealed class SuspensionHitFeedbackSettings : ImpulsePulseFeedbackSettings
         StrengthPercent = 30;
         MaxOutputPercent = 65;
         Curve = FfbCurveKind.Aggressive;
-        MinImpulse = 0.18;
-        FullImpulse = 1.1;
-        DurationMs = 55;
-        CooldownMs = 110;
+        MinImpulse = 0.26;
+        FullImpulse = 1.25;
+        DurationMs = 50;
+        CooldownMs = 130;
     }
 }
 
@@ -141,8 +141,8 @@ public sealed class CollisionFeedbackSettings : ImpulsePulseFeedbackSettings
 
 public sealed class TerrainRumbleSettings : FfbEffectSettings
 {
-    public double MinImpulse { get; set; } = 0.06;
-    public double FullImpulse { get; set; } = 0.55;
+    public double MinImpulse { get; set; } = 0.08;
+    public double FullImpulse { get; set; } = 0.60;
     public int MinFrequencyHz { get; set; } = 8;
     public int MaxFrequencyHz { get; set; } = 14;
 }
@@ -272,13 +272,13 @@ public class GameplayFfbEffectProfile
     public BumpFeedbackSettings BumpFeedback { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 38,
+        StrengthPercent = 34,
         MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Aggressive,
-        MinImpulse = 0.20,
-        FullImpulse = 1.0,
-        DurationMs = 80,
-        CooldownMs = 130
+        MinImpulse = 0.28,
+        FullImpulse = 1.2,
+        DurationMs = 65,
+        CooldownMs = 150
     };
 
     public SuspensionHitFeedbackSettings SuspensionHitFeedback { get; set; } = new();
@@ -290,11 +290,11 @@ public class GameplayFfbEffectProfile
     public TerrainRumbleSettings TerrainRumble { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 22,
+        StrengthPercent = 28,
         MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Smooth,
-        MinImpulse = 0.06,
-        FullImpulse = 0.55,
+        MinImpulse = 0.08,
+        FullImpulse = 0.60,
         MinFrequencyHz = 8,
         MaxFrequencyHz = 14
     };
@@ -489,6 +489,36 @@ public class GameplayFfbEffectProfile
         settings.SpeedSpring.Curve = FfbCurveKind.Smooth;
         settings.SpeedSpring.StandstillFloor = SpeedSpringStandstillFloorDefault;
         settings.SpeedSpring.SpeedReferenceKmh = SpeedSpringReferenceKmhDefault;
+    }
+
+    public static void ApplyCurrentSuspensionTerrainPreset(GameplayFfbEffectProfile settings)
+    {
+        settings.BumpFeedback.Enabled = true;
+        settings.BumpFeedback.StrengthPercent = 34;
+        settings.BumpFeedback.MaxOutputPercent = SpeedSpringMaxOutputDefault;
+        settings.BumpFeedback.Curve = FfbCurveKind.Aggressive;
+        settings.BumpFeedback.MinImpulse = 0.28;
+        settings.BumpFeedback.FullImpulse = 1.2;
+        settings.BumpFeedback.DurationMs = 65;
+        settings.BumpFeedback.CooldownMs = 150;
+
+        settings.SuspensionHitFeedback.Enabled = true;
+        settings.SuspensionHitFeedback.StrengthPercent = 30;
+        settings.SuspensionHitFeedback.MaxOutputPercent = SpeedSpringMaxOutputDefault;
+        settings.SuspensionHitFeedback.Curve = FfbCurveKind.Aggressive;
+        settings.SuspensionHitFeedback.MinImpulse = 0.26;
+        settings.SuspensionHitFeedback.FullImpulse = 1.25;
+        settings.SuspensionHitFeedback.DurationMs = 50;
+        settings.SuspensionHitFeedback.CooldownMs = 130;
+
+        settings.TerrainRumble.Enabled = true;
+        settings.TerrainRumble.StrengthPercent = 28;
+        settings.TerrainRumble.MaxOutputPercent = SpeedSpringMaxOutputDefault;
+        settings.TerrainRumble.Curve = FfbCurveKind.Smooth;
+        settings.TerrainRumble.MinImpulse = 0.08;
+        settings.TerrainRumble.FullImpulse = 0.60;
+        settings.TerrainRumble.MinFrequencyHz = 8;
+        settings.TerrainRumble.MaxFrequencyHz = 14;
     }
 
     public static void ApplyOverallOutputCap(GameplayFfbEffectProfile settings, int overallCapPercent)

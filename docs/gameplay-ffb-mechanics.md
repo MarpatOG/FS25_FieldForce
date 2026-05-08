@@ -254,15 +254,21 @@ hz = quantize2(MinFrequencyHz + (MaxFrequencyHz - MinFrequencyHz) * curve(ratio)
 
 It is active only when Slip Feedback is enabled, speed is at least `MinSpeedKmh`, and slip is above `MinSlip`.
 
-`Suspension Terrain Rumble` is a low-frequency continuous haptic derived from suspension impulse. It never creates a finite pulse by itself:
+`Suspension Terrain Rumble` is a low-frequency continuous haptic derived from suspension impulse. It never creates a finite pulse by itself. Haptics classify `field`, `wetField`, `grass`, `dirt`, `gravel`, `mud`, `snow`, and `shallowWater` as off-road. `asphalt`, ordinary roads, and `unknown` without `isOnField == true` are treated conservatively as road:
 
 ```text
-ratio = clamp((suspensionImpulse - TerrainRumble.MinImpulse)
-        / (TerrainRumble.FullImpulse - TerrainRumble.MinImpulse), 0, 1)
-terrainRumblePercent = maxCapped(TerrainRumble) * curve(ratio)
+roadMinImpulse = max(TerrainRumble.MinImpulse, 0.42)
+roadFullImpulse = max(TerrainRumble.FullImpulse, 1.15)
+offroadLoadScale = clamp(1 + sqrt(max(loadFactor - 1, 0)) * 0.24, 1, 1.42)
+surfaceScale = offroad ? 1.10 : 0.14
+ratio = clamp((suspensionImpulse - surfaceMinImpulse)
+        / (surfaceFullImpulse - surfaceMinImpulse), 0, 1)
+terrainRumblePercent = maxCapped(TerrainRumble) * curve(ratio) * surfaceScale * offroadLoadScale
 terrainRumbleHz = quantize2(TerrainRumble.MinFrequencyHz
         + (TerrainRumble.MaxFrequencyHz - TerrainRumble.MinFrequencyHz) * curve(ratio))
 ```
+
+This keeps asphalt nearly quiet except for large real hits, while the same suspension impulse is stronger on fields, dirt, gravel, mud, snow, grass, wet fields, or shallow water. Extra `totalMass / mass` from an attached implement or trailer amplifies off-road terrain/suspension haptics with the soft cap above.
 
 Continuous haptic layers are mixed by taking the highest percent per channel after confidence weighting.
 
@@ -282,14 +288,16 @@ Each pulse kind has its own cooldown timestamp in the backend.
 impulse = verticalImpactImpulse
 suppressed when contactRatio is near zero
 suppressed when longitudinalJerkImpulse is high and side suspension does not confirm a hit
-ratio = clamp((abs(impulse) - BumpFeedback.MinImpulse) / (BumpFeedback.FullImpulse - BumpFeedback.MinImpulse), 0, 1)
-percent = maxCapped(BumpFeedback) * curve(ratio)
+surfaceMinImpulse = offroad ? BumpFeedback.MinImpulse : max(BumpFeedback.MinImpulse, 0.58)
+surfaceScale = (offroad ? 1.05 : 0.18) * offroadLoadScale
+ratio = clamp((abs(impulse) - surfaceMinImpulse) / (BumpFeedback.FullImpulse - surfaceMinImpulse), 0, 1)
+percent = maxCapped(BumpFeedback) * curve(ratio) * surfaceScale
 direction = sign(localAccelerationX ?? steeringAngle ?? 1)
 durationMs = clamp(BumpFeedback.DurationMs, 20, 250)
 cooldownMs = clamp(BumpFeedback.CooldownMs, 20, 500)
 ```
 
-`LeftSuspensionHit` and `RightSuspensionHit` use `SuspensionHitFeedback` when one side impulse is at least `1.25x` the other side and above the side-hit threshold.
+`LeftSuspensionHit` and `RightSuspensionHit` use `SuspensionHitFeedback` only when one side clearly dominates the other side. Off-road uses a lower side threshold and `1.45x` dominance; road uses a higher threshold and `1.80x` dominance, then applies the same surface/load pulse scaling.
 
 `Landing` uses `LandingFeedback` from `landingImpulse`.
 

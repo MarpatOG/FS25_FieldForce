@@ -39,9 +39,11 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Slip Feedback`: high `maxWheelSlip` enables slip vibration and low slip stays quiet.
 - `Wetness`: exact `wetField` telemetry increases damping/surface feel; `groundWetness` and `rainScale` should still appear in the overlay when available.
 - `Motion`: yaw rate and pitch/slope telemetry should affect stability/load behavior; the UI motion toggle is not currently a separate gated output layer.
-- `Terrain Rumble`: small/medium suspension impulse produces continuous low-frequency rumble without a finite pulse lamp.
-- `Bump Feedback`: `verticalImpactImpulse` with wheel contact produces a short road-bump pulse and then returns to zero.
-- `Suspension Hit`: left/right suspension impulse dominance shows a suspension-hit pulse, not a generic bump.
+- `Terrain Rumble`: on asphalt, small/medium suspension impulse stays quiet; large road hits may produce only weak rumble. On `field`, `wetField`, `grass`, `dirt`, `gravel`, `mud`, `snow`, or `shallowWater`, the same impulse produces stronger continuous low-frequency rumble without a finite pulse lamp.
+- `Bump Feedback`: asphalt only produces short, softened pulses for noticeable vertical hits; off-road bumps are stronger and still return to zero after the pulse.
+- `Suspension Hit`: left/right suspension impulse dominance shows a suspension-hit pulse, not a generic bump. Road side hits require a clearer imbalance than off-road side hits.
+- `Implement/trailer load`: when `totalMass > mass`, off-road Terrain Rumble, Bump Feedback, and Suspension Hit increase moderately; asphalt should not turn into constant vibration.
+- `Unknown surface`: `unknown` without `isOnField` remains road-like and conservative; `unknown` with `isOnField` follows off-road suspension/terrain behavior.
 - `Landing`: contact loss followed by vertical impact shows the landing pulse.
 - `Collision`: hard horizontal contact shows the collision pulse and suppresses normal bump in the same frame.
 - `Drivetrain Pulse`: gear changes or acceleration/braking jerk show drivetrain pulse activity with lower strength than bump/collision.

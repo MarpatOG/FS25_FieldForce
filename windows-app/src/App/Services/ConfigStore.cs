@@ -151,6 +151,19 @@ public sealed class ConfigStore
             config.EffectsProfileVersion = 11;
         }
 
+        if (config.EffectsProfileVersion < 12)
+        {
+            GameplayFfbEffectProfile.NormalizeEffectSettings(config.GameplayFfb);
+            GameplayFfbEffectProfile.ApplyCurrentSuspensionTerrainPreset(config.GameplayFfb);
+            foreach (var profile in config.GameplayFfb.VehicleCategoryEffectProfiles.Values)
+            {
+                GameplayFfbEffectProfile.NormalizeEffectSettings(profile);
+                GameplayFfbEffectProfile.ApplyCurrentSuspensionTerrainPreset(profile);
+            }
+
+            config.EffectsProfileVersion = 12;
+        }
+
         return config;
     }
 
