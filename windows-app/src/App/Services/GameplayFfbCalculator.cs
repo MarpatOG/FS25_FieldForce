@@ -49,7 +49,7 @@ public sealed class GameplayFfbCalculator
             motionFeedbackModifiers,
             contactTractionModifiers);
         steering = SteeringModifierMixer.Apply(steering, modifiers);
-        steering = SpeedStabilityLayer.Apply(steering, features, context).Value;
+        steering = SpeedStabilityLayer.Apply(steering, features, profile, context).Value;
         steering = SafetyFilters.Apply(steering);
 
         var haptics = HapticMixer.CombineContinuous(
@@ -88,7 +88,7 @@ public sealed class GameplayFfbCalculator
             HasActiveSteeringModifier(loadSlopeImplementModifiers.Value, loadSlopeImplementModifiers.Confidence),
             HasActiveSteeringModifier(motionFeedbackModifiers.Value, motionFeedbackModifiers.Confidence),
             CalculateContactReliefActive(features),
-            CalculateAntiOscillationActive(features),
+            CalculateAntiOscillationActive(features, profile),
             CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, fade) > 0,
             CalculateSteeringSlipReliefActive(features, profile));
 
@@ -181,9 +181,9 @@ public sealed class GameplayFfbCalculator
         return features.ContactConfidence > 0 && (1 - features.ContactRatio) * features.ContactConfidence > 0.0001;
     }
 
-    private static bool CalculateAntiOscillationActive(TelemetryFeatures features)
+    private static bool CalculateAntiOscillationActive(TelemetryFeatures features, GameplayFfbEffectProfile profile)
     {
-        return features.SpeedRatio > 0.45 && Math.Abs(features.SteeringAngle) < 0.04;
+        return profile.SpeedDamper.Enabled && features.SpeedRatio > 0.45 && Math.Abs(features.SteeringAngle) < 0.04;
     }
 
     private static bool CalculateSteeringSlipReliefActive(TelemetryFeatures features, GameplayFfbEffectProfile profile)
@@ -548,8 +548,13 @@ public sealed class GameplayFfbCalculator
 
     public static class SpeedStabilityLayer
     {
-        public static LayerContribution<SteeringModel> Apply(SteeringModel steering, TelemetryFeatures features, FfbFrameContext context)
+        public static LayerContribution<SteeringModel> Apply(SteeringModel steering, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
+            if (!profile.SpeedDamper.Enabled)
+            {
+                return new(steering, 0);
+            }
+
             var speedDamping = features.SpeedRatio * 2.0;
             var rateDamping = Math.Clamp(Math.Abs(features.SteeringRate) / 2.0, 0, 1) * 8.0 * context.DeviceProfile.SteeringRateDamperScale;
             var antiOscillation = features.SpeedRatio > 0.45 && Math.Abs(features.SteeringAngle) < 0.04 ? 3.0 : 0.0;

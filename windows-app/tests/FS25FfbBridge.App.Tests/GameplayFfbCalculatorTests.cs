@@ -235,11 +235,49 @@ public sealed class GameplayFfbCalculatorTests
         var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         var baseSteering = new SteeringModel(25, 10, 8);
 
-        var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Apply(baseSteering, features, context).Value;
+        var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Apply(baseSteering, features, new GameplayFfbSettings(), context).Value;
 
         Assert.Equal(baseSteering.Spring, stabilized.Spring);
         Assert.True(stabilized.Damper > baseSteering.Damper);
         Assert.Equal(baseSteering.Friction, stabilized.Friction);
+    }
+
+    [Fact]
+    public void Speed_stability_respects_road_damping_enabled_setting()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.SpeedDamper.Enabled = false;
+        var context = new FfbFrameContext(
+            TimeSpan.FromMilliseconds(8),
+            TimeSpan.FromMilliseconds(50),
+            1,
+            VehicleCategoryFfbProfile.TractorWheeled,
+            DeviceHapticProfile.Generic);
+        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        var baseSteering = new SteeringModel(25, 10, 8);
+
+        var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Apply(baseSteering, features, settings, context);
+
+        Assert.Equal(0, stabilized.Confidence);
+        Assert.Equal(baseSteering, stabilized.Value);
+    }
+
+    [Fact]
+    public void Road_damping_disabled_keeps_speed_stability_lamps_off()
+    {
+        var settings = new GameplayFfbSettings();
+        foreach (var profile in settings.VehicleCategoryEffectProfiles.Values)
+        {
+            profile.SpeedDamper.Enabled = false;
+            profile.SpeedSpring.Enabled = false;
+            profile.MechanicalFriction.Enabled = false;
+            profile.EngineVibration.Enabled = false;
+        }
+
+        var output = _calculator.Calculate(State(Packet(speedKmh: 40, steeringAngle: 0, steeringRate: 1.0, groundContactRatio: 1)), settings);
+
+        Assert.Equal(0, output.DamperPercent);
+        Assert.False(output.AntiOscillationActive);
     }
 
     [Fact]
@@ -529,6 +567,8 @@ public sealed class GameplayFfbCalculatorTests
         double? maxWheelSlip = null,
         double? groundContactRatio = null,
         double? steeringGroundContactRatio = null,
+        double? steeringAngle = null,
+        double? steeringRate = null,
         double? pitchDeg = null,
         double? rollDeg = null,
         double? yawRateDegPerSec = null,
@@ -558,7 +598,8 @@ public sealed class GameplayFfbCalculatorTests
             VehicleType = "tractor",
             VehicleCategory = vehicleCategory,
             SpeedKmh = speedKmh,
-            SteeringAngle = 0,
+            SteeringAngle = steeringAngle ?? 0,
+            SteeringRate = steeringRate,
             Rpm = rpm,
             EngineStarted = engineStarted,
             Mass = mass,
