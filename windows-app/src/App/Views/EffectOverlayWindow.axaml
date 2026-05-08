@@ -3,12 +3,12 @@
         xmlns:vm="using:FS25FfbBridge.App.ViewModels"
         x:Class="FS25FfbBridge.App.Views.EffectOverlayWindow"
         x:DataType="vm:MainWindowViewModel"
-        Width="332"
-        Height="72"
-        MinWidth="332"
-        MinHeight="72"
-        MaxWidth="332"
-        MaxHeight="72"
+        Width="360"
+        Height="210"
+        MinWidth="360"
+        MinHeight="210"
+        MaxWidth="360"
+        MaxHeight="210"
         CanResize="False"
         ShowInTaskbar="False"
         SystemDecorations="None"
@@ -20,24 +20,37 @@
         <Style Selector="TextBlock">
             <Setter Property="Foreground" Value="#F6F2E9"/>
             <Setter Property="FontSize" Value="10"/>
-            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Left"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.category">
+            <Setter Property="Foreground" Value="#D5D0C6"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
         </Style>
         <Style Selector="Border.shell">
             <Setter Property="Background" Value="#D8191B18"/>
             <Setter Property="BorderBrush" Value="#664B514B"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Padding" Value="12,10"/>
+        </Style>
+        <Style Selector="StackPanel.categoryGroup">
+            <Setter Property="Spacing" Value="5"/>
+        </Style>
+        <Style Selector="StackPanel.lampRow">
+            <Setter Property="Orientation" Value="Horizontal"/>
+            <Setter Property="Spacing" Value="8"/>
         </Style>
         <Style Selector="Border.lamp">
-            <Setter Property="Width" Value="13"/>
-            <Setter Property="Height" Value="13"/>
-            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Width" Value="14"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Background" Value="#5F6861"/>
             <Setter Property="BorderBrush" Value="#9BA39C"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
         </Style>
         <Style Selector="Border.lamp.active">
             <Setter Property="Background" Value="#22C55E"/>
@@ -46,51 +59,47 @@
     </Window.Styles>
 
     <Border Classes="shell" PointerPressed="OnOverlayPointerPressed">
-        <UniformGrid Columns="7" Rows="1">
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding SpeedSpringActive}"/>
-                <TextBlock Text="Spring"/>
+        <StackPanel Spacing="10">
+            <StackPanel Classes="categoryGroup">
+                <TextBlock Classes="category" Text="Steering Load"/>
+                <StackPanel Classes="lampRow">
+                    <Border Classes="lamp" Classes.active="{Binding SpeedSpringActive}" ToolTip.Tip="Steering spring"/>
+                    <Border Classes="lamp" Classes.active="{Binding MechanicalFrictionActive}" ToolTip.Tip="Mechanical friction"/>
+                </StackPanel>
             </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding SpeedDamperActive}"/>
-                <TextBlock Text="Damper"/>
+
+            <StackPanel Classes="categoryGroup">
+                <TextBlock Classes="category" Text="Speed Stability"/>
+                <StackPanel Classes="lampRow">
+                    <Border Classes="lamp" Classes.active="{Binding SpeedDamperActive}" ToolTip.Tip="Road damping"/>
+                </StackPanel>
             </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding MechanicalFrictionActive}"/>
-                <TextBlock Text="Friction"/>
+
+            <StackPanel Classes="categoryGroup">
+                <TextBlock Classes="category" Text="Surface &amp; Traction"/>
+                <StackPanel Classes="lampRow">
+                    <Border Classes="lamp" Classes.active="{Binding SurfaceFeedbackActive}" ToolTip.Tip="Surface feedback"/>
+                    <Border Classes="lamp" Classes.active="{Binding SlipFeedbackActive}" ToolTip.Tip="Slip feedback"/>
+                </StackPanel>
             </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding RpmVibrationActive}"/>
-                <TextBlock Text="RPM"/>
+
+            <StackPanel Classes="categoryGroup">
+                <TextBlock Classes="category" Text="Suspension &amp; Terrain"/>
+                <StackPanel Classes="lampRow">
+                    <Border Classes="lamp" Classes.active="{Binding BumpFeedbackActive}" ToolTip.Tip="Bump"/>
+                    <Border Classes="lamp" Classes.active="{Binding SuspensionHitActive}" ToolTip.Tip="Suspension hit"/>
+                    <Border Classes="lamp" Classes.active="{Binding LandingFeedbackActive}" ToolTip.Tip="Landing pulse"/>
+                    <Border Classes="lamp" Classes.active="{Binding CollisionFeedbackActive}" ToolTip.Tip="Collision pulse"/>
+                </StackPanel>
             </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding SurfaceFeedbackActive}"/>
-                <TextBlock Text="Surface"/>
+
+            <StackPanel Classes="categoryGroup">
+                <TextBlock Classes="category" Text="Engine &amp; Drivetrain"/>
+                <StackPanel Classes="lampRow">
+                    <Border Classes="lamp" Classes.active="{Binding RpmVibrationActive}" ToolTip.Tip="RPM vibration"/>
+                    <Border Classes="lamp" Classes.active="{Binding DrivetrainPulseActive}" ToolTip.Tip="Gear shift pulse"/>
+                </StackPanel>
             </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding SlipFeedbackActive}"/>
-                <TextBlock Text="Slip"/>
-            </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding BumpFeedbackActive}"/>
-                <TextBlock Text="Bump"/>
-            </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding SuspensionHitActive}"/>
-                <TextBlock Text="Susp"/>
-            </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding LandingFeedbackActive}"/>
-                <TextBlock Text="Land"/>
-            </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding CollisionFeedbackActive}"/>
-                <TextBlock Text="Crash"/>
-            </StackPanel>
-            <StackPanel Spacing="5">
-                <Border Classes="lamp" Classes.active="{Binding DrivetrainPulseActive}"/>
-                <TextBlock Text="Drive"/>
-            </StackPanel>
-        </UniformGrid>
+        </StackPanel>
     </Border>
 </Window>
