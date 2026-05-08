@@ -187,7 +187,7 @@ public sealed class GameplayFfbCalculator
 
     private static bool CalculateAntiOscillationActive(TelemetryFeatures features, GameplayFfbEffectProfile profile)
     {
-        return profile.SpeedDamper.Enabled && features.SpeedRatio > 0.45 && Math.Abs(features.SteeringAngle) < 0.04;
+        return profile.SpeedDamper.Enabled && CalculateSteeringLoadSpeedScale(features.SpeedKmh) > 0.45 && Math.Abs(features.SteeringAngle) < 0.04;
     }
 
     private static bool CalculateSteeringSlipReliefActive(TelemetryFeatures features, GameplayFfbEffectProfile profile)
@@ -281,6 +281,13 @@ public sealed class GameplayFfbCalculator
     private static double CalculateLoadRatio(double loadFactor)
     {
         return Math.Clamp((loadFactor - 1) / 2, 0, 1);
+    }
+
+    public static double CalculateSteeringLoadSpeedScale(double speedKmh)
+    {
+        const double fullEffectSpeedKmh = 10.0;
+        const double cappedSpeedKmh = 40.0;
+        return Math.Clamp(Math.Min(Math.Max(0, speedKmh), cappedSpeedKmh) / fullEffectSpeedKmh, 0, 1);
     }
 
     private static string NormalizeSurfaceType(TelemetryPacket packet)
@@ -522,6 +529,7 @@ public sealed class GameplayFfbCalculator
 
             var loadResistance =
                 (CalculateMaxCapped(profile.LoadResistance, context.TelemetryFade) / 100.0) *
+                CalculateSteeringLoadSpeedScale(features.SpeedKmh) *
                 ApplyCurve(CalculateLoadRatio(features.LoadFactor), profile.LoadResistance.Curve);
             return new(new SteeringModifiers(
                 profile.LoadResistance.AffectsSpring ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.SpringScale, 0, 2)) : 1,
@@ -588,9 +596,10 @@ public sealed class GameplayFfbCalculator
                 return new(steering, 0);
             }
 
-            var speedDamping = features.SpeedRatio * 2.0;
-            var rateDamping = Math.Clamp(Math.Abs(features.SteeringRate) / 2.0, 0, 1) * 8.0 * context.DeviceProfile.SteeringRateDamperScale;
-            var antiOscillation = features.SpeedRatio > 0.45 && Math.Abs(features.SteeringAngle) < 0.04 ? 3.0 : 0.0;
+            var speedScale = CalculateSteeringLoadSpeedScale(features.SpeedKmh);
+            var speedDamping = speedScale * 2.0;
+            var rateDamping = Math.Clamp(Math.Abs(features.SteeringRate) / 2.0, 0, 1) * 8.0 * context.DeviceProfile.SteeringRateDamperScale * speedScale;
+            var antiOscillation = speedScale > 0.45 && Math.Abs(features.SteeringAngle) < 0.04 ? 3.0 * speedScale : 0.0;
             return new(steering with { Damper = steering.Damper + speedDamping + rateDamping + antiOscillation }, 1.0);
         }
     }

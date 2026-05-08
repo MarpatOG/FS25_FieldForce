@@ -72,8 +72,8 @@ public sealed class GameplayFfbCalculatorTests
     public void Vehicle_category_profile_applies_multipliers()
     {
         var settings = new GameplayFfbSettings();
-        var wheeled = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorWheeled)), settings);
-        var tracked = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorTracked)), settings);
+        var wheeled = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorWheeled)), settings);
+        var tracked = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorTracked)), settings);
 
         Assert.True(tracked.DamperPercent > wheeled.DamperPercent);
         Assert.True(tracked.FrictionPercent > wheeled.FrictionPercent);
@@ -140,8 +140,8 @@ public sealed class GameplayFfbCalculatorTests
     public void Heavier_total_mass_increases_load_influence()
     {
         var settings = new GameplayFfbSettings();
-        var light = _calculator.Calculate(State(Packet(speedKmh: 25, mass: 6000, totalMass: 6000)), settings);
-        var heavy = _calculator.Calculate(State(Packet(speedKmh: 25, mass: 6000, totalMass: 12000)), settings);
+        var light = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 25, mass: 6000, totalMass: 6000)), settings);
+        var heavy = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 25, mass: 6000, totalMass: 12000)), settings);
 
         Assert.True(heavy.LoadFactor > light.LoadFactor);
         Assert.True(heavy.DamperPercent > light.DamperPercent);
@@ -258,6 +258,47 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Steering_load_speed_scale_reaches_full_effect_at_ten_kmh_and_caps_above_forty()
+    {
+        Assert.Equal(0, GameplayFfbCalculator.CalculateSteeringLoadSpeedScale(0));
+        Assert.Equal(0.5, GameplayFfbCalculator.CalculateSteeringLoadSpeedScale(5));
+        Assert.Equal(1, GameplayFfbCalculator.CalculateSteeringLoadSpeedScale(10));
+        Assert.Equal(1, GameplayFfbCalculator.CalculateSteeringLoadSpeedScale(40));
+        Assert.Equal(1, GameplayFfbCalculator.CalculateSteeringLoadSpeedScale(80));
+    }
+
+    [Fact]
+    public void Speed_stability_reaches_full_effect_at_ten_kmh()
+    {
+        var context = new FfbFrameContext(
+            TimeSpan.FromMilliseconds(8),
+            TimeSpan.FromMilliseconds(50),
+            1,
+            VehicleCategoryFfbProfile.TractorWheeled,
+            DeviceHapticProfile.Generic);
+        var settings = new GameplayFfbSettings();
+        var baseSteering = new SteeringModel(25, 10, 8);
+        var slow = GameplayFfbCalculator.SpeedStabilityLayer.Apply(
+            baseSteering,
+            new TelemetryFeatures(5, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            settings,
+            context).Value;
+        var full = GameplayFfbCalculator.SpeedStabilityLayer.Apply(
+            baseSteering,
+            new TelemetryFeatures(10, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            settings,
+            context).Value;
+        var capped = GameplayFfbCalculator.SpeedStabilityLayer.Apply(
+            baseSteering,
+            new TelemetryFeatures(40, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            settings,
+            context).Value;
+
+        Assert.True(slow.Damper < full.Damper);
+        Assert.Equal(full.Damper, capped.Damper);
+    }
+
+    [Fact]
     public void Speed_stability_respects_road_damping_enabled_setting()
     {
         var settings = new GameplayFfbSettings();
@@ -311,6 +352,28 @@ public sealed class GameplayFfbCalculatorTests
         Assert.Equal(0, surface.DamperAdditive);
         Assert.NotEqual(1, load.DamperGain);
         Assert.Equal(0, load.DamperAdditive);
+    }
+
+    [Fact]
+    public void Steering_load_reaches_full_effect_at_ten_kmh()
+    {
+        var profile = new GameplayFfbSettings();
+        var context = new FfbFrameContext(TimeSpan.FromMilliseconds(8), TimeSpan.FromMilliseconds(50), 1, VehicleCategoryFfbProfile.TractorWheeled, DeviceHapticProfile.Generic);
+        var slow = GameplayFfbCalculator.LoadSlopeImplementLayer.CalculateModifiers(
+            GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(Packet(speedKmh: 5, mass: 6000, totalMass: 12000), profile),
+            profile,
+            context).Value;
+        var full = GameplayFfbCalculator.LoadSlopeImplementLayer.CalculateModifiers(
+            GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(Packet(speedKmh: 10, mass: 6000, totalMass: 12000), profile),
+            profile,
+            context).Value;
+        var capped = GameplayFfbCalculator.LoadSlopeImplementLayer.CalculateModifiers(
+            GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(Packet(speedKmh: 40, mass: 6000, totalMass: 12000), profile),
+            profile,
+            context).Value;
+
+        Assert.True(slow.DamperGain < full.DamperGain);
+        Assert.Equal(full.DamperGain, capped.DamperGain);
     }
 
     [Fact]
