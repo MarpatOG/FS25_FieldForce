@@ -41,18 +41,18 @@ public sealed class GameplayFfbCalculator
             deviceProfile);
         var features = TelemetryFeatureExtractor.Extract(packet, profile);
 
-        var steering = BaseSteeringModel.Calculate(features, profile, context).Value;
-        var surfaceTractionModifiers = SurfaceTractionLayer.CalculateModifiers(features, profile, context);
-        var loadSlopeImplementModifiers = LoadSlopeImplementLayer.CalculateModifiers(features, profile, context);
-        var motionFeedbackModifiers = MotionFeedbackLayer.CalculateModifiers(features, profile, context);
-        var contactTractionModifiers = ContactTractionLayer.CalculateModifiers(features, profile, context);
-        var modifiers = SteeringModifierMixer.Combine(
-            surfaceTractionModifiers,
-            loadSlopeImplementModifiers,
-            motionFeedbackModifiers,
-            contactTractionModifiers);
-        steering = SteeringModifierMixer.Apply(steering, modifiers);
-        steering = SpeedStabilityLayer.Apply(steering, features, profile, context).Value;
+        var loadResistance = LoadResistanceLayer.Calculate(features, profile, context);
+        var motionFeedback = MotionFeedbackLayer.Calculate(features, profile, context);
+        var contactRelief = ContactReliefLayer.Calculate(features, profile, context);
+        var steering = SteeringContributionMixer.Combine(
+            SpeedSpringLayer.Calculate(features, profile, context),
+            SpeedDamperLayer.Calculate(features, profile, context),
+            MechanicalFrictionLayer.Calculate(features, profile, context),
+            SurfaceSteeringLayer.Calculate(features, profile, context),
+            loadResistance,
+            motionFeedback,
+            contactRelief,
+            SpeedStabilityLayer.Calculate(features, profile, context));
         steering = SafetyFilters.Apply(steering);
         steering = SmoothSteering(steering, context);
 
@@ -89,8 +89,8 @@ public sealed class GameplayFfbCalculator
             capped.Haptics.TerrainRumblePercent > 0,
             bump is not null,
             bump?.Kind ?? FfbPulseKind.None,
-            HasActiveSteeringModifier(loadSlopeImplementModifiers.Value, loadSlopeImplementModifiers.Confidence),
-            HasActiveSteeringModifier(motionFeedbackModifiers.Value, motionFeedbackModifiers.Confidence),
+            HasActiveSteeringContribution(loadResistance.Value, loadResistance.Confidence),
+            HasActiveSteeringContribution(motionFeedback.Value, motionFeedback.Confidence),
             CalculateContactReliefActive(features),
             CalculateAntiOscillationActive(features, profile),
             CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, fade) > 0,
@@ -169,15 +169,15 @@ public sealed class GameplayFfbCalculator
         return 0;
     }
 
-    private static bool HasActiveSteeringModifier(SteeringModifiers modifiers, double confidence)
+    private static bool HasActiveSteeringContribution(SteeringContribution contribution, double confidence)
     {
         const double epsilon = 0.0001;
         return confidence > 0 &&
-               (Math.Abs(modifiers.SpringGain - 1) > epsilon ||
-                Math.Abs(modifiers.DamperGain - 1) > epsilon ||
-                Math.Abs(modifiers.FrictionGain - 1) > epsilon ||
-                Math.Abs(modifiers.SpringRelief) > epsilon ||
-                Math.Abs(modifiers.DamperAdditive) > epsilon);
+               (Math.Abs(contribution.SpringAdd) > epsilon ||
+                Math.Abs(contribution.DamperAdd) > epsilon ||
+                Math.Abs(contribution.FrictionAdd) > epsilon ||
+                Math.Abs(contribution.SpringRelief) > epsilon ||
+                Math.Abs(contribution.FrictionRelief) > epsilon);
     }
 
     private static bool CalculateContactReliefActive(TelemetryFeatures features)
@@ -408,14 +408,30 @@ public sealed class GameplayFfbCalculator
         }
     }
 
-    public static class BaseSteeringModel
+    public static class SpeedSpringLayer
     {
-        public static LayerContribution<SteeringModel> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var spring = CalculateSpeedEffect(profile.SpeedSpring, features.SpeedKmh, context.TelemetryFade);
+            return new(new SteeringContribution(nameof(SpeedSpringLayer), spring, 0, 0, 0, 0, 1), 1.0);
+        }
+    }
+
+    public static class SpeedDamperLayer
+    {
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        {
             var damper = CalculateSpeedEffect(profile.SpeedDamper, features.SpeedKmh, context.TelemetryFade);
+            return new(new SteeringContribution(nameof(SpeedDamperLayer), 0, damper, 0, 0, 0, 1), 1.0);
+        }
+    }
+
+    public static class MechanicalFrictionLayer
+    {
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        {
             var friction = CalculateMechanicalFriction(profile.MechanicalFriction, CalculateLoadRatio(features.LoadFactor), features.SurfaceClass is "field" or "wetField", context.TelemetryFade);
-            return new(new SteeringModel(spring, damper, friction), 1.0);
+            return new(new SteeringContribution(nameof(MechanicalFrictionLayer), 0, 0, friction, 0, 0, 1), 1.0);
         }
 
         private static double CalculateMechanicalFriction(MechanicalFrictionSettings settings, double loadRatio, bool surfaceActive, double fade)
@@ -436,37 +452,43 @@ public sealed class GameplayFfbCalculator
         }
     }
 
-    public static class SurfaceTractionLayer
+    public static class SurfaceSteeringLayer
     {
-        public static LayerContribution<SteeringModifiers> CalculateModifiers(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
-            var modifiers = new SteeringModifiers(1, 1, 1, 0, 0);
             var confidence = features.SurfaceConfidence;
             if (features.SurfaceClass is not ("field" or "wetField") || !profile.SurfaceFeedback.Enabled || features.SpeedKmh < Math.Max(0, profile.SurfaceFeedback.MinSpeedKmh))
             {
-                return new(modifiers, confidence);
+                return new(Zero(nameof(SurfaceSteeringLayer)), confidence);
             }
 
-            modifiers = modifiers with
-            {
-                SpringGain = 1 + (profile.SurfaceFeedback.FieldSpringModifierPercent / 100.0),
-                DamperGain = 1 + (profile.SurfaceFeedback.FieldDamperModifierPercent / 100.0),
-                FrictionGain = 1 + (profile.SurfaceFeedback.FieldFrictionModifierPercent / 100.0)
-            };
+            var baseSpring = CalculateSpeedEffect(profile.SpeedSpring, features.SpeedKmh, context.TelemetryFade);
+            var baseDamper = CalculateSpeedEffect(profile.SpeedDamper, features.SpeedKmh, context.TelemetryFade);
+            var baseFriction = MechanicalFrictionLayer.Calculate(features, profile, context).Value.FrictionAdd;
+            var springGain = 1 + (profile.SurfaceFeedback.FieldSpringModifierPercent / 100.0);
+            var damperGain = 1 + (profile.SurfaceFeedback.FieldDamperModifierPercent / 100.0);
+            var frictionGain = 1 + (profile.SurfaceFeedback.FieldFrictionModifierPercent / 100.0);
 
             var wetnessEffect = CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, context.TelemetryFade);
             if (wetnessEffect > 0)
             {
-                modifiers = modifiers with
-                {
-                    SpringGain = modifiers.SpringGain * Lerp(1, 0.92, wetnessEffect),
-                    DamperGain = modifiers.DamperGain * (1 + wetnessEffect * profile.WetnessFeedback.DamperModifierPercent / 100.0)
-                };
+                springGain *= Lerp(1, 0.92, wetnessEffect);
+                damperGain *= 1 + wetnessEffect * profile.WetnessFeedback.DamperModifierPercent / 100.0;
             }
 
-            return new(modifiers, confidence);
+            return new(new SteeringContribution(
+                nameof(SurfaceSteeringLayer),
+                baseSpring * (springGain - 1),
+                baseDamper * (damperGain - 1),
+                baseFriction * (frictionGain - 1),
+                0,
+                0,
+                1), confidence);
         }
+    }
 
+    public static class SurfaceTractionLayer
+    {
         public static LayerContribution<ContinuousHaptics> CalculateContinuous(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var slip = CalculateSlipFeedback(features.Slip, features.SpeedKmh, profile.SlipFeedback, context.TelemetryFade, out var slipHz);
@@ -518,57 +540,66 @@ public sealed class GameplayFfbCalculator
         }
     }
 
-    public static class LoadSlopeImplementLayer
+    public static class LoadResistanceLayer
     {
-        public static LayerContribution<SteeringModifiers> CalculateModifiers(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             if (!profile.LoadResistance.Enabled)
             {
-                return new(new SteeringModifiers(1, 1, 1, 0, 0), features.LoadConfidence);
+                return new(Zero(nameof(LoadResistanceLayer)), features.LoadConfidence);
             }
 
             var loadResistance =
                 (CalculateMaxCapped(profile.LoadResistance, context.TelemetryFade) / 100.0) *
                 CalculateSteeringLoadSpeedScale(features.SpeedKmh) *
                 ApplyCurve(CalculateLoadRatio(features.LoadFactor), profile.LoadResistance.Curve);
-            return new(new SteeringModifiers(
-                profile.LoadResistance.AffectsSpring ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.SpringScale, 0, 2)) : 1,
-                profile.LoadResistance.AffectsDamper ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.DamperScale, 0, 2)) : 1,
-                profile.LoadResistance.AffectsFriction ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.FrictionScale, 0, 2)) : 1,
+            var baseSpring = CalculateSpeedEffect(profile.SpeedSpring, features.SpeedKmh, context.TelemetryFade);
+            var baseDamper = CalculateSpeedEffect(profile.SpeedDamper, features.SpeedKmh, context.TelemetryFade);
+            var baseFriction = MechanicalFrictionLayer.Calculate(features, profile, context).Value.FrictionAdd;
+            return new(new SteeringContribution(
+                nameof(LoadResistanceLayer),
+                profile.LoadResistance.AffectsSpring ? baseSpring * loadResistance * Math.Clamp(profile.LoadResistance.SpringScale, 0, 2) : 0,
+                profile.LoadResistance.AffectsDamper ? baseDamper * loadResistance * Math.Clamp(profile.LoadResistance.DamperScale, 0, 2) : 0,
+                profile.LoadResistance.AffectsFriction ? baseFriction * loadResistance * Math.Clamp(profile.LoadResistance.FrictionScale, 0, 2) : 0,
                 0,
-                0), features.LoadConfidence);
+                0,
+                1), features.LoadConfidence);
         }
     }
 
     public static class MotionFeedbackLayer
     {
-        public static LayerContribution<SteeringModifiers> CalculateModifiers(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var settings = profile.MotionFeedback;
             if (!settings.Enabled)
             {
-                return new(new SteeringModifiers(1, 1, 1, 0, 0), 1.0);
+                return new(Zero(nameof(MotionFeedbackLayer)), 1.0);
             }
 
             var motionRatio = Math.Max(features.YawRateRatio * features.SpeedRatio, features.SlopeRatio);
             if (motionRatio <= 0)
             {
-                return new(new SteeringModifiers(1, 1, 1, 0, 0), 1.0);
+                return new(Zero(nameof(MotionFeedbackLayer)), 1.0);
             }
 
             var weighted = (CalculateMaxCapped(settings, context.TelemetryFade) / 100.0) * ApplyCurve(motionRatio, settings.Curve);
-            return new(new SteeringModifiers(
-                1 + (weighted * Math.Clamp(settings.SpringModifierPercent, -100, 100) / 100.0),
-                1 + (weighted * Math.Clamp(settings.DamperModifierPercent, -100, 100) / 100.0),
-                1,
+            var baseSpring = CalculateSpeedEffect(profile.SpeedSpring, features.SpeedKmh, context.TelemetryFade);
+            var baseDamper = CalculateSpeedEffect(profile.SpeedDamper, features.SpeedKmh, context.TelemetryFade);
+            return new(new SteeringContribution(
+                nameof(MotionFeedbackLayer),
+                baseSpring * weighted * Math.Clamp(settings.SpringModifierPercent, -100, 100) / 100.0,
+                baseDamper * weighted * Math.Clamp(settings.DamperModifierPercent, -100, 100) / 100.0,
                 0,
-                0), 1.0);
+                0,
+                0,
+                1), 1.0);
         }
     }
 
-    public static class ContactTractionLayer
+    public static class ContactReliefLayer
     {
-        public static LayerContribution<SteeringModifiers> CalculateModifiers(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var contactLoss = (1 - features.ContactRatio) * features.ContactConfidence;
             var slipRelief = profile.SlipFeedback.Enabled
@@ -578,59 +609,69 @@ public sealed class GameplayFfbCalculator
                     0,
                     1) * 0.30
                 : 0;
-            return new(new SteeringModifiers(
-                1,
-                1,
-                1,
+            return new(new SteeringContribution(
+                nameof(ContactReliefLayer),
+                0,
+                0,
+                0,
                 Math.Clamp((contactLoss * 0.65) + slipRelief, 0, 0.85),
-                0), Math.Max(features.ContactConfidence, features.Slip > 0 ? 0.8 : 0));
+                Math.Clamp(((contactLoss * 0.65) + slipRelief) * 0.5, 0, 0.7),
+                1), Math.Max(features.ContactConfidence, features.Slip > 0 ? 0.8 : 0));
         }
     }
 
     public static class SpeedStabilityLayer
     {
-        public static LayerContribution<SteeringModel> Apply(SteeringModel steering, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             if (!profile.SpeedDamper.Enabled)
             {
-                return new(steering, 0);
+                return new(Zero(nameof(SpeedStabilityLayer)), 0);
             }
 
             var speedScale = CalculateSteeringLoadSpeedScale(features.SpeedKmh);
             var speedDamping = speedScale * 2.0;
             var rateDamping = Math.Clamp(Math.Abs(features.SteeringRate) / 2.0, 0, 1) * 8.0 * context.DeviceProfile.SteeringRateDamperScale * speedScale;
             var antiOscillation = speedScale > 0.45 && Math.Abs(features.SteeringAngle) < 0.04 ? 3.0 * speedScale : 0.0;
-            return new(steering with { Damper = steering.Damper + speedDamping + rateDamping + antiOscillation }, 1.0);
+            return new(new SteeringContribution(nameof(SpeedStabilityLayer), 0, speedDamping + rateDamping + antiOscillation, 0, 0, 0, 1), 1.0);
         }
     }
 
-    public static class SteeringModifierMixer
+    public static class SteeringContributionMixer
     {
-        public static SteeringModifiers Combine(params LayerContribution<SteeringModifiers>[] layers)
+        public static SteeringModel Combine(params LayerContribution<SteeringContribution>[] layers)
         {
-            var result = new SteeringModifiers(1, 1, 1, 0, 0);
+            var spring = 0.0;
+            var damper = 0.0;
+            var friction = 0.0;
+            var springRelief = 0.0;
+            var frictionRelief = 0.0;
+
             foreach (var layer in layers)
             {
                 var confidence = Math.Clamp(layer.Confidence, 0, 1);
                 var value = layer.Value;
-                result = new SteeringModifiers(
-                    result.SpringGain * Lerp(1, value.SpringGain, confidence),
-                    result.DamperGain * Lerp(1, value.DamperGain, confidence),
-                    result.FrictionGain * Lerp(1, value.FrictionGain, confidence),
-                    Math.Clamp(result.SpringRelief + (value.SpringRelief * confidence), 0, 0.95),
-                    result.DamperAdditive + (value.DamperAdditive * confidence));
+
+                spring += value.SpringAdd * confidence;
+                damper += value.DamperAdd * confidence;
+                friction += value.FrictionAdd * confidence;
+                springRelief += value.SpringRelief * confidence;
+                frictionRelief += value.FrictionRelief * confidence;
             }
 
-            return result;
-        }
+            springRelief = Math.Clamp(springRelief, 0, 0.75);
+            frictionRelief = Math.Clamp(frictionRelief, 0, 0.6);
 
-        public static SteeringModel Apply(SteeringModel steering, SteeringModifiers modifiers)
-        {
             return new SteeringModel(
-                steering.Spring * Math.Max(0, modifiers.SpringGain) * (1 - Math.Clamp(modifiers.SpringRelief, 0, 0.95)),
-                (steering.Damper * Math.Max(0, modifiers.DamperGain)) + modifiers.DamperAdditive,
-                steering.Friction * Math.Max(0, modifiers.FrictionGain) * (1 - Math.Clamp(modifiers.SpringRelief * 0.5, 0, 0.7)));
+                spring * (1 - springRelief),
+                damper,
+                friction * (1 - frictionRelief));
         }
+    }
+
+    private static SteeringContribution Zero(string source)
+    {
+        return new SteeringContribution(source, 0, 0, 0, 0, 0, 1);
     }
 
     public static class SuspensionTerrainLayer

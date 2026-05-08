@@ -59,7 +59,7 @@ Important source details:
 - `wheelSlip` is average wheel `physics.netInfo.slip`; `maxWheelSlip` is the maximum wheel slip; `steeringWheelSlip` and `steeringGroundContactRatio` use wheels that currently report steering movement.
 - `groundContactRatio` counts wheels with ground, water, or snow contact divided by wheel count.
 - `wheelTireTypes` is the unique normalized tire type list. `wheelTireProfile` is `street`, `agricultural`, `mixed`, `tracked`, or `unknown`.
-- `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, local acceleration, and `verticalImpactImpulse` come from root-node transform history. `verticalImpactImpulse = min(abs(localAccelerationY) / 9.81, 2)`.
+- `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, local acceleration, and `verticalImpactImpulse` come from root-node transform history. Local acceleration is smoothed over a short motion window before transmission. `verticalImpactImpulse` uses the smoothed vertical acceleration with a small deadband so normal chassis movement during steady driving does not report as a bump.
 - `bumpImpulse` is kept as a legacy alias for `verticalImpactImpulse`.
 - `landingImpulse` is emitted when wheel contact returns after a loss of contact, `collisionImpulse` comes from hard horizontal local acceleration, and `longitudinalJerkImpulse` is acceleration/braking jerk without suspension-hit evidence.
 - `leftSuspensionImpulse` and `rightSuspensionImpulse` are side-specific best-effort values. The sender prefers wheel suspension/load fields when exposed by FS25; otherwise it distributes the root-node `verticalImpactImpulse` by left/right wheel contact ratio.

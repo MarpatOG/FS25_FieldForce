@@ -16,12 +16,14 @@ public sealed record SteeringModel(
     double Damper,
     double Friction);
 
-public sealed record SteeringModifiers(
-    double SpringGain,
-    double DamperGain,
-    double FrictionGain,
+public sealed record SteeringContribution(
+    string Source,
+    double SpringAdd,
+    double DamperAdd,
+    double FrictionAdd,
     double SpringRelief,
-    double DamperAdditive);
+    double FrictionRelief,
+    double Confidence);
 
 public sealed record ContinuousHaptics(
     double SurfacePercent,

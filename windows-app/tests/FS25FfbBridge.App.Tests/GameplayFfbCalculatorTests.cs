@@ -250,7 +250,12 @@ public sealed class GameplayFfbCalculatorTests
         var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         var baseSteering = new SteeringModel(25, 10, 8);
 
-        var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Apply(baseSteering, features, new GameplayFfbSettings(), context).Value;
+        var stability = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(features, new GameplayFfbSettings(), context);
+        var stabilized = GameplayFfbCalculator.SteeringContributionMixer.Combine(
+            new LayerContribution<SteeringContribution>(
+                new SteeringContribution("base", baseSteering.Spring, baseSteering.Damper, baseSteering.Friction, 0, 0, 1),
+                1),
+            stability);
 
         Assert.Equal(baseSteering.Spring, stabilized.Spring);
         Assert.True(stabilized.Damper > baseSteering.Damper);
@@ -277,25 +282,21 @@ public sealed class GameplayFfbCalculatorTests
             VehicleCategoryFfbProfile.TractorWheeled,
             DeviceHapticProfile.Generic);
         var settings = new GameplayFfbSettings();
-        var baseSteering = new SteeringModel(25, 10, 8);
-        var slow = GameplayFfbCalculator.SpeedStabilityLayer.Apply(
-            baseSteering,
+        var slow = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(
             new TelemetryFeatures(5, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             settings,
             context).Value;
-        var full = GameplayFfbCalculator.SpeedStabilityLayer.Apply(
-            baseSteering,
+        var full = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(
             new TelemetryFeatures(10, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             settings,
             context).Value;
-        var capped = GameplayFfbCalculator.SpeedStabilityLayer.Apply(
-            baseSteering,
+        var capped = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(
             new TelemetryFeatures(40, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
             settings,
             context).Value;
 
-        Assert.True(slow.Damper < full.Damper);
-        Assert.Equal(full.Damper, capped.Damper);
+        Assert.True(slow.DamperAdd < full.DamperAdd);
+        Assert.Equal(full.DamperAdd, capped.DamperAdd);
     }
 
     [Fact]
@@ -310,12 +311,11 @@ public sealed class GameplayFfbCalculatorTests
             VehicleCategoryFfbProfile.TractorWheeled,
             DeviceHapticProfile.Generic);
         var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        var baseSteering = new SteeringModel(25, 10, 8);
 
-        var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Apply(baseSteering, features, settings, context);
+        var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(features, settings, context);
 
         Assert.Equal(0, stabilized.Confidence);
-        Assert.Equal(baseSteering, stabilized.Value);
+        Assert.Equal(0, stabilized.Value.DamperAdd);
     }
 
     [Fact]
@@ -337,7 +337,7 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
-    public void Surface_and_load_layers_return_modifiers_not_additive_spring_forces()
+    public void Surface_and_load_layers_return_isolated_steering_contributions()
     {
         var profile = new GameplayFfbSettings();
         var context = new FfbFrameContext(TimeSpan.FromMilliseconds(8), TimeSpan.FromMilliseconds(50), 1, VehicleCategoryFfbProfile.TractorWheeled, DeviceHapticProfile.Generic);
@@ -345,35 +345,37 @@ public sealed class GameplayFfbCalculatorTests
             Packet(speedKmh: 20, isOnField: true, surfaceType: "field", mass: 6000, totalMass: 12000),
             profile);
 
-        var surface = GameplayFfbCalculator.SurfaceTractionLayer.CalculateModifiers(features, profile, context).Value;
-        var load = GameplayFfbCalculator.LoadSlopeImplementLayer.CalculateModifiers(features, profile, context).Value;
+        var surface = GameplayFfbCalculator.SurfaceSteeringLayer.Calculate(features, profile, context).Value;
+        var load = GameplayFfbCalculator.LoadResistanceLayer.Calculate(features, profile, context).Value;
 
-        Assert.NotEqual(1, surface.SpringGain);
-        Assert.Equal(0, surface.DamperAdditive);
-        Assert.NotEqual(1, load.DamperGain);
-        Assert.Equal(0, load.DamperAdditive);
+        Assert.True(surface.DamperAdd > 0 || surface.FrictionAdd > 0 || surface.SpringAdd != 0);
+        Assert.True(load.DamperAdd > 0 || load.FrictionAdd > 0 || load.SpringAdd > 0);
+
+        Assert.Equal(0, surface.SpringRelief);
+        Assert.Equal(0, load.SpringRelief);
     }
 
     [Fact]
     public void Steering_load_reaches_full_effect_at_ten_kmh()
     {
         var profile = new GameplayFfbSettings();
+        profile.SpeedDamper.StandstillFloor = 1;
         var context = new FfbFrameContext(TimeSpan.FromMilliseconds(8), TimeSpan.FromMilliseconds(50), 1, VehicleCategoryFfbProfile.TractorWheeled, DeviceHapticProfile.Generic);
-        var slow = GameplayFfbCalculator.LoadSlopeImplementLayer.CalculateModifiers(
+        var slow = GameplayFfbCalculator.LoadResistanceLayer.Calculate(
             GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(Packet(speedKmh: 5, mass: 6000, totalMass: 12000), profile),
             profile,
             context).Value;
-        var full = GameplayFfbCalculator.LoadSlopeImplementLayer.CalculateModifiers(
+        var full = GameplayFfbCalculator.LoadResistanceLayer.Calculate(
             GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(Packet(speedKmh: 10, mass: 6000, totalMass: 12000), profile),
             profile,
             context).Value;
-        var capped = GameplayFfbCalculator.LoadSlopeImplementLayer.CalculateModifiers(
+        var capped = GameplayFfbCalculator.LoadResistanceLayer.Calculate(
             GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(Packet(speedKmh: 40, mass: 6000, totalMass: 12000), profile),
             profile,
             context).Value;
 
-        Assert.True(slow.DamperGain < full.DamperGain);
-        Assert.Equal(full.DamperGain, capped.DamperGain);
+        Assert.True(slow.DamperAdd < full.DamperAdd);
+        Assert.Equal(full.DamperAdd, capped.DamperAdd);
     }
 
     [Fact]

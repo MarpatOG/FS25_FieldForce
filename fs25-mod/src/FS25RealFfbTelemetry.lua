@@ -28,6 +28,8 @@ function FS25RealFfbTelemetry.new()
     self.lastWriteError = nil
     self.overlayConfig = self.config.overlay or {}
     self.overlayEnabled = self.overlayConfig.enabled ~= false
+    self.motionAccelerationSmoothingSec = 0.08
+    self.motionVerticalImpactDeadbandG = 0.22
     self.fileWarningLogged = false
     self.transportWarningLogged = false
     self.lastVehicleMotion = {}
@@ -1437,12 +1439,17 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
             if localAccelerationX == nil then
                 localAccelerationX, localAccelerationY, localAccelerationZ = ax, ay, az
             end
+            local rawLocalAccelerationY = localAccelerationY
+
+            localAccelerationX = self:smoothMotionSample(previous.localAccelerationX, localAccelerationX, dtSec, self.motionAccelerationSmoothingSec)
+            localAccelerationY = self:smoothMotionSample(previous.localAccelerationY, localAccelerationY, dtSec, self.motionAccelerationSmoothingSec)
+            localAccelerationZ = self:smoothMotionSample(previous.localAccelerationZ, localAccelerationZ, dtSec, self.motionAccelerationSmoothingSec)
 
             if ry ~= nil and previous.yaw ~= nil then
                 yawRateDegPerSec = math.deg(self:angleDifference(ry, previous.yaw) / dtSec)
             end
 
-            bumpImpulse = localAccelerationY ~= nil and math.min(math.abs(localAccelerationY) / 9.81, 2) or nil
+            bumpImpulse = self:calculateVerticalImpactImpulse(rawLocalAccelerationY, localAccelerationY)
 
             self.lastVehicleMotion[key] = {
                 time = now,
@@ -1452,7 +1459,10 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
                 yaw = ry or previous.yaw,
                 vx = vx,
                 vy = vy,
-                vz = vz
+                vz = vz,
+                localAccelerationX = localAccelerationX,
+                localAccelerationY = localAccelerationY,
+                localAccelerationZ = localAccelerationZ
             }
         end
     elseif wx ~= nil and wy ~= nil and wz ~= nil then
@@ -1464,7 +1474,10 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
             yaw = ry,
             vx = 0,
             vy = 0,
-            vz = 0
+            vz = 0,
+            localAccelerationX = 0,
+            localAccelerationY = 0,
+            localAccelerationZ = 0
         }
     end
 
@@ -1479,6 +1492,43 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
         localAccelerationZ = localAccelerationZ,
         bumpImpulse = bumpImpulse
     }
+end
+
+function FS25RealFfbTelemetry:smoothMotionSample(previousValue, currentValue, dtSec, smoothingSec)
+    if type(currentValue) ~= "number" then
+        return nil
+    end
+
+    if type(previousValue) ~= "number" or type(dtSec) ~= "number" or dtSec <= 0 then
+        return currentValue
+    end
+
+    local smoothing = math.max(0, tonumber(smoothingSec) or 0)
+    if smoothing <= 0 then
+        return currentValue
+    end
+
+    local alpha = math.max(0, math.min(1, dtSec / (smoothing + dtSec)))
+    return previousValue + ((currentValue - previousValue) * alpha)
+end
+
+function FS25RealFfbTelemetry:calculateVerticalImpactImpulse(rawLocalAccelerationY, smoothedLocalAccelerationY)
+    if type(rawLocalAccelerationY) ~= "number" then
+        return nil
+    end
+
+    local rawAccelerationG = math.min(math.abs(rawLocalAccelerationY) / 9.81, 2)
+    local smoothedAccelerationG = type(smoothedLocalAccelerationY) == "number" and math.min(math.abs(smoothedLocalAccelerationY) / 9.81, 2) or rawAccelerationG
+    local deadband = math.max(0, math.min(1.5, tonumber(self.motionVerticalImpactDeadbandG) or 0))
+    if rawAccelerationG <= deadband then
+        return 0
+    end
+
+    if rawAccelerationG < 0.55 and smoothedAccelerationG <= deadband then
+        return 0
+    end
+
+    return math.min(math.max(rawAccelerationG, smoothedAccelerationG) - deadband, 2)
 end
 
 function FS25RealFfbTelemetry:speedFromDelta(dx, dz, dtSec)
