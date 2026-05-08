@@ -41,11 +41,27 @@ Do not zip the parent repository folder itself. `modDesc.xml` must be directly a
 Close FS25 first, then rebuild and replace the zip:
 
 ```powershell
-Remove-Item -Force artifacts/FS25_RealFfbTelemetry.zip -ErrorAction SilentlyContinue
-Compress-Archive -Path fs25-mod/* -DestinationPath artifacts/FS25_RealFfbTelemetry.zip
+$artifact = "artifacts/FS25_RealFfbTelemetry.zip"
+Remove-Item -Force $artifact -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$source = (Resolve-Path fs25-mod).Path
+$zip = [System.IO.Compression.ZipArchive]::new(
+    [System.IO.File]::Open($artifact, [System.IO.FileMode]::CreateNew),
+    [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    Get-ChildItem $source -Recurse -File | ForEach-Object {
+        $entry = $_.FullName.Substring($source.Length + 1).Replace('\', '/')
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entry) | Out-Null
+    }
+} finally {
+    $zip.Dispose()
+}
 Copy-Item -Force artifacts/FS25_RealFfbTelemetry.zip "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry.zip"
 Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry" -ErrorAction SilentlyContinue
 ```
+
+Do not use `Compress-Archive`; FS25 expects forward slash paths inside the zip and will fail to load source files from backslash entries.
 
 Keep only one installed copy. If both `FS25_RealFfbTelemetry.zip` and `FS25_RealFfbTelemetry/` exist in the FS25 `mods` directory, FS25 can show or load a stale version.
 

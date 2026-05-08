@@ -64,11 +64,27 @@ Mandatory rule: any change to files shipped inside `fs25-mod/` must update the F
 FS25 should use the zip package, matching the normal mod layout. After changing files under `fs25-mod/`, rebuild and replace the installed zip:
 
 ```powershell
-Remove-Item -Force artifacts/FS25_RealFfbTelemetry.zip -ErrorAction SilentlyContinue
-Compress-Archive -Path fs25-mod/* -DestinationPath artifacts/FS25_RealFfbTelemetry.zip
+$artifact = "artifacts/FS25_RealFfbTelemetry.zip"
+Remove-Item -Force $artifact -ErrorAction SilentlyContinue
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$source = (Resolve-Path fs25-mod).Path
+$zip = [System.IO.Compression.ZipArchive]::new(
+    [System.IO.File]::Open($artifact, [System.IO.FileMode]::CreateNew),
+    [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    Get-ChildItem $source -Recurse -File | ForEach-Object {
+        $entry = $_.FullName.Substring($source.Length + 1).Replace('\', '/')
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entry) | Out-Null
+    }
+} finally {
+    $zip.Dispose()
+}
 Copy-Item -Force artifacts/FS25_RealFfbTelemetry.zip "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry.zip"
 Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry" -ErrorAction SilentlyContinue
 ```
+
+Do not use `Compress-Archive` here: it can store Windows backslash paths in the zip, and FS25 then fails to load `config/TelemetryConfig.lua` and `src/FS25RealFfbTelemetry.lua`.
 
 If Windows redirects Documents to OneDrive, FS25 may use this path instead:
 
