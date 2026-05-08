@@ -35,7 +35,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private int _primaryAxisOffset;
     private int _globalLimitPercent = 40;
     private int _deviceLimitPercent = 40;
-    private DateTimeOffset _lastBumpPulseAt = DateTimeOffset.MinValue;
+    private readonly Dictionary<FfbPulseKind, DateTimeOffset> _lastPulseAtByKind = [];
     private DateTimeOffset _lastAcquireWarningAt = DateTimeOffset.MinValue;
     private GameplayFfbOutput _lastGameplayOutput = GameplayFfbOutput.Zero;
 
@@ -487,7 +487,9 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
         var now = DateTimeOffset.UtcNow;
         var cooldownMs = Math.Max(20, output.BumpCooldownMs);
-        if ((now - _lastBumpPulseAt).TotalMilliseconds < cooldownMs)
+        var kind = output.EventPulseKind == FfbPulseKind.None ? FfbPulseKind.Bump : output.EventPulseKind;
+        _lastPulseAtByKind.TryGetValue(kind, out var lastPulseAt);
+        if ((now - lastPulseAt).TotalMilliseconds < cooldownMs)
         {
             return null;
         }
@@ -503,7 +505,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                 TimeSpan.FromMilliseconds(Math.Clamp(output.BumpDurationMs, 20, 250))), "bump feedback");
             _gameplayBumpEffect.Download().CheckError();
             _gameplayBumpEffect.Start(1).CheckError();
-            _lastBumpPulseAt = now;
+            _lastPulseAtByKind[kind] = now;
             return null;
         }
         catch (SharpGenException ex) when (IsAcquireFailure(ex))

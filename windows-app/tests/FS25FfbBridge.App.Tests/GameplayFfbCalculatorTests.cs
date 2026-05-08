@@ -232,7 +232,7 @@ public sealed class GameplayFfbCalculatorTests
             1,
             VehicleCategoryFfbProfile.TractorWheeled,
             DeviceHapticProfile.Generic);
-        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0);
+        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         var baseSteering = new SteeringModel(25, 10, 8);
 
         var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Apply(baseSteering, features, context).Value;
@@ -408,6 +408,56 @@ public sealed class GameplayFfbCalculatorTests
 
         Assert.True(output.EventPulseActive);
         Assert.NotEqual(0, output.BumpImpulsePercent);
+        Assert.Equal(FfbPulseKind.DrivetrainJerk, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Longitudinal_jerk_produces_drivetrain_pulse_not_bump()
+    {
+        var settings = new GameplayFfbSettings();
+        _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 2, longitudinalJerkImpulse: 0.1)), settings);
+        var output = _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 2, longitudinalJerkImpulse: 0.8, verticalImpactImpulse: 0.05)), settings);
+
+        Assert.True(output.EventPulseActive);
+        Assert.Equal(FfbPulseKind.DrivetrainJerk, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Vertical_road_impact_produces_bump()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.7, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.True(output.EventPulseActive);
+        Assert.Equal(FfbPulseKind.Bump, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Side_impulse_dominance_selects_left_or_right_suspension_hit()
+    {
+        var left = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.3, leftSuspensionImpulse: 0.8, rightSuspensionImpulse: 0.2, groundContactRatio: 1)), new GameplayFfbSettings());
+        var right = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.3, leftSuspensionImpulse: 0.2, rightSuspensionImpulse: 0.8, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.Equal(FfbPulseKind.LeftSuspensionHit, left.EventPulseKind);
+        Assert.Equal(FfbPulseKind.RightSuspensionHit, right.EventPulseKind);
+    }
+
+    [Fact]
+    public void Landing_and_collision_have_priority_over_normal_bump()
+    {
+        var landing = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.8, landingImpulse: 0.8, groundContactRatio: 1)), new GameplayFfbSettings());
+        var collision = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.9, collisionImpulse: 1.1, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.Equal(FfbPulseKind.Landing, landing.EventPulseKind);
+        Assert.Equal(FfbPulseKind.Collision, collision.EventPulseKind);
+    }
+
+    [Fact]
+    public void Terrain_rumble_does_not_create_event_pulse_by_itself()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, suspensionImpulse: 0.12, verticalImpactImpulse: 0.05, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.True(output.TerrainRumblePercent > 0);
+        Assert.False(output.EventPulseActive);
     }
 
     [Fact]
@@ -486,6 +536,13 @@ public sealed class GameplayFfbCalculatorTests
         double? localAccelerationY = null,
         double? localAccelerationZ = null,
         double? bumpImpulse = null,
+        double? suspensionImpulse = null,
+        double? verticalImpactImpulse = null,
+        double? landingImpulse = null,
+        double? collisionImpulse = null,
+        double? longitudinalJerkImpulse = null,
+        double? leftSuspensionImpulse = null,
+        double? rightSuspensionImpulse = null,
         double? throttle = null,
         double? brake = null,
         double? clutch = null,
@@ -521,7 +578,13 @@ public sealed class GameplayFfbCalculatorTests
             LocalAccelerationY = localAccelerationY,
             LocalAccelerationZ = localAccelerationZ,
             BumpImpulse = bumpImpulse,
-            SuspensionImpulse = bumpImpulse,
+            SuspensionImpulse = suspensionImpulse ?? bumpImpulse,
+            VerticalImpactImpulse = verticalImpactImpulse,
+            LandingImpulse = landingImpulse,
+            CollisionImpulse = collisionImpulse,
+            LongitudinalJerkImpulse = longitudinalJerkImpulse,
+            LeftSuspensionImpulse = leftSuspensionImpulse,
+            RightSuspensionImpulse = rightSuspensionImpulse,
             Throttle = throttle,
             Brake = brake,
             Clutch = clutch,

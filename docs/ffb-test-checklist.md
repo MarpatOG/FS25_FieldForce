@@ -39,7 +39,12 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Slip Feedback`: high `maxWheelSlip` enables slip vibration and low slip stays quiet.
 - `Wetness`: exact `wetField` telemetry increases damping/surface feel; `groundWetness` and `rainScale` should still appear in the overlay when available.
 - `Motion`: yaw rate and pitch/slope telemetry should affect stability/load behavior; the UI motion toggle is not currently a separate gated output layer.
-- `Bump Feedback`: bump impulse produces a short signed pulse and then returns to zero.
+- `Terrain Rumble`: small/medium suspension impulse produces continuous low-frequency rumble without a finite pulse lamp.
+- `Bump Feedback`: `verticalImpactImpulse` with wheel contact produces a short road-bump pulse and then returns to zero.
+- `Suspension Hit`: left/right suspension impulse dominance shows a suspension-hit pulse, not a generic bump.
+- `Landing`: contact loss followed by vertical impact shows the landing pulse.
+- `Collision`: hard horizontal contact shows the collision pulse and suppresses normal bump in the same frame.
+- `Drivetrain Pulse`: gear changes or acceleration/braking jerk show drivetrain pulse activity with lower strength than bump/collision.
 - Each effect can be enabled/disabled independently and each strength slider changes the live output value.
 - Stop the engine, leave the vehicle, or stop telemetry; gameplay outputs fade or stop safely.
 - `Stop All` and `Ctrl+Alt+Pause` stop test and gameplay effects. `Stop All` disables gameplay FFB until `FFB Enabled` is checked again.
@@ -48,7 +53,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 
 - Overlay appears as a compact mod container.
 - Telemetry fields are displayed vertically as label/value rows.
-- The overlay includes the base vehicle fields plus surface, wetness/rain, wheel slip, attitude, local acceleration, and bump impulse telemetry.
+- The overlay includes the base vehicle fields plus surface, wetness/rain, wheel slip, attitude, local acceleration, and bump/impact impulse telemetry.
 - If the panel background is unavailable in the game render API, the text list still renders and FS25 does not crash.
 
 ## Safety Checks

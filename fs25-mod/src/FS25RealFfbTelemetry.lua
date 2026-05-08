@@ -31,6 +31,7 @@ function FS25RealFfbTelemetry.new()
     self.fileWarningLogged = false
     self.transportWarningLogged = false
     self.lastVehicleMotion = {}
+    self.lastImpactState = {}
     self.lastSteeringSample = nil
     return self
 end
@@ -202,6 +203,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local surface = inVehicle and self:getSurfaceTelemetry(vehicle) or {}
     local wheel = inVehicle and self:getWheelTelemetry(vehicle) or {}
     local motion = inVehicle and self:getMotionTelemetry(vehicle) or {}
+    local impact = inVehicle and self:calculateImpactImpulses(vehicle, motion, wheel) or {}
     local weather = inVehicle and self:getWeatherTelemetry() or {}
 
     local steeringAngle = inVehicle and self:getSteeringAngle(vehicle) or nil
@@ -240,10 +242,14 @@ function FS25RealFfbTelemetry:collectTelemetry()
         localAccelerationX = motion.localAccelerationX,
         localAccelerationY = motion.localAccelerationY,
         localAccelerationZ = motion.localAccelerationZ,
-        bumpImpulse = motion.bumpImpulse,
-        suspensionImpulse = motion.bumpImpulse,
-        leftSuspensionImpulse = self:calculateSideSuspensionImpulse(motion.bumpImpulse, wheel.leftSuspensionImpulse, wheel.leftContactRatio),
-        rightSuspensionImpulse = self:calculateSideSuspensionImpulse(motion.bumpImpulse, wheel.rightSuspensionImpulse, wheel.rightContactRatio),
+        bumpImpulse = impact.verticalImpactImpulse,
+        suspensionImpulse = impact.suspensionImpulse,
+        verticalImpactImpulse = impact.verticalImpactImpulse,
+        landingImpulse = impact.landingImpulse,
+        collisionImpulse = impact.collisionImpulse,
+        longitudinalJerkImpulse = impact.longitudinalJerkImpulse,
+        leftSuspensionImpulse = self:calculateSideSuspensionImpulse(impact.verticalImpactImpulse, wheel.leftSuspensionImpulse, wheel.leftContactRatio),
+        rightSuspensionImpulse = self:calculateSideSuspensionImpulse(impact.verticalImpactImpulse, wheel.rightSuspensionImpulse, wheel.rightContactRatio),
         throttle = inVehicle and self:getFirstNumber(vehicle.axisForward, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisForward or nil) or nil,
         brake = inVehicle and self:getFirstNumber(vehicle.axisBrake, vehicle.brakePedal, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisBrake or nil) or nil,
         clutch = inVehicle and self:getFirstNumber(vehicle.axisClutch, vehicle.clutchPedal) or nil,
@@ -1074,6 +1080,47 @@ function FS25RealFfbTelemetry:calculateSideSuspensionImpulse(bumpImpulse, wheelI
     return math.max(0, math.min(2, bumpImpulse * math.max(0, math.min(1, sideContactRatio))))
 end
 
+function FS25RealFfbTelemetry:calculateImpactImpulses(vehicle, motion, wheel)
+    local verticalImpactImpulse = motion.bumpImpulse
+    local wheelImpulse = math.max(wheel.leftSuspensionImpulse or 0, wheel.rightSuspensionImpulse or 0)
+    local suspensionImpulse = wheelImpulse > 0 and wheelImpulse or verticalImpactImpulse
+    local contactRatio = wheel.groundContactRatio
+    local contact = type(contactRatio) == "number" and contactRatio > 0.20
+    local localAx = motion.localAccelerationX or 0
+    local localAz = motion.localAccelerationZ or 0
+    local horizontalImpulse = math.min(math.sqrt((localAx * localAx) + (localAz * localAz)) / 9.81, 2)
+    local longitudinalJerkImpulse = horizontalImpulse
+    local collisionImpulse = horizontalImpulse >= 0.45 and (verticalImpactImpulse == nil or horizontalImpulse > verticalImpactImpulse * 1.35) and horizontalImpulse or nil
+    local landingImpulse = nil
+    local key = tostring(vehicle)
+    local previous = self.lastImpactState ~= nil and self.lastImpactState[key] or nil
+
+    if self.lastImpactState == nil then
+        self.lastImpactState = {}
+    end
+
+    if previous ~= nil and previous.contact == false and contact and verticalImpactImpulse ~= nil and verticalImpactImpulse >= 0.25 then
+        landingImpulse = verticalImpactImpulse
+    end
+
+    self.lastImpactState[key] = {
+        contact = contact,
+        speedKmh = motion.speedKmh
+    }
+
+    if collisionImpulse ~= nil or (verticalImpactImpulse ~= nil and verticalImpactImpulse >= 0.20) or wheelImpulse >= 0.18 then
+        longitudinalJerkImpulse = nil
+    end
+
+    return {
+        suspensionImpulse = suspensionImpulse,
+        verticalImpactImpulse = verticalImpactImpulse,
+        landingImpulse = landingImpulse,
+        collisionImpulse = collisionImpulse,
+        longitudinalJerkImpulse = longitudinalJerkImpulse
+    }
+end
+
 function FS25RealFfbTelemetry:getWheelSide(vehicle, wheel)
     local side = self:getFirstNumber(wheel.positionX, wheel.x, wheel.restLoadX, wheel.widthOffset)
     if side ~= nil and math.abs(side) > 0.0001 then
@@ -1764,6 +1811,10 @@ function FS25RealFfbTelemetry:encodeJson(packet)
         "localAccelerationZ",
         "bumpImpulse",
         "suspensionImpulse",
+        "verticalImpactImpulse",
+        "landingImpulse",
+        "collisionImpulse",
+        "longitudinalJerkImpulse",
         "leftSuspensionImpulse",
         "rightSuspensionImpulse",
         "throttle",

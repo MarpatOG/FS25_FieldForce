@@ -106,6 +106,18 @@ public sealed class TelemetryPacket
     [JsonPropertyName("suspensionImpulse")]
     public double? SuspensionImpulse { get; set; }
 
+    [JsonPropertyName("verticalImpactImpulse")]
+    public double? VerticalImpactImpulse { get; set; }
+
+    [JsonPropertyName("landingImpulse")]
+    public double? LandingImpulse { get; set; }
+
+    [JsonPropertyName("collisionImpulse")]
+    public double? CollisionImpulse { get; set; }
+
+    [JsonPropertyName("longitudinalJerkImpulse")]
+    public double? LongitudinalJerkImpulse { get; set; }
+
     [JsonPropertyName("leftSuspensionImpulse")]
     public double? LeftSuspensionImpulse { get; set; }
 

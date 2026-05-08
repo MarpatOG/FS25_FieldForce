@@ -247,6 +247,51 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private FfbCurveKind _bumpFeedbackCurve;
 
     [ObservableProperty]
+    private bool _suspensionHitFeedbackEnabled;
+
+    [ObservableProperty]
+    private int _suspensionHitFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _suspensionHitFeedbackCurve;
+
+    [ObservableProperty]
+    private bool _landingFeedbackEnabled;
+
+    [ObservableProperty]
+    private int _landingFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _landingFeedbackCurve;
+
+    [ObservableProperty]
+    private bool _collisionFeedbackEnabled;
+
+    [ObservableProperty]
+    private int _collisionFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _collisionFeedbackCurve;
+
+    [ObservableProperty]
+    private bool _terrainRumbleEnabled;
+
+    [ObservableProperty]
+    private int _terrainRumbleStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _terrainRumbleCurve;
+
+    [ObservableProperty]
+    private bool _drivetrainPulseEnabled;
+
+    [ObservableProperty]
+    private int _drivetrainPulseStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _drivetrainPulseCurve;
+
+    [ObservableProperty]
     private string _activeGameplayEffects = "None";
 
     [ObservableProperty]
@@ -274,6 +319,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _bumpFeedbackActive;
 
     [ObservableProperty]
+    private bool _suspensionHitActive;
+
+    [ObservableProperty]
+    private bool _landingFeedbackActive;
+
+    [ObservableProperty]
+    private bool _collisionFeedbackActive;
+
+    [ObservableProperty]
+    private bool _drivetrainPulseActive;
+
+    [ObservableProperty]
     private string _gameplayFfbRuntimeStatus = "FFB enabled";
 
     [ObservableProperty]
@@ -299,6 +356,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string _bumpFeedbackOutput = "0%";
+
+    [ObservableProperty]
+    private string _terrainRumbleOutput = "0%";
 
     [ObservableProperty]
     private string _loadFactor = "1.00";
@@ -750,6 +810,21 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnBumpFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnBumpFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnBumpFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnSuspensionHitFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnSuspensionHitFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSuspensionHitFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnLandingFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnLandingFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnLandingFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnCollisionFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnCollisionFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnCollisionFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnTerrainRumbleEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnTerrainRumbleStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnTerrainRumbleCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnDrivetrainPulseEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnDrivetrainPulseStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnDrivetrainPulseCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
 
     private void LoadGameplaySettingsIntoUi(GameplayFfbSettings settings)
     {
@@ -789,6 +864,21 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         BumpFeedbackEnabled = settings.BumpFeedback.Enabled;
         BumpFeedbackStrengthPercent = settings.BumpFeedback.StrengthPercent;
         BumpFeedbackCurve = settings.BumpFeedback.Curve;
+        SuspensionHitFeedbackEnabled = settings.SuspensionHitFeedback.Enabled;
+        SuspensionHitFeedbackStrengthPercent = settings.SuspensionHitFeedback.StrengthPercent;
+        SuspensionHitFeedbackCurve = settings.SuspensionHitFeedback.Curve;
+        LandingFeedbackEnabled = settings.LandingFeedback.Enabled;
+        LandingFeedbackStrengthPercent = settings.LandingFeedback.StrengthPercent;
+        LandingFeedbackCurve = settings.LandingFeedback.Curve;
+        CollisionFeedbackEnabled = settings.CollisionFeedback.Enabled;
+        CollisionFeedbackStrengthPercent = settings.CollisionFeedback.StrengthPercent;
+        CollisionFeedbackCurve = settings.CollisionFeedback.Curve;
+        TerrainRumbleEnabled = settings.TerrainRumble.Enabled;
+        TerrainRumbleStrengthPercent = settings.TerrainRumble.StrengthPercent;
+        TerrainRumbleCurve = settings.TerrainRumble.Curve;
+        DrivetrainPulseEnabled = settings.DrivetrainPulse.Enabled;
+        DrivetrainPulseStrengthPercent = settings.DrivetrainPulse.StrengthPercent;
+        DrivetrainPulseCurve = settings.DrivetrainPulse.Curve;
     }
 
     private void SaveGameplaySettingsFromUi()
@@ -867,6 +957,26 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         profile.BumpFeedback.StrengthPercent = Math.Clamp(BumpFeedbackStrengthPercent, 0, 100);
         profile.BumpFeedback.MaxOutputPercent = 100;
         profile.BumpFeedback.Curve = BumpFeedbackCurve;
+        profile.SuspensionHitFeedback.Enabled = SuspensionHitFeedbackEnabled;
+        profile.SuspensionHitFeedback.StrengthPercent = Math.Clamp(SuspensionHitFeedbackStrengthPercent, 0, 100);
+        profile.SuspensionHitFeedback.MaxOutputPercent = 100;
+        profile.SuspensionHitFeedback.Curve = SuspensionHitFeedbackCurve;
+        profile.LandingFeedback.Enabled = LandingFeedbackEnabled;
+        profile.LandingFeedback.StrengthPercent = Math.Clamp(LandingFeedbackStrengthPercent, 0, 100);
+        profile.LandingFeedback.MaxOutputPercent = 100;
+        profile.LandingFeedback.Curve = LandingFeedbackCurve;
+        profile.CollisionFeedback.Enabled = CollisionFeedbackEnabled;
+        profile.CollisionFeedback.StrengthPercent = Math.Clamp(CollisionFeedbackStrengthPercent, 0, 100);
+        profile.CollisionFeedback.MaxOutputPercent = 100;
+        profile.CollisionFeedback.Curve = CollisionFeedbackCurve;
+        profile.TerrainRumble.Enabled = TerrainRumbleEnabled;
+        profile.TerrainRumble.StrengthPercent = Math.Clamp(TerrainRumbleStrengthPercent, 0, 100);
+        profile.TerrainRumble.MaxOutputPercent = 100;
+        profile.TerrainRumble.Curve = TerrainRumbleCurve;
+        profile.DrivetrainPulse.Enabled = DrivetrainPulseEnabled;
+        profile.DrivetrainPulse.StrengthPercent = Math.Clamp(DrivetrainPulseStrengthPercent, 0, 100);
+        profile.DrivetrainPulse.MaxOutputPercent = 100;
+        profile.DrivetrainPulse.Curve = DrivetrainPulseCurve;
     }
 
     private static void UseGlobalForceLimitOnly(GameplayFfbSettings settings)
@@ -890,6 +1000,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         profile.WetnessFeedback.MaxOutputPercent = 100;
         profile.MotionFeedback.MaxOutputPercent = 100;
         profile.BumpFeedback.MaxOutputPercent = 100;
+        profile.SuspensionHitFeedback.MaxOutputPercent = 100;
+        profile.LandingFeedback.MaxOutputPercent = 100;
+        profile.CollisionFeedback.MaxOutputPercent = 100;
+        profile.TerrainRumble.MaxOutputPercent = 100;
+        profile.DrivetrainPulse.MaxOutputPercent = 100;
     }
 
     private GameplayFfbSettings GetRuntimeGameplaySettings()
@@ -912,6 +1027,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WetnessFeedback = _config.GameplayFfb.WetnessFeedback,
             MotionFeedback = _config.GameplayFfb.MotionFeedback,
             BumpFeedback = _config.GameplayFfb.BumpFeedback,
+            SuspensionHitFeedback = _config.GameplayFfb.SuspensionHitFeedback,
+            LandingFeedback = _config.GameplayFfb.LandingFeedback,
+            CollisionFeedback = _config.GameplayFfb.CollisionFeedback,
+            TerrainRumble = _config.GameplayFfb.TerrainRumble,
+            DrivetrainPulse = _config.GameplayFfb.DrivetrainPulse,
             DeviceHapticProfileName = _config.GameplayFfb.DeviceHapticProfileName,
             VehicleCategoryEffectProfiles = _config.GameplayFfb.VehicleCategoryEffectProfiles
         };
@@ -949,9 +1069,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SpeedDamperActive = output.DamperPercent > 0;
             MechanicalFrictionActive = output.FrictionPercent > 0;
             RpmVibrationActive = output.EngineVibrationPercent > 0;
-            SurfaceFeedbackActive = output.SurfaceVibrationPercent > 0 || output.TerrainRumblePercent > 0;
+            SurfaceFeedbackActive = output.SurfaceVibrationPercent > 0;
             SlipFeedbackActive = output.SlipVibrationPercent > 0;
-            BumpFeedbackActive = output.BumpImpulsePercent != 0;
+            BumpFeedbackActive = output.EventPulseKind == FfbPulseKind.Bump;
+            SuspensionHitActive = output.EventPulseKind is FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit;
+            LandingFeedbackActive = output.EventPulseKind == FfbPulseKind.Landing;
+            CollisionFeedbackActive = output.EventPulseKind == FfbPulseKind.Collision;
+            DrivetrainPulseActive = output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.EngineStartStop;
             SpringOutput = $"{output.SpringPercent}%";
             DamperOutput = $"{output.DamperPercent}%";
             FrictionOutput = $"{output.FrictionPercent}%";
@@ -976,7 +1100,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 SlipFeedbackOutput = $"{SlipFeedbackOutput} (slip {WheelSlip})";
             }
             BumpFeedbackOutput = output.BumpImpulsePercent != 0
-                ? $"{output.BumpImpulsePercent}% / {output.BumpDurationMs} ms"
+                ? $"{output.EventPulseKind}: {output.BumpImpulsePercent}% / {output.BumpDurationMs} ms"
+                : "0%";
+            TerrainRumbleOutput = output.TerrainRumblePercent > 0
+                ? $"{output.TerrainRumblePercent}% @ {output.TerrainRumbleHz} Hz"
                 : "0%";
             LoadFactor = output.LoadFactor.ToString("0.00");
             TelemetryFade = $"{output.TelemetryFade * 100:0}%";

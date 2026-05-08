@@ -54,7 +54,11 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
   "localAccelerationY": 1.8,
   "localAccelerationZ": -0.6,
   "bumpImpulse": 0.42,
-  "suspensionImpulse": 0.42,
+  "suspensionImpulse": 0.30,
+  "verticalImpactImpulse": 0.42,
+  "landingImpulse": null,
+  "collisionImpulse": null,
+  "longitudinalJerkImpulse": 0.12,
   "leftSuspensionImpulse": 0.18,
   "rightSuspensionImpulse": 0.06,
   "throttle": 0.6,
@@ -85,8 +89,13 @@ The Windows receiver reports UDP status, file fallback status, last valid packet
 - `steeringWheelSlip` and `steeringGroundContactRatio`: steering-wheel-specific slip and contact values. The Windows app prefers these for steering-load decisions and falls back to all-wheel values.
 - `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, and `slopeDeg`: vehicle attitude and terrain slope values.
 - `localAccelerationX/Y/Z`: acceleration in vehicle-local axes when enough motion history is available.
-- `bumpImpulse` and `suspensionImpulse`: normalized vertical impulse derived from local acceleration. The current sender writes the same value to both fields.
-- `leftSuspensionImpulse` and `rightSuspensionImpulse`: side-specific best-effort suspension impulse fields. The sender prefers wheel suspension/load fields when available, and falls back to distributing `bumpImpulse` by left/right wheel contact ratio.
+- `verticalImpactImpulse`: normalized vertical impact from root-node local Y acceleration. This is the preferred road-bump input.
+- `suspensionImpulse`: wheel suspension/load impulse when available, otherwise a conservative fallback. It drives continuous terrain rumble.
+- `landingImpulse`: vertical impact emitted when wheel contact returns after contact loss.
+- `collisionImpulse`: hard horizontal contact from local X/Z acceleration, intended for rare crash/contact pulses.
+- `longitudinalJerkImpulse`: acceleration/braking jerk when no suspension or collision evidence confirms a hit.
+- `bumpImpulse`: legacy alias for `verticalImpactImpulse`; new Windows calculators prefer the explicit fields.
+- `leftSuspensionImpulse` and `rightSuspensionImpulse`: side-specific best-effort suspension impulse fields. The sender prefers wheel suspension/load fields when available, and falls back to distributing `verticalImpactImpulse` by left/right wheel contact ratio.
 - `throttle`, `brake`, `clutch`, and `gear`: best-effort drivetrain/control fields. The Windows calculator uses transitions in these fields for drivetrain event pulses.
 - Missing values are sent as `null`.
 
@@ -123,6 +132,10 @@ The Windows app writes `effectStatus.json` at up to 10 Hz, plus immediate zero-s
   "surfaceFeedback": false,
   "slipFeedback": false,
   "bump": false,
+  "suspensionHit": false,
+  "landing": false,
+  "collision": false,
+  "drivetrainPulse": false,
   "steeringLoad": true,
   "speedStability": true,
   "surfaceTraction": false,

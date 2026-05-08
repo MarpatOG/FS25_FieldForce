@@ -43,10 +43,12 @@ public sealed record EventPulse(
 
 public enum FfbPulseKind
 {
+    None,
     Bump,
     LeftSuspensionHit,
     RightSuspensionHit,
     Landing,
+    Collision,
     EngineStartStop,
     DrivetrainJerk
 }
@@ -68,6 +70,10 @@ public sealed record TelemetryFeatures(
     double SlopeRatio,
     double SuspensionImpulse,
     double SuspensionConfidence,
+    double VerticalImpactImpulse,
+    double LandingImpulse,
+    double CollisionImpulse,
+    double LongitudinalJerkImpulse,
     double LeftSuspensionImpulse,
     double RightSuspensionImpulse,
     double RpmRatio,

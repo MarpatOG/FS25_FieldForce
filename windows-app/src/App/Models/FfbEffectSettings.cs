@@ -75,12 +75,82 @@ public sealed class MotionFeedbackSettings : FfbEffectSettings
     public int DamperModifierPercent { get; set; } = 25;
 }
 
-public sealed class BumpFeedbackSettings : FfbEffectSettings
+public sealed class BumpFeedbackSettings : ImpulsePulseFeedbackSettings
 {
-    public double MinImpulse { get; set; } = 0.12;
-    public double FullImpulse { get; set; } = 1.0;
-    public int DurationMs { get; set; } = 80;
-    public int CooldownMs { get; set; } = 90;
+    public BumpFeedbackSettings()
+    {
+        MinImpulse = 0.20;
+        FullImpulse = 1.0;
+        DurationMs = 80;
+        CooldownMs = 130;
+    }
+}
+
+public class ImpulsePulseFeedbackSettings : FfbEffectSettings
+{
+    public double MinImpulse { get; set; }
+    public double FullImpulse { get; set; }
+    public int DurationMs { get; set; }
+    public int CooldownMs { get; set; }
+}
+
+public sealed class SuspensionHitFeedbackSettings : ImpulsePulseFeedbackSettings
+{
+    public SuspensionHitFeedbackSettings()
+    {
+        Enabled = true;
+        StrengthPercent = 30;
+        MaxOutputPercent = 65;
+        Curve = FfbCurveKind.Aggressive;
+        MinImpulse = 0.18;
+        FullImpulse = 1.1;
+        DurationMs = 55;
+        CooldownMs = 110;
+    }
+}
+
+public sealed class LandingFeedbackSettings : ImpulsePulseFeedbackSettings
+{
+    public LandingFeedbackSettings()
+    {
+        Enabled = true;
+        StrengthPercent = 34;
+        MaxOutputPercent = 65;
+        Curve = FfbCurveKind.Aggressive;
+        MinImpulse = 0.35;
+        FullImpulse = 1.4;
+        DurationMs = 70;
+        CooldownMs = 180;
+    }
+}
+
+public sealed class CollisionFeedbackSettings : ImpulsePulseFeedbackSettings
+{
+    public CollisionFeedbackSettings()
+    {
+        Enabled = true;
+        StrengthPercent = 40;
+        MaxOutputPercent = 65;
+        Curve = FfbCurveKind.Aggressive;
+        MinImpulse = 0.45;
+        FullImpulse = 1.6;
+        DurationMs = 90;
+        CooldownMs = 350;
+    }
+}
+
+public sealed class TerrainRumbleSettings : FfbEffectSettings
+{
+    public double MinImpulse { get; set; } = 0.06;
+    public double FullImpulse { get; set; } = 0.55;
+    public int MinFrequencyHz { get; set; } = 8;
+    public int MaxFrequencyHz { get; set; } = 14;
+}
+
+public sealed class DrivetrainPulseSettings : FfbEffectSettings
+{
+    public int DurationMs { get; set; } = 45;
+    public int CooldownMs { get; set; } = 160;
 }
 
 public class GameplayFfbEffectProfile
@@ -205,10 +275,38 @@ public class GameplayFfbEffectProfile
         StrengthPercent = 38,
         MaxOutputPercent = SpeedSpringMaxOutputDefault,
         Curve = FfbCurveKind.Aggressive,
-        MinImpulse = 0.12,
+        MinImpulse = 0.20,
         FullImpulse = 1.0,
         DurationMs = 80,
-        CooldownMs = 90
+        CooldownMs = 130
+    };
+
+    public SuspensionHitFeedbackSettings SuspensionHitFeedback { get; set; } = new();
+
+    public LandingFeedbackSettings LandingFeedback { get; set; } = new();
+
+    public CollisionFeedbackSettings CollisionFeedback { get; set; } = new();
+
+    public TerrainRumbleSettings TerrainRumble { get; set; } = new()
+    {
+        Enabled = true,
+        StrengthPercent = 22,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        Curve = FfbCurveKind.Smooth,
+        MinImpulse = 0.06,
+        FullImpulse = 0.55,
+        MinFrequencyHz = 8,
+        MaxFrequencyHz = 14
+    };
+
+    public DrivetrainPulseSettings DrivetrainPulse { get; set; } = new()
+    {
+        Enabled = true,
+        StrengthPercent = 18,
+        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        Curve = FfbCurveKind.Smooth,
+        DurationMs = 45,
+        CooldownMs = 160
     };
 
     public static Dictionary<string, GameplayFfbEffectProfile> CreateCategoryDefaults(GameplayFfbEffectProfile baseProfile)
@@ -337,6 +435,29 @@ public class GameplayFfbEffectProfile
                 FullImpulse = settings.BumpFeedback.FullImpulse,
                 DurationMs = settings.BumpFeedback.DurationMs,
                 CooldownMs = settings.BumpFeedback.CooldownMs
+            },
+            SuspensionHitFeedback = CloneImpulse(settings.SuspensionHitFeedback, new SuspensionHitFeedbackSettings()),
+            LandingFeedback = CloneImpulse(settings.LandingFeedback, new LandingFeedbackSettings()),
+            CollisionFeedback = CloneImpulse(settings.CollisionFeedback, new CollisionFeedbackSettings()),
+            TerrainRumble = new TerrainRumbleSettings
+            {
+                Enabled = settings.TerrainRumble.Enabled,
+                StrengthPercent = settings.TerrainRumble.StrengthPercent,
+                MaxOutputPercent = settings.TerrainRumble.MaxOutputPercent,
+                Curve = settings.TerrainRumble.Curve,
+                MinImpulse = settings.TerrainRumble.MinImpulse,
+                FullImpulse = settings.TerrainRumble.FullImpulse,
+                MinFrequencyHz = settings.TerrainRumble.MinFrequencyHz,
+                MaxFrequencyHz = settings.TerrainRumble.MaxFrequencyHz
+            },
+            DrivetrainPulse = new DrivetrainPulseSettings
+            {
+                Enabled = settings.DrivetrainPulse.Enabled,
+                StrengthPercent = settings.DrivetrainPulse.StrengthPercent,
+                MaxOutputPercent = settings.DrivetrainPulse.MaxOutputPercent,
+                Curve = settings.DrivetrainPulse.Curve,
+                DurationMs = settings.DrivetrainPulse.DurationMs,
+                CooldownMs = settings.DrivetrainPulse.CooldownMs
             }
         };
     }
@@ -353,6 +474,11 @@ public class GameplayFfbEffectProfile
         settings.WetnessFeedback ??= new WetnessFeedbackSettings();
         settings.MotionFeedback ??= new MotionFeedbackSettings();
         settings.BumpFeedback ??= new BumpFeedbackSettings();
+        settings.SuspensionHitFeedback ??= new SuspensionHitFeedbackSettings();
+        settings.LandingFeedback ??= new LandingFeedbackSettings();
+        settings.CollisionFeedback ??= new CollisionFeedbackSettings();
+        settings.TerrainRumble ??= new TerrainRumbleSettings();
+        settings.DrivetrainPulse ??= new DrivetrainPulseSettings();
     }
 
     public static void ApplyCurrentSpeedSpringPreset(GameplayFfbEffectProfile settings)
@@ -378,6 +504,11 @@ public class GameplayFfbEffectProfile
         ApplyOverallOutputCap(settings.WetnessFeedback, overallCap);
         ApplyOverallOutputCap(settings.MotionFeedback, overallCap);
         ApplyOverallOutputCap(settings.BumpFeedback, overallCap);
+        ApplyOverallOutputCap(settings.SuspensionHitFeedback, overallCap);
+        ApplyOverallOutputCap(settings.LandingFeedback, overallCap);
+        ApplyOverallOutputCap(settings.CollisionFeedback, overallCap);
+        ApplyOverallOutputCap(settings.TerrainRumble, overallCap);
+        ApplyOverallOutputCap(settings.DrivetrainPulse, overallCap);
     }
 
     private static void ApplyOverallOutputCap(FfbEffectSettings settings, int overallCap)
@@ -400,6 +531,10 @@ public class GameplayFfbEffectProfile
         ApplyEffectProfile(settings.SurfaceFeedback, profile.SurfaceFeedbackStrengthMultiplier, profile.SurfaceFeedbackMaxMultiplier);
         ApplyEffectProfile(settings.SlipFeedback, profile.SlipFeedbackStrengthMultiplier, profile.SlipFeedbackMaxMultiplier);
         ApplyEffectProfile(settings.BumpFeedback, profile.BumpFeedbackStrengthMultiplier, profile.BumpFeedbackMaxMultiplier);
+        ApplyEffectProfile(settings.SuspensionHitFeedback, profile.BumpFeedbackStrengthMultiplier, profile.BumpFeedbackMaxMultiplier);
+        ApplyEffectProfile(settings.LandingFeedback, profile.BumpFeedbackStrengthMultiplier, profile.BumpFeedbackMaxMultiplier);
+        ApplyEffectProfile(settings.CollisionFeedback, profile.BumpFeedbackStrengthMultiplier, profile.BumpFeedbackMaxMultiplier);
+        ApplyEffectProfile(settings.TerrainRumble, profile.BumpFeedbackStrengthMultiplier, profile.BumpFeedbackMaxMultiplier);
     }
 
     private static void ApplyEffectProfile(FfbEffectSettings settings, double strengthMultiplier, double maxMultiplier)
@@ -435,6 +570,20 @@ public class GameplayFfbEffectProfile
             StandstillFloor = settings.StandstillFloor,
             SpeedReferenceKmh = settings.SpeedReferenceKmh
         };
+    }
+
+    private static T CloneImpulse<T>(T settings, T fallback)
+        where T : ImpulsePulseFeedbackSettings
+    {
+        fallback.Enabled = settings.Enabled;
+        fallback.StrengthPercent = settings.StrengthPercent;
+        fallback.MaxOutputPercent = settings.MaxOutputPercent;
+        fallback.Curve = settings.Curve;
+        fallback.MinImpulse = settings.MinImpulse;
+        fallback.FullImpulse = settings.FullImpulse;
+        fallback.DurationMs = settings.DurationMs;
+        fallback.CooldownMs = settings.CooldownMs;
+        return fallback;
     }
 }
 

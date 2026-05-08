@@ -20,7 +20,8 @@ public sealed record GameplayFfbOutput(
     bool IsActive,
     string ActiveCategory = VehicleCategoryFfbProfile.Unknown,
     bool TerrainRumbleActive = false,
-    bool EventPulseActive = false)
+    bool EventPulseActive = false,
+    FfbPulseKind EventPulseKind = FfbPulseKind.None)
 {
     public static GameplayFfbOutput Zero { get; } = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, false);
 
@@ -66,7 +67,16 @@ public sealed record GameplayFfbOutput(
 
             if (BumpImpulsePercent != 0)
             {
-                active.Add("Bump");
+                active.Add(EventPulseKind switch
+                {
+                    FfbPulseKind.LeftSuspensionHit => "Left suspension",
+                    FfbPulseKind.RightSuspensionHit => "Right suspension",
+                    FfbPulseKind.Landing => "Landing",
+                    FfbPulseKind.Collision => "Collision",
+                    FfbPulseKind.DrivetrainJerk => "Drivetrain",
+                    FfbPulseKind.EngineStartStop => "Engine pulse",
+                    _ => "Bump"
+                });
             }
 
             return active.Count == 0 ? "None" : string.Join(", ", active);

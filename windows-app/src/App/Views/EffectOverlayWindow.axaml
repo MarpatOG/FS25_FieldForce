@@ -75,6 +75,22 @@
                 <Border Classes="lamp" Classes.active="{Binding BumpFeedbackActive}"/>
                 <TextBlock Text="Bump"/>
             </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding SuspensionHitActive}"/>
+                <TextBlock Text="Susp"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding LandingFeedbackActive}"/>
+                <TextBlock Text="Land"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding CollisionFeedbackActive}"/>
+                <TextBlock Text="Crash"/>
+            </StackPanel>
+            <StackPanel Spacing="5">
+                <Border Classes="lamp" Classes.active="{Binding DrivetrainPulseActive}"/>
+                <TextBlock Text="Drive"/>
+            </StackPanel>
         </UniformGrid>
     </Border>
 </Window>

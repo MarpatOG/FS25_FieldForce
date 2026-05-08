@@ -59,7 +59,11 @@ public sealed class TelemetryReceiverServiceTests
           "localAccelerationX": 0.3,
           "localAccelerationY": 1.8,
           "localAccelerationZ": -0.6,
-          "bumpImpulse": 0.42
+          "bumpImpulse": 0.42,
+          "verticalImpactImpulse": 0.46,
+          "landingImpulse": 0.55,
+          "collisionImpulse": 0.0,
+          "longitudinalJerkImpulse": 0.21
         }
         """;
 
@@ -107,6 +111,10 @@ public sealed class TelemetryReceiverServiceTests
         Assert.Equal("mixed", packet?.WheelTireProfile);
         Assert.Equal(-2.4, packet?.RollDeg);
         Assert.Equal(0.42, packet?.BumpImpulse);
+        Assert.Equal(0.46, packet?.VerticalImpactImpulse);
+        Assert.Equal(0.55, packet?.LandingImpulse);
+        Assert.Equal(0.0, packet?.CollisionImpulse);
+        Assert.Equal(0.21, packet?.LongitudinalJerkImpulse);
     }
 
     [Fact]

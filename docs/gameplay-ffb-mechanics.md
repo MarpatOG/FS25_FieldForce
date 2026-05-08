@@ -46,6 +46,7 @@ Motion and suspension:
 ```text
 pitchDeg, rollDeg, yawRateDegPerSec, slopeDeg
 localAccelerationX, localAccelerationY, localAccelerationZ
+verticalImpactImpulse, landingImpulse, collisionImpulse, longitudinalJerkImpulse
 bumpImpulse, suspensionImpulse
 leftSuspensionImpulse, rightSuspensionImpulse
 ```
@@ -58,8 +59,10 @@ Important source details:
 - `wheelSlip` is average wheel `physics.netInfo.slip`; `maxWheelSlip` is the maximum wheel slip; `steeringWheelSlip` and `steeringGroundContactRatio` use wheels that currently report steering movement.
 - `groundContactRatio` counts wheels with ground, water, or snow contact divided by wheel count.
 - `wheelTireTypes` is the unique normalized tire type list. `wheelTireProfile` is `street`, `agricultural`, `mixed`, `tracked`, or `unknown`.
-- `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, local acceleration, and `bumpImpulse` come from root-node transform history. `bumpImpulse = min(abs(localAccelerationY) / 9.81, 2)`.
-- `leftSuspensionImpulse` and `rightSuspensionImpulse` are side-specific best-effort values. The sender prefers wheel suspension/load fields when exposed by FS25; otherwise it distributes the root-node `bumpImpulse` by left/right wheel contact ratio.
+- `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, local acceleration, and `verticalImpactImpulse` come from root-node transform history. `verticalImpactImpulse = min(abs(localAccelerationY) / 9.81, 2)`.
+- `bumpImpulse` is kept as a legacy alias for `verticalImpactImpulse`.
+- `landingImpulse` is emitted when wheel contact returns after a loss of contact, `collisionImpulse` comes from hard horizontal local acceleration, and `longitudinalJerkImpulse` is acceleration/braking jerk without suspension-hit evidence.
+- `leftSuspensionImpulse` and `rightSuspensionImpulse` are side-specific best-effort values. The sender prefers wheel suspension/load fields when exposed by FS25; otherwise it distributes the root-node `verticalImpactImpulse` by left/right wheel contact ratio.
 
 ## Feature Extraction
 
@@ -78,6 +81,10 @@ rpmRatio = clamp((rpm - EngineVibration.MinRpm) / (EngineVibration.MaxRpm - Engi
 yawRateRatio = clamp(abs(yawRateDegPerSec) / MotionFeedback.FullYawRateDegPerSec, 0, 1)
 slopeRatio = max(abs(pitchDeg), abs(slopeDeg)) normalized by MotionFeedback.FullPitchDeg
 suspensionImpulse = clamp(abs(suspensionImpulse ?? bumpImpulse ?? 0), 0, 2)
+verticalImpactImpulse = clamp(abs(verticalImpactImpulse ?? suspensionImpulse ?? bumpImpulse ?? 0), 0, 2)
+landingImpulse = clamp(abs(landingImpulse ?? 0), 0, 2)
+collisionImpulse = clamp(abs(collisionImpulse ?? 0), 0, 2)
+longitudinalJerkImpulse = clamp(abs(longitudinalJerkImpulse ?? local horizontal acceleration fallback), 0, 2)
 ```
 
 Some layers carry confidence values. For example, steering-specific contact telemetry has confidence `1.0`; fallback all-wheel contact has confidence `0.55`; missing contact has confidence `0.0`. Surface confidence is `1.0` when `surfaceType` exists and `0.7` for legacy `isOnField` fallback.
@@ -247,41 +254,55 @@ hz = quantize2(MinFrequencyHz + (MaxFrequencyHz - MinFrequencyHz) * curve(ratio)
 
 It is active only when Slip Feedback is enabled, speed is at least `MinSpeedKmh`, and slip is above `MinSlip`.
 
-`Suspension Terrain Rumble` is a low-frequency continuous haptic derived from suspension impulse:
+`Suspension Terrain Rumble` is a low-frequency continuous haptic derived from suspension impulse. It never creates a finite pulse by itself:
 
 ```text
-if suspensionImpulse > 0.08:
-    terrainRumblePercent = min(maxCapped(BumpFeedback) * 0.35 * suspensionImpulse, 100)
-    terrainRumbleHz = 10
-else:
-    terrainRumblePercent = 0
+ratio = clamp((suspensionImpulse - TerrainRumble.MinImpulse)
+        / (TerrainRumble.FullImpulse - TerrainRumble.MinImpulse), 0, 1)
+terrainRumblePercent = maxCapped(TerrainRumble) * curve(ratio)
+terrainRumbleHz = quantize2(TerrainRumble.MinFrequencyHz
+        + (TerrainRumble.MaxFrequencyHz - TerrainRumble.MinFrequencyHz) * curve(ratio))
 ```
 
 Continuous haptic layers are mixed by taking the highest percent per channel after confidence weighting.
 
 ## Event Pulses
 
-`Bump Feedback` maps to a short DirectInput ConstantForce pulse:
+Finite event pulses share one DirectInput ConstantForce bus. The calculator chooses one event per frame by priority:
 
 ```text
-impulse = suspensionImpulse ?? bumpImpulse
-ratio = clamp((abs(impulse) - MinImpulse) / (FullImpulse - MinImpulse), 0, 1)
+Collision > Landing > Left/RightSuspensionHit > Bump > DrivetrainJerk > EngineStartStop
+```
+
+Each pulse kind has its own cooldown timestamp in the backend.
+
+`Bump Feedback` is now only the road-bump pulse:
+
+```text
+impulse = verticalImpactImpulse
+suppressed when contactRatio is near zero
+suppressed when longitudinalJerkImpulse is high and side suspension does not confirm a hit
+ratio = clamp((abs(impulse) - BumpFeedback.MinImpulse) / (BumpFeedback.FullImpulse - BumpFeedback.MinImpulse), 0, 1)
 percent = maxCapped(BumpFeedback) * curve(ratio)
-direction = sign(localAccelerationX ?? steeringAngle ?? impulse)
+direction = sign(localAccelerationX ?? steeringAngle ?? 1)
 durationMs = clamp(BumpFeedback.DurationMs, 20, 250)
 cooldownMs = clamp(BumpFeedback.CooldownMs, 20, 500)
 ```
 
-The pulse kind is `LeftSuspensionHit` or `RightSuspensionHit` when one side impulse is at least `1.25x` the other side; otherwise it is `Bump`. The current DirectInput backend only uses signed magnitude, duration, and cooldown.
+`LeftSuspensionHit` and `RightSuspensionHit` use `SuspensionHitFeedback` when one side impulse is at least `1.25x` the other side and above the side-hit threshold.
 
-`Engine Drivetrain` reuses the same finite ConstantForce pulse path. It emits one transition pulse after the calculator has a previous drivetrain sample:
+`Landing` uses `LandingFeedback` from `landingImpulse`.
+
+`Collision` uses `CollisionFeedback` from `collisionImpulse`, has the longest default cooldown, and suppresses normal bump selection in the same frame.
+
+`Engine Drivetrain` uses `DrivetrainPulse`, not `BumpFeedback`. It emits one transition pulse after the calculator has a previous drivetrain sample:
 
 ```text
 EngineStartStop: engineStarted changed
-DrivetrainJerk: gear changed, or abs(delta throttle/brake) >= 0.35
-percent = maxCapped(BumpFeedback) * curve(pulseRatio) * 0.65
-durationMs = clamp(BumpFeedback.DurationMs * 0.75, 20, 160)
-cooldownMs = clamp(BumpFeedback.CooldownMs, 20, 500)
+DrivetrainJerk: gear changed, abs(delta throttle/brake) >= 0.35, or longitudinalJerkImpulse >= 0.35 without vertical/collision evidence
+percent = maxCapped(DrivetrainPulse) * curve(pulseRatio)
+durationMs = clamp(DrivetrainPulse.DurationMs, 20, 160)
+cooldownMs = clamp(DrivetrainPulse.CooldownMs, 20, 500)
 ```
 
 ## DirectInput Output
@@ -314,9 +335,9 @@ DirectInput details:
 - Condition effects use equal positive/negative coefficient and saturation.
 - Spring condition uses deadband `100`; damper and friction use deadband `0`.
 - Periodic Sine period is `1_000_000 / hz`.
-- Bump direction is `-10000` or `+10000` from the sign of `BumpImpulsePercent`.
+- Finite pulse direction is `-10000` or `+10000` from the sign of `BumpImpulsePercent`.
 - Gameplay output is quantized in `2%` / `2 Hz` steps before being applied.
-- Unchanged continuous outputs are skipped. Bump pulses are applied only when a non-zero pulse arrives and cooldown has elapsed.
+- Unchanged continuous outputs are skipped. Finite pulses are applied only when a non-zero pulse arrives and that pulse kind's cooldown has elapsed.
 
 Device haptic profiles apply extra caps before DirectInput output. For example, the default Logitech MOMO profile caps engine vibration to `14%`, surface and slip haptics to `18%`, terrain rumble to `14%`, bump pulses to `34%`, and bump duration to `90 ms`.
 
@@ -334,7 +355,8 @@ The status file reports user-facing effect lamps:
 
 ```text
 speedSpring, speedDamper, friction, rpmVibration,
-surfaceFeedback, slipFeedback, bump
+surfaceFeedback, slipFeedback, bump,
+suspensionHit, landing, collision, drivetrainPulse
 ```
 
 It also writes internal layer booleans:
