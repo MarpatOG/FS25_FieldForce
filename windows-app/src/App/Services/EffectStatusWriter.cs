@@ -70,7 +70,7 @@ public sealed class EffectStatusWriter
                 output.EventPulseKind is FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit,
                 output.EventPulseKind == FfbPulseKind.Landing,
                 output.EventPulseKind == FfbPulseKind.Collision,
-                output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.EngineStartStop,
+                output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop,
                 output.SpringPercent > 0 || output.FrictionPercent > 0,
                 output.DamperPercent > 0,
                 output.SurfaceVibrationPercent > 0 || output.TerrainRumblePercent > 0 || output.SlipVibrationPercent > 0,

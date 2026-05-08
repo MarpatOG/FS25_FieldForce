@@ -39,11 +39,15 @@ public sealed class GameplayFfbCalculator
         var features = TelemetryFeatureExtractor.Extract(packet, profile);
 
         var steering = BaseSteeringModel.Calculate(features, profile, context).Value;
+        var surfaceTractionModifiers = SurfaceTractionLayer.CalculateModifiers(features, profile, context);
+        var loadSlopeImplementModifiers = LoadSlopeImplementLayer.CalculateModifiers(features, profile, context);
+        var motionFeedbackModifiers = MotionFeedbackLayer.CalculateModifiers(features, profile, context);
+        var contactTractionModifiers = ContactTractionLayer.CalculateModifiers(features, profile, context);
         var modifiers = SteeringModifierMixer.Combine(
-            SurfaceTractionLayer.CalculateModifiers(features, profile, context),
-            LoadSlopeImplementLayer.CalculateModifiers(features, profile, context),
-            MotionFeedbackLayer.CalculateModifiers(features, profile, context),
-            ContactTractionLayer.CalculateModifiers(features, profile, context));
+            surfaceTractionModifiers,
+            loadSlopeImplementModifiers,
+            motionFeedbackModifiers,
+            contactTractionModifiers);
         steering = SteeringModifierMixer.Apply(steering, modifiers);
         steering = SpeedStabilityLayer.Apply(steering, features, context).Value;
         steering = SafetyFilters.Apply(steering);
@@ -80,7 +84,13 @@ public sealed class GameplayFfbCalculator
             activeCategory,
             capped.Haptics.TerrainRumblePercent > 0,
             bump is not null,
-            bump?.Kind ?? FfbPulseKind.None);
+            bump?.Kind ?? FfbPulseKind.None,
+            HasActiveSteeringModifier(loadSlopeImplementModifiers.Value, loadSlopeImplementModifiers.Confidence),
+            HasActiveSteeringModifier(motionFeedbackModifiers.Value, motionFeedbackModifiers.Confidence),
+            CalculateContactReliefActive(features),
+            CalculateAntiOscillationActive(features),
+            CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, fade) > 0,
+            CalculateSteeringSlipReliefActive(features, profile));
 
         return output with
         {
@@ -153,6 +163,32 @@ public sealed class GameplayFfbCalculator
         }
 
         return 0;
+    }
+
+    private static bool HasActiveSteeringModifier(SteeringModifiers modifiers, double confidence)
+    {
+        const double epsilon = 0.0001;
+        return confidence > 0 &&
+               (Math.Abs(modifiers.SpringGain - 1) > epsilon ||
+                Math.Abs(modifiers.DamperGain - 1) > epsilon ||
+                Math.Abs(modifiers.FrictionGain - 1) > epsilon ||
+                Math.Abs(modifiers.SpringRelief) > epsilon ||
+                Math.Abs(modifiers.DamperAdditive) > epsilon);
+    }
+
+    private static bool CalculateContactReliefActive(TelemetryFeatures features)
+    {
+        return features.ContactConfidence > 0 && (1 - features.ContactRatio) * features.ContactConfidence > 0.0001;
+    }
+
+    private static bool CalculateAntiOscillationActive(TelemetryFeatures features)
+    {
+        return features.SpeedRatio > 0.45 && Math.Abs(features.SteeringAngle) < 0.04;
+    }
+
+    private static bool CalculateSteeringSlipReliefActive(TelemetryFeatures features, GameplayFfbEffectProfile profile)
+    {
+        return features.Slip > Math.Clamp(profile.SlipFeedback.MinSlip, 0, 1);
     }
 
     internal static double CalculateSpeedEffect(SpeedConditionSettings settings, double speedKmh, double fade)
@@ -800,7 +836,7 @@ public sealed class GameplayFfbCalculator
         if (previous.Gear is not null && current.Gear is not null && previous.Gear != current.Gear)
         {
             pulseRatio = Math.Max(pulseRatio, 0.70);
-            kind = FfbPulseKind.DrivetrainJerk;
+            kind = FfbPulseKind.GearShift;
         }
 
         var throttleDelta = Math.Abs((current.Throttle ?? 0) - (previous.Throttle ?? 0));

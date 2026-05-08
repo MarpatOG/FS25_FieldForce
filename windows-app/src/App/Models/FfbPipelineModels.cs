@@ -50,7 +50,8 @@ public enum FfbPulseKind
     Landing,
     Collision,
     EngineStartStop,
-    DrivetrainJerk
+    DrivetrainJerk,
+    GearShift
 }
 
 public sealed record TelemetryFeatures(

@@ -21,7 +21,13 @@ public sealed record GameplayFfbOutput(
     string ActiveCategory = VehicleCategoryFfbProfile.Unknown,
     bool TerrainRumbleActive = false,
     bool EventPulseActive = false,
-    FfbPulseKind EventPulseKind = FfbPulseKind.None)
+    FfbPulseKind EventPulseKind = FfbPulseKind.None,
+    bool LoadResistanceActive = false,
+    bool MotionFeedbackActive = false,
+    bool ContactReliefControlsActive = false,
+    bool AntiOscillationActive = false,
+    bool WetnessFeedbackActive = false,
+    bool SteeringSlipReliefActive = false)
 {
     public static GameplayFfbOutput Zero { get; } = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, false);
 
@@ -73,6 +79,7 @@ public sealed record GameplayFfbOutput(
                     FfbPulseKind.RightSuspensionHit => "Right suspension",
                     FfbPulseKind.Landing => "Landing",
                     FfbPulseKind.Collision => "Collision",
+                    FfbPulseKind.GearShift => "Gear shift",
                     FfbPulseKind.DrivetrainJerk => "Drivetrain",
                     FfbPulseKind.EngineStartStop => "Engine pulse",
                     _ => "Bump"

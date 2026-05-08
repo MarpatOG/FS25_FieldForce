@@ -4,11 +4,11 @@
         x:Class="FS25FfbBridge.App.Views.EffectOverlayWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="360"
-        Height="210"
+        Height="360"
         MinWidth="360"
-        MinHeight="210"
+        MinHeight="360"
         MaxWidth="360"
-        MaxHeight="210"
+        MaxHeight="360"
         CanResize="False"
         ShowInTaskbar="False"
         SystemDecorations="None"
@@ -44,13 +44,21 @@
             <Setter Property="Spacing" Value="8"/>
         </Style>
         <Style Selector="Border.lamp">
-            <Setter Property="Width" Value="14"/>
-            <Setter Property="Height" Value="14"/>
-            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Width" Value="25"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="CornerRadius" Value="9"/>
             <Setter Property="Background" Value="#5F6861"/>
             <Setter Property="BorderBrush" Value="#9BA39C"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="TextBlock.lampCode">
+            <Setter Property="FontSize" Value="8"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
         </Style>
         <Style Selector="Border.lamp.active">
             <Setter Property="Background" Value="#22C55E"/>
@@ -63,41 +71,108 @@
             <StackPanel Classes="categoryGroup">
                 <TextBlock Classes="category" Text="Steering Load"/>
                 <StackPanel Classes="lampRow">
-                    <Border Classes="lamp" Classes.active="{Binding SpeedSpringActive}" ToolTip.Tip="Steering spring"/>
-                    <Border Classes="lamp" Classes.active="{Binding MechanicalFrictionActive}" ToolTip.Tip="Mechanical friction"/>
+                    <Border Classes="lamp" Classes.active="{Binding SpeedSpringActive}" ToolTip.Tip="Steering spring">
+                        <TextBlock Classes="lampCode" Text="SS"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding MechanicalFrictionActive}" ToolTip.Tip="Mechanical friction">
+                        <TextBlock Classes="lampCode" Text="MF"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding ContactReliefControlsActive}" ToolTip.Tip="Contact relief controls">
+                        <TextBlock Classes="lampCode" Text="CR"/>
+                    </Border>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Classes="categoryGroup">
                 <TextBlock Classes="category" Text="Speed Stability"/>
                 <StackPanel Classes="lampRow">
-                    <Border Classes="lamp" Classes.active="{Binding SpeedDamperActive}" ToolTip.Tip="Road damping"/>
+                    <Border Classes="lamp" Classes.active="{Binding SpeedDamperActive}" ToolTip.Tip="Road damping">
+                        <TextBlock Classes="lampCode" Text="RD"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding AntiOscillationActive}" ToolTip.Tip="Anti-oscillation">
+                        <TextBlock Classes="lampCode" Text="AO"/>
+                    </Border>
+                    <Border Classes="lamp" ToolTip.Tip="Slew smoothing">
+                        <TextBlock Classes="lampCode" Text="SM"/>
+                    </Border>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Classes="categoryGroup">
                 <TextBlock Classes="category" Text="Surface &amp; Traction"/>
                 <StackPanel Classes="lampRow">
-                    <Border Classes="lamp" Classes.active="{Binding SurfaceFeedbackActive}" ToolTip.Tip="Surface feedback"/>
-                    <Border Classes="lamp" Classes.active="{Binding SlipFeedbackActive}" ToolTip.Tip="Slip feedback"/>
+                    <Border Classes="lamp" Classes.active="{Binding SurfaceFeedbackActive}" ToolTip.Tip="Surface feedback">
+                        <TextBlock Classes="lampCode" Text="SF"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding SlipFeedbackActive}" ToolTip.Tip="Slip feedback">
+                        <TextBlock Classes="lampCode" Text="SL"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding WetnessFeedbackActive}" ToolTip.Tip="Wetness">
+                        <TextBlock Classes="lampCode" Text="WE"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding SteeringSlipReliefActive}" ToolTip.Tip="Steering slip relief">
+                        <TextBlock Classes="lampCode" Text="SR"/>
+                    </Border>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Classes="categoryGroup">
                 <TextBlock Classes="category" Text="Suspension &amp; Terrain"/>
                 <StackPanel Classes="lampRow">
-                    <Border Classes="lamp" Classes.active="{Binding BumpFeedbackActive}" ToolTip.Tip="Bump"/>
-                    <Border Classes="lamp" Classes.active="{Binding SuspensionHitActive}" ToolTip.Tip="Suspension hit"/>
-                    <Border Classes="lamp" Classes.active="{Binding LandingFeedbackActive}" ToolTip.Tip="Landing pulse"/>
-                    <Border Classes="lamp" Classes.active="{Binding CollisionFeedbackActive}" ToolTip.Tip="Collision pulse"/>
+                    <Border Classes="lamp" Classes.active="{Binding BumpFeedbackActive}" ToolTip.Tip="Bump">
+                        <TextBlock Classes="lampCode" Text="BU"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding SuspensionHitActive}" ToolTip.Tip="Suspension hit">
+                        <TextBlock Classes="lampCode" Text="SH"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding CollisionFeedbackActive}" ToolTip.Tip="Collision pulse">
+                        <TextBlock Classes="lampCode" Text="CP"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding LandingFeedbackActive}" ToolTip.Tip="Landing pulse">
+                        <TextBlock Classes="lampCode" Text="LP"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding TerrainRumbleActive}" ToolTip.Tip="Terrain rumble">
+                        <TextBlock Classes="lampCode" Text="TR"/>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Classes="categoryGroup">
+                <TextBlock Classes="category" Text="Load, Slope &amp; Implement"/>
+                <StackPanel Classes="lampRow">
+                    <Border Classes="lamp" Classes.active="{Binding LoadResistanceActive}" ToolTip.Tip="Load resistance">
+                        <TextBlock Classes="lampCode" Text="LR"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding MotionFeedbackActive}" ToolTip.Tip="Motion">
+                        <TextBlock Classes="lampCode" Text="MO"/>
+                    </Border>
+                    <Border Classes="lamp" ToolTip.Tip="Hill standstill load">
+                        <TextBlock Classes="lampCode" Text="HL"/>
+                    </Border>
+                    <Border Classes="lamp" ToolTip.Tip="Side slope bias">
+                        <TextBlock Classes="lampCode" Text="SB"/>
+                    </Border>
+                    <Border Classes="lamp" ToolTip.Tip="Implement bias">
+                        <TextBlock Classes="lampCode" Text="IB"/>
+                    </Border>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Classes="categoryGroup">
                 <TextBlock Classes="category" Text="Engine &amp; Drivetrain"/>
                 <StackPanel Classes="lampRow">
-                    <Border Classes="lamp" Classes.active="{Binding RpmVibrationActive}" ToolTip.Tip="RPM vibration"/>
-                    <Border Classes="lamp" Classes.active="{Binding DrivetrainPulseActive}" ToolTip.Tip="Gear shift pulse"/>
+                    <Border Classes="lamp" Classes.active="{Binding RpmVibrationActive}" ToolTip.Tip="RPM vibration">
+                        <TextBlock Classes="lampCode" Text="RV"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding GearShiftPulseActive}" ToolTip.Tip="Gear shift pulse">
+                        <TextBlock Classes="lampCode" Text="GS"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding ClutchBrakeJerkActive}" ToolTip.Tip="Clutch/brake jerk">
+                        <TextBlock Classes="lampCode" Text="CJ"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding EngineStartStopActive}" ToolTip.Tip="Engine start/stop">
+                        <TextBlock Classes="lampCode" Text="ES"/>
+                    </Border>
                 </StackPanel>
             </StackPanel>
         </StackPanel>

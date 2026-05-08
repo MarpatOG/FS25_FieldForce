@@ -331,6 +331,36 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _drivetrainPulseActive;
 
     [ObservableProperty]
+    private bool _loadResistanceActive;
+
+    [ObservableProperty]
+    private bool _motionFeedbackActive;
+
+    [ObservableProperty]
+    private bool _contactReliefControlsActive;
+
+    [ObservableProperty]
+    private bool _antiOscillationActive;
+
+    [ObservableProperty]
+    private bool _wetnessFeedbackActive;
+
+    [ObservableProperty]
+    private bool _steeringSlipReliefActive;
+
+    [ObservableProperty]
+    private bool _terrainRumbleActive;
+
+    [ObservableProperty]
+    private bool _gearShiftPulseActive;
+
+    [ObservableProperty]
+    private bool _clutchBrakeJerkActive;
+
+    [ObservableProperty]
+    private bool _engineStartStopActive;
+
+    [ObservableProperty]
     private string _gameplayFfbRuntimeStatus = "FFB enabled";
 
     [ObservableProperty]
@@ -1075,7 +1105,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SuspensionHitActive = output.EventPulseKind is FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit;
             LandingFeedbackActive = output.EventPulseKind == FfbPulseKind.Landing;
             CollisionFeedbackActive = output.EventPulseKind == FfbPulseKind.Collision;
-            DrivetrainPulseActive = output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.EngineStartStop;
+            DrivetrainPulseActive = output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop;
+            LoadResistanceActive = output.LoadResistanceActive;
+            MotionFeedbackActive = output.MotionFeedbackActive;
+            ContactReliefControlsActive = output.ContactReliefControlsActive;
+            AntiOscillationActive = output.AntiOscillationActive;
+            WetnessFeedbackActive = output.WetnessFeedbackActive;
+            SteeringSlipReliefActive = output.SteeringSlipReliefActive;
+            TerrainRumbleActive = output.TerrainRumblePercent > 0;
+            GearShiftPulseActive = output.EventPulseKind == FfbPulseKind.GearShift;
+            ClutchBrakeJerkActive = output.EventPulseKind == FfbPulseKind.DrivetrainJerk;
+            EngineStartStopActive = output.EventPulseKind == FfbPulseKind.EngineStartStop;
             SpringOutput = $"{output.SpringPercent}%";
             DamperOutput = $"{output.DamperPercent}%";
             FrictionOutput = $"{output.FrictionPercent}%";
