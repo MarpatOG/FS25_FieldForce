@@ -64,6 +64,10 @@
             <Setter Property="Background" Value="#22C55E"/>
             <Setter Property="BorderBrush" Value="#B9F7C9"/>
         </Style>
+        <Style Selector="Border.lamp.unimplemented">
+            <Setter Property="Background" Value="#5A241F"/>
+            <Setter Property="BorderBrush" Value="#8A3A32"/>
+        </Style>
     </Window.Styles>
 
     <Border Classes="shell" PointerPressed="OnOverlayPointerPressed">
@@ -92,7 +96,7 @@
                     <Border Classes="lamp" Classes.active="{Binding AntiOscillationActive}" ToolTip.Tip="Anti-oscillation">
                         <TextBlock Classes="lampCode" Text="AO"/>
                     </Border>
-                    <Border Classes="lamp" ToolTip.Tip="Slew smoothing">
+                    <Border Classes="lamp unimplemented" ToolTip.Tip="Slew smoothing">
                         <TextBlock Classes="lampCode" Text="SM"/>
                     </Border>
                 </StackPanel>
@@ -146,13 +150,13 @@
                     <Border Classes="lamp" Classes.active="{Binding MotionFeedbackActive}" ToolTip.Tip="Motion">
                         <TextBlock Classes="lampCode" Text="MO"/>
                     </Border>
-                    <Border Classes="lamp" ToolTip.Tip="Hill standstill load">
+                    <Border Classes="lamp unimplemented" ToolTip.Tip="Hill standstill load">
                         <TextBlock Classes="lampCode" Text="HL"/>
                     </Border>
-                    <Border Classes="lamp" ToolTip.Tip="Side slope bias">
+                    <Border Classes="lamp unimplemented" ToolTip.Tip="Side slope bias">
                         <TextBlock Classes="lampCode" Text="SB"/>
                     </Border>
-                    <Border Classes="lamp" ToolTip.Tip="Implement bias">
+                    <Border Classes="lamp unimplemented" ToolTip.Tip="Implement bias">
                         <TextBlock Classes="lampCode" Text="IB"/>
                     </Border>
                 </StackPanel>
@@ -167,7 +171,7 @@
                     <Border Classes="lamp" Classes.active="{Binding GearShiftPulseActive}" ToolTip.Tip="Gear shift pulse">
                         <TextBlock Classes="lampCode" Text="GS"/>
                     </Border>
-                    <Border Classes="lamp" Classes.active="{Binding ClutchBrakeJerkActive}" ToolTip.Tip="Clutch/brake jerk">
+                    <Border Classes="lamp unimplemented" ToolTip.Tip="Clutch/brake jerk">
                         <TextBlock Classes="lampCode" Text="CJ"/>
                     </Border>
                     <Border Classes="lamp" Classes.active="{Binding EngineStartStopActive}" ToolTip.Tip="Engine start/stop">
