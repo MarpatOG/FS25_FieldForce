@@ -12,7 +12,7 @@ public sealed class GameplayFfbCalculatorTests
     {
         var output = _calculator.Calculate(State(Packet(speedKmh: 0)), new GameplayFfbSettings());
 
-        Assert.InRange(output.SpringPercent, 0, 2);
+        Assert.InRange(output.SpringPercent, 12, 14);
         Assert.InRange(output.DamperPercent, 0, 3);
     }
 
@@ -31,19 +31,19 @@ public sealed class GameplayFfbCalculatorTests
     public void Speed_spring_matches_low_speed_centering_targets()
     {
         var settings = new GameplayFfbSettings();
-        var stopped = _calculator.Calculate(State(Packet(speedKmh: 0)), settings);
-        var creeping = _calculator.Calculate(State(Packet(speedKmh: 5)), settings);
-        var light = _calculator.Calculate(State(Packet(speedKmh: 10)), settings);
-        var moderate = _calculator.Calculate(State(Packet(speedKmh: 20)), settings);
-        var stable = _calculator.Calculate(State(Packet(speedKmh: 35)), settings);
-        var capped = _calculator.Calculate(State(Packet(speedKmh: 45)), settings);
+        var stopped = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 0)), settings);
+        var creeping = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 5)), settings);
+        var light = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 10)), settings);
+        var moderate = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 20)), settings);
+        var stable = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 35)), settings);
+        var capped = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 45)), settings);
 
-        Assert.InRange(stopped.SpringPercent, 0, 2);
-        Assert.InRange(creeping.SpringPercent, 2, 4);
-        Assert.InRange(light.SpringPercent, 4, 7);
-        Assert.InRange(moderate.SpringPercent, 13, 17);
-        Assert.InRange(stable.SpringPercent, 29, 33);
-        Assert.InRange(capped.SpringPercent, 37, 39);
+        Assert.InRange(stopped.SpringPercent, 12, 14);
+        Assert.InRange(creeping.SpringPercent, 27, 30);
+        Assert.InRange(light.SpringPercent, 36, 39);
+        Assert.InRange(moderate.SpringPercent, 50, 53);
+        Assert.InRange(stable.SpringPercent, 59, 61);
+        Assert.InRange(capped.SpringPercent, 59, 61);
     }
 
     [Fact]
@@ -162,8 +162,8 @@ public sealed class GameplayFfbCalculatorTests
     public void Field_surface_enables_surface_feedback_and_modifies_condition_effects()
     {
         var settings = new GameplayFfbSettings();
-        var road = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: false)), settings);
-        var field = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field")), settings);
+        var road = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 25, isOnField: false)), settings);
+        var field = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field")), settings);
 
         Assert.True(field.SurfaceVibrationPercent > 0);
         Assert.True(field.SpringPercent < road.SpringPercent);
@@ -558,8 +558,15 @@ public sealed class GameplayFfbCalculatorTests
     [Fact]
     public void Landing_and_collision_have_priority_over_normal_bump()
     {
-        var landing = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.8, landingImpulse: 0.8, groundContactRatio: 1)), new GameplayFfbSettings());
-        var collision = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.9, collisionImpulse: 1.1, groundContactRatio: 1)), new GameplayFfbSettings());
+        var settings = new GameplayFfbSettings();
+        foreach (var profile in settings.VehicleCategoryEffectProfiles.Values)
+        {
+            profile.CollisionFeedback.StrengthPercent = 100;
+            profile.CollisionFeedback.MaxOutputPercent = 100;
+            profile.CollisionFeedback.FullImpulse = 2.0;
+        }
+        var landing = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.8, landingImpulse: 0.8, groundContactRatio: 1)), settings);
+        var collision = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.1, collisionImpulse: 2.0, groundContactRatio: 1)), settings);
 
         Assert.Equal(FfbPulseKind.Landing, landing.EventPulseKind);
         Assert.Equal(FfbPulseKind.Collision, collision.EventPulseKind);

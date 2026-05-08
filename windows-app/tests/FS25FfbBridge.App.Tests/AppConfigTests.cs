@@ -22,10 +22,11 @@ public sealed class AppConfigTests
         Assert.True(config.GameplayFfb.SpeedSpring.Enabled);
         Assert.True(config.GameplayFfb.SpeedDamper.Enabled);
         Assert.True(config.GameplayFfb.MechanicalFriction.Enabled);
-        Assert.Equal(60, config.GameplayFfb.SpeedSpring.StrengthPercent);
-        Assert.Equal(65, config.GameplayFfb.SpeedSpring.MaxOutputPercent);
-        Assert.Equal(50, config.GameplayFfb.SpeedSpring.SpeedReferenceKmh);
-        Assert.Equal(0.04, config.GameplayFfb.SpeedSpring.StandstillFloor);
+        Assert.Equal(75, config.GameplayFfb.SpeedSpring.StrengthPercent);
+        Assert.Equal(80, config.GameplayFfb.SpeedSpring.MaxOutputPercent);
+        Assert.Equal(28, config.GameplayFfb.SpeedSpring.SpeedReferenceKmh);
+        Assert.Equal(0.22, config.GameplayFfb.SpeedSpring.StandstillFloor);
+        Assert.Equal(FfbCurveKind.Aggressive, config.GameplayFfb.SpeedSpring.Curve);
         Assert.Equal(70, config.GameplayFfb.SpeedDamper.StrengthPercent);
         Assert.Equal(65, config.GameplayFfb.SpeedDamper.MaxOutputPercent);
         Assert.Equal(55, config.GameplayFfb.SpeedDamper.SpeedReferenceKmh);
@@ -70,12 +71,13 @@ public sealed class AppConfigTests
         Assert.DoesNotContain(VehicleCategoryFfbProfile.HeavyTractorTracked, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
         Assert.All(config.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
         {
-            Assert.Equal(60, profile.SpeedSpring.StrengthPercent);
-            Assert.Equal(65, profile.SpeedSpring.MaxOutputPercent);
-            Assert.Equal(50, profile.SpeedSpring.SpeedReferenceKmh);
-            Assert.Equal(0.04, profile.SpeedSpring.StandstillFloor);
+            Assert.Equal(75, profile.SpeedSpring.StrengthPercent);
+            Assert.Equal(80, profile.SpeedSpring.MaxOutputPercent);
+            Assert.Equal(28, profile.SpeedSpring.SpeedReferenceKmh);
+            Assert.Equal(0.22, profile.SpeedSpring.StandstillFloor);
+            Assert.Equal(FfbCurveKind.Aggressive, profile.SpeedSpring.Curve);
         });
-        Assert.Equal(84, config.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorTracked].SpeedDamper.StrengthPercent);
+        Assert.Equal(68, config.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorTracked].SpeedDamper.StrengthPercent);
     }
 
     [Fact]
@@ -118,12 +120,12 @@ public sealed class AppConfigTests
         var migrated = store.Load();
 
         Assert.Equal(12, migrated.EffectsProfileVersion);
-        Assert.Equal(60, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
-        Assert.Equal(55, migrated.GameplayFfb.SpeedDamper.StrengthPercent);
-        Assert.Equal(65, migrated.GameplayFfb.SpeedDamper.MaxOutputPercent);
+        Assert.Equal(75, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
+        Assert.Equal(45, migrated.GameplayFfb.SpeedDamper.StrengthPercent);
+        Assert.Equal(80, migrated.GameplayFfb.SpeedDamper.MaxOutputPercent);
         Assert.Contains(VehicleCategoryFfbProfile.TractorTracked, migrated.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
         Assert.Contains(VehicleCategoryFfbProfile.Unknown, migrated.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
-        Assert.Equal(60, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring.StrengthPercent);
+        Assert.Equal(75, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring.StrengthPercent);
     }
 
     [Fact]
@@ -146,8 +148,8 @@ public sealed class AppConfigTests
         var loadedAgain = store.Load();
 
         Assert.Equal(12, loadedAgain.EffectsProfileVersion);
-        Assert.Equal(70, loadedAgain.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedDamper.StrengthPercent);
-        Assert.Equal(50, loadedAgain.GameplayFfb.SpeedDamper.StrengthPercent);
+        Assert.Equal(57, loadedAgain.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedDamper.StrengthPercent);
+        Assert.Equal(41, loadedAgain.GameplayFfb.SpeedDamper.StrengthPercent);
     }
 
     [Fact]
@@ -169,14 +171,14 @@ public sealed class AppConfigTests
         var migrated = store.Load();
 
         Assert.Equal(12, migrated.EffectsProfileVersion);
-        Assert.Equal(60, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
+        Assert.Equal(75, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
         Assert.All(migrated.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
         {
-            Assert.Equal(60, profile.SpeedSpring.StrengthPercent);
-            Assert.Equal(65, profile.SpeedSpring.MaxOutputPercent);
-            Assert.Equal(50, profile.SpeedSpring.SpeedReferenceKmh);
-            Assert.Equal(0.04, profile.SpeedSpring.StandstillFloor);
-            Assert.Equal(FfbCurveKind.Smooth, profile.SpeedSpring.Curve);
+            Assert.Equal(75, profile.SpeedSpring.StrengthPercent);
+            Assert.Equal(80, profile.SpeedSpring.MaxOutputPercent);
+            Assert.Equal(28, profile.SpeedSpring.SpeedReferenceKmh);
+            Assert.Equal(0.22, profile.SpeedSpring.StandstillFloor);
+            Assert.Equal(FfbCurveKind.Aggressive, profile.SpeedSpring.Curve);
         });
     }
 

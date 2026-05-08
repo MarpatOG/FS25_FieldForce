@@ -155,17 +155,18 @@ public sealed class DrivetrainPulseSettings : FfbEffectSettings
 
 public class GameplayFfbEffectProfile
 {
-    public const int SpeedSpringStrengthDefault = 60;
-    public const int SpeedSpringMaxOutputDefault = 65;
-    public const double SpeedSpringStandstillFloorDefault = 0.04;
-    public const double SpeedSpringReferenceKmhDefault = 50;
+    public const int SpeedSpringStrengthDefault = 75;
+    public const int SpeedSpringMaxOutputDefault = 80;
+    public const double SpeedSpringStandstillFloorDefault = 0.22;
+    public const double SpeedSpringReferenceKmhDefault = 28;
+    public const int DefaultMaxOutputPercent = 65;
 
     public SpeedConditionSettings SpeedSpring { get; set; } = new()
     {
         Enabled = true,
         StrengthPercent = SpeedSpringStrengthDefault,
         MaxOutputPercent = SpeedSpringMaxOutputDefault,
-        Curve = FfbCurveKind.Smooth,
+        Curve = FfbCurveKind.Aggressive,
         StandstillFloor = SpeedSpringStandstillFloorDefault,
         SpeedReferenceKmh = SpeedSpringReferenceKmhDefault
     };
@@ -174,7 +175,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 70,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         StandstillFloor = 0.04,
         SpeedReferenceKmh = 55
@@ -184,7 +185,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 38,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         BaseFriction = 0.18,
         LoadInfluence = 0.80,
@@ -195,7 +196,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 55,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         AffectsSpring = true,
         AffectsDamper = true,
@@ -209,7 +210,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 31,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         MinRpm = 500,
         MaxRpm = 2400,
@@ -221,7 +222,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 35,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         MinSpeedKmh = 0.2,
         FieldFrequencyMinHz = 8,
@@ -235,7 +236,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 31,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         MinSlip = 0.12,
         FullSlip = 0.65,
@@ -248,7 +249,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 22,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         MinWetness = 0.05,
         DamperModifierPercent = 18,
@@ -259,7 +260,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 16,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         FullRollDeg = 12,
         FullPitchDeg = 12,
@@ -273,7 +274,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 34,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Aggressive,
         MinImpulse = 0.28,
         FullImpulse = 1.2,
@@ -291,7 +292,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 28,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         MinImpulse = 0.08,
         FullImpulse = 0.60,
@@ -303,7 +304,7 @@ public class GameplayFfbEffectProfile
     {
         Enabled = true,
         StrengthPercent = 18,
-        MaxOutputPercent = SpeedSpringMaxOutputDefault,
+        MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         DurationMs = 45,
         CooldownMs = 160
@@ -486,7 +487,7 @@ public class GameplayFfbEffectProfile
         settings.SpeedSpring.Enabled = true;
         settings.SpeedSpring.StrengthPercent = SpeedSpringStrengthDefault;
         settings.SpeedSpring.MaxOutputPercent = SpeedSpringMaxOutputDefault;
-        settings.SpeedSpring.Curve = FfbCurveKind.Smooth;
+        settings.SpeedSpring.Curve = FfbCurveKind.Aggressive;
         settings.SpeedSpring.StandstillFloor = SpeedSpringStandstillFloorDefault;
         settings.SpeedSpring.SpeedReferenceKmh = SpeedSpringReferenceKmhDefault;
     }
@@ -495,7 +496,7 @@ public class GameplayFfbEffectProfile
     {
         settings.BumpFeedback.Enabled = true;
         settings.BumpFeedback.StrengthPercent = 34;
-        settings.BumpFeedback.MaxOutputPercent = SpeedSpringMaxOutputDefault;
+        settings.BumpFeedback.MaxOutputPercent = DefaultMaxOutputPercent;
         settings.BumpFeedback.Curve = FfbCurveKind.Aggressive;
         settings.BumpFeedback.MinImpulse = 0.28;
         settings.BumpFeedback.FullImpulse = 1.2;
@@ -504,7 +505,7 @@ public class GameplayFfbEffectProfile
 
         settings.SuspensionHitFeedback.Enabled = true;
         settings.SuspensionHitFeedback.StrengthPercent = 30;
-        settings.SuspensionHitFeedback.MaxOutputPercent = SpeedSpringMaxOutputDefault;
+        settings.SuspensionHitFeedback.MaxOutputPercent = DefaultMaxOutputPercent;
         settings.SuspensionHitFeedback.Curve = FfbCurveKind.Aggressive;
         settings.SuspensionHitFeedback.MinImpulse = 0.26;
         settings.SuspensionHitFeedback.FullImpulse = 1.25;
@@ -513,7 +514,7 @@ public class GameplayFfbEffectProfile
 
         settings.TerrainRumble.Enabled = true;
         settings.TerrainRumble.StrengthPercent = 28;
-        settings.TerrainRumble.MaxOutputPercent = SpeedSpringMaxOutputDefault;
+        settings.TerrainRumble.MaxOutputPercent = DefaultMaxOutputPercent;
         settings.TerrainRumble.Curve = FfbCurveKind.Smooth;
         settings.TerrainRumble.MinImpulse = 0.08;
         settings.TerrainRumble.FullImpulse = 0.60;

@@ -6,6 +6,7 @@ public sealed class GameplayFfbCalculator
 {
     private const double MovingSpeedThresholdKmh = 2.0;
     private DrivetrainSample? _lastDrivetrainSample;
+    private SteeringModel? _lastSteeringModel;
 
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings)
     {
@@ -17,6 +18,7 @@ public sealed class GameplayFfbCalculator
         if (!settings.Enabled)
         {
             _lastDrivetrainSample = null;
+            _lastSteeringModel = null;
             return GameplayFfbOutput.Zero;
         }
 
@@ -25,6 +27,7 @@ public sealed class GameplayFfbCalculator
         if (fade <= 0 || packet is null || packet.IsPlayerInVehicle != true)
         {
             _lastDrivetrainSample = null;
+            _lastSteeringModel = null;
             return GameplayFfbOutput.Zero;
         }
 
@@ -51,6 +54,7 @@ public sealed class GameplayFfbCalculator
         steering = SteeringModifierMixer.Apply(steering, modifiers);
         steering = SpeedStabilityLayer.Apply(steering, features, profile, context).Value;
         steering = SafetyFilters.Apply(steering);
+        steering = SmoothSteering(steering, context);
 
         var haptics = HapticMixer.CombineContinuous(
             SurfaceTractionLayer.CalculateContinuous(features, profile, context),
@@ -188,7 +192,8 @@ public sealed class GameplayFfbCalculator
 
     private static bool CalculateSteeringSlipReliefActive(TelemetryFeatures features, GameplayFfbEffectProfile profile)
     {
-        return features.Slip > Math.Clamp(profile.SlipFeedback.MinSlip, 0, 1);
+        return profile.SlipFeedback.Enabled &&
+               features.Slip > Math.Clamp(profile.SlipFeedback.MinSlip, 0, 1);
     }
 
     internal static double CalculateSpeedEffect(SpeedConditionSettings settings, double speedKmh, double fade)
@@ -232,6 +237,7 @@ public sealed class GameplayFfbCalculator
     {
         return pulses
             .Where(p => p.Confidence > 0 && Math.Abs(p.Percent) > 0)
+            .Where(p => p.Kind != FfbPulseKind.Collision || Math.Abs(p.Percent) >= 18)
             .OrderBy(p => PulsePriority(p.Kind))
             .ThenByDescending(p => Math.Abs(p.Percent))
             .FirstOrDefault();
@@ -514,9 +520,9 @@ public sealed class GameplayFfbCalculator
                 return new(new SteeringModifiers(1, 1, 1, 0, 0), features.LoadConfidence);
             }
 
-            var loadResistance = (profile.LoadResistance.StrengthPercent / 100.0) *
-                                 (profile.LoadResistance.MaxOutputPercent / 100.0) *
-                                 ApplyCurve(CalculateLoadRatio(features.LoadFactor), profile.LoadResistance.Curve);
+            var loadResistance =
+                (CalculateMaxCapped(profile.LoadResistance, context.TelemetryFade) / 100.0) *
+                ApplyCurve(CalculateLoadRatio(features.LoadFactor), profile.LoadResistance.Curve);
             return new(new SteeringModifiers(
                 profile.LoadResistance.AffectsSpring ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.SpringScale, 0, 2)) : 1,
                 profile.LoadResistance.AffectsDamper ? 1 + (loadResistance * Math.Clamp(profile.LoadResistance.DamperScale, 0, 2)) : 1,
@@ -557,7 +563,13 @@ public sealed class GameplayFfbCalculator
         public static LayerContribution<SteeringModifiers> CalculateModifiers(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var contactLoss = (1 - features.ContactRatio) * features.ContactConfidence;
-            var slipRelief = Math.Clamp((features.Slip - profile.SlipFeedback.MinSlip) / Math.Max(0.01, profile.SlipFeedback.FullSlip - profile.SlipFeedback.MinSlip), 0, 1) * 0.30;
+            var slipRelief = profile.SlipFeedback.Enabled
+                ? Math.Clamp(
+                    (features.Slip - profile.SlipFeedback.MinSlip) /
+                    Math.Max(0.01, profile.SlipFeedback.FullSlip - profile.SlipFeedback.MinSlip),
+                    0,
+                    1) * 0.30
+                : 0;
             return new(new SteeringModifiers(
                 1,
                 1,
@@ -646,7 +658,19 @@ public sealed class GameplayFfbCalculator
         public static IReadOnlyList<EventPulse> CalculatePulses(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var pulses = new List<EventPulse>();
-            TryAddImpulsePulse(pulses, FfbPulseKind.Collision, features.CollisionImpulse, profile.CollisionFeedback, context, DirectionFromHorizontalImpact(packet), CalculateCollisionSurfaceScale(features), CalculateCollisionMinImpulse(features, profile.CollisionFeedback));
+            if (ShouldAllowCollisionPulse(features))
+            {
+                TryAddImpulsePulse(
+                    pulses,
+                    FfbPulseKind.Collision,
+                    features.CollisionImpulse,
+                    profile.CollisionFeedback,
+                    context,
+                    DirectionFromHorizontalImpact(packet),
+                    CalculateCollisionSurfaceScale(features),
+                    CalculateCollisionMinImpulse(features, profile.CollisionFeedback));
+            }
+
             TryAddImpulsePulse(pulses, FfbPulseKind.Landing, features.LandingImpulse, profile.LandingFeedback, context, 1);
 
             var sideKind = SelectSidePulseKind(features);
@@ -723,8 +747,38 @@ public sealed class GameplayFfbCalculator
         private static double CalculateCollisionMinImpulse(TelemetryFeatures features, ImpulsePulseFeedbackSettings settings)
         {
             return IsOffRoadSurface(features)
-                ? Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 0.90)
-                : Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 0.95);
+                ? Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 1.25)
+                : Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 1.75);
+        }
+
+        private static bool ShouldAllowCollisionPulse(TelemetryFeatures features)
+        {
+            if (features.CollisionImpulse <= 0)
+            {
+                return false;
+            }
+
+            var minCollision = IsOffRoadSurface(features) ? 1.25 : 1.75;
+
+            if (features.CollisionImpulse < minCollision)
+            {
+                return false;
+            }
+
+            if (features.VerticalImpactImpulse > features.CollisionImpulse * 0.75)
+            {
+                return false;
+            }
+
+            if (!IsOffRoadSurface(features) &&
+                features.ContactConfidence > 0 &&
+                features.ContactRatio > 0.75 &&
+                features.CollisionImpulse < 2.0)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private static bool ShouldAllowRoadBump(TelemetryFeatures features)
@@ -797,21 +851,51 @@ public sealed class GameplayFfbCalculator
         public static ContinuousHaptics CombineContinuous(params LayerContribution<ContinuousHaptics>[] layers)
         {
             var result = new ContinuousHaptics(0, 0, 0, 0, 0, 0, 0, 0);
+
             foreach (var layer in layers)
             {
                 var confidence = Math.Clamp(layer.Confidence, 0, 1);
                 var value = layer.Value;
-                result = result with
+
+                var surfaceCandidate = value.SurfacePercent * confidence;
+                if (surfaceCandidate > result.SurfacePercent)
                 {
-                    SurfacePercent = Math.Max(result.SurfacePercent, value.SurfacePercent * confidence),
-                    SurfaceHz = value.SurfacePercent > result.SurfacePercent ? value.SurfaceHz : result.SurfaceHz,
-                    SlipPercent = Math.Max(result.SlipPercent, value.SlipPercent * confidence),
-                    SlipHz = value.SlipPercent > result.SlipPercent ? value.SlipHz : result.SlipHz,
-                    EnginePercent = Math.Max(result.EnginePercent, value.EnginePercent * confidence),
-                    EngineHz = value.EnginePercent > result.EnginePercent ? value.EngineHz : result.EngineHz,
-                    TerrainRumblePercent = Math.Max(result.TerrainRumblePercent, value.TerrainRumblePercent * confidence),
-                    TerrainRumbleHz = value.TerrainRumblePercent > result.TerrainRumblePercent ? value.TerrainRumbleHz : result.TerrainRumbleHz
-                };
+                    result = result with
+                    {
+                        SurfacePercent = surfaceCandidate,
+                        SurfaceHz = value.SurfaceHz
+                    };
+                }
+
+                var slipCandidate = value.SlipPercent * confidence;
+                if (slipCandidate > result.SlipPercent)
+                {
+                    result = result with
+                    {
+                        SlipPercent = slipCandidate,
+                        SlipHz = value.SlipHz
+                    };
+                }
+
+                var engineCandidate = value.EnginePercent * confidence;
+                if (engineCandidate > result.EnginePercent)
+                {
+                    result = result with
+                    {
+                        EnginePercent = engineCandidate,
+                        EngineHz = value.EngineHz
+                    };
+                }
+
+                var terrainCandidate = value.TerrainRumblePercent * confidence;
+                if (terrainCandidate > result.TerrainRumblePercent)
+                {
+                    result = result with
+                    {
+                        TerrainRumblePercent = terrainCandidate,
+                        TerrainRumbleHz = value.TerrainRumbleHz
+                    };
+                }
             }
 
             return result;
@@ -859,6 +943,27 @@ public sealed class GameplayFfbCalculator
                 Math.Clamp(steering.Damper, 0, 100),
                 Math.Clamp(steering.Friction, 0, 100));
         }
+    }
+
+    private SteeringModel SmoothSteering(SteeringModel current, FfbFrameContext context)
+    {
+        const double alpha = 0.18;
+
+        if (_lastSteeringModel is null)
+        {
+            _lastSteeringModel = current;
+            return current;
+        }
+
+        var previous = _lastSteeringModel;
+
+        var smoothed = new SteeringModel(
+            Lerp(previous.Spring, current.Spring, alpha),
+            Lerp(previous.Damper, current.Damper, alpha),
+            Lerp(previous.Friction, current.Friction, alpha));
+
+        _lastSteeringModel = smoothed;
+        return smoothed;
     }
 
     private static double Lerp(double from, double to, double ratio)
