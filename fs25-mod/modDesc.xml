@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <modDesc descVersion="98">
     <author>FS25 Real FFB Bridge</author>
-    <version>0.5.0.0</version>
+    <version>0.5.0.1</version>
     <title>
         <en>FS25 Real FFB Telemetry</en>
     </title>

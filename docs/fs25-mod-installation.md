@@ -1,25 +1,45 @@
 # FS25 Mod Installation
 
-## Install Folder
+## Install Zip
 
-Create this folder:
+Use this zip package:
 
 ```text
-Documents/My Games/FarmingSimulator2025/mods/FS25_RealFfbTelemetry
+artifacts/FS25_RealFfbTelemetry.zip
 ```
 
-Copy the contents of repository `fs25-mod/` into it:
+Copy it to:
 
 ```text
-FS25_RealFfbTelemetry/
+Documents/My Games/FarmingSimulator2025/mods/FS25_RealFfbTelemetry.zip
+```
+
+The archive contents must be:
+
+```text
+FS25_RealFfbTelemetry.zip
   modDesc.xml
+  VERSION.md
   config/
     TelemetryConfig.lua
   src/
     FS25RealFfbTelemetry.lua
 ```
 
-Do not copy the parent repository folder itself. `modDesc.xml` must be directly inside `FS25_RealFfbTelemetry`.
+Do not zip the parent repository folder itself. `modDesc.xml` must be directly at the archive root.
+
+## Update Existing Install
+
+Close FS25 first, then rebuild and replace the zip:
+
+```powershell
+Remove-Item -Force artifacts/FS25_RealFfbTelemetry.zip -ErrorAction SilentlyContinue
+Compress-Archive -Path fs25-mod/* -DestinationPath artifacts/FS25_RealFfbTelemetry.zip
+Copy-Item -Force artifacts/FS25_RealFfbTelemetry.zip "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry.zip"
+Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry" -ErrorAction SilentlyContinue
+```
+
+Keep only one installed copy. If both `FS25_RealFfbTelemetry.zip` and `FS25_RealFfbTelemetry/` exist in the FS25 `mods` directory, FS25 can show or load a stale version.
 
 ## Configure
 

@@ -4,22 +4,22 @@ Milestone 2 telemetry sender for Farming Simulator 25.
 
 ## Install
 
-Copy the contents of this `fs25-mod` folder into a mod folder named:
+Package this `fs25-mod` folder as:
 
 ```text
-FS25_RealFfbTelemetry
+FS25_RealFfbTelemetry.zip
 ```
 
-Place that folder in:
+Place that zip in:
 
 ```text
 Documents/My Games/FarmingSimulator2025/mods/
 ```
 
-The resulting layout should be:
+The zip contents should have `modDesc.xml` at the archive root:
 
 ```text
-FS25_RealFfbTelemetry/
+FS25_RealFfbTelemetry.zip
   modDesc.xml
   VERSION.md
   config/
@@ -27,6 +27,19 @@ FS25_RealFfbTelemetry/
 ```
 
 Enable `FS25 Real FFB Telemetry` in a savegame. Start the Windows bridge before or after FS25; if the bridge is not running, the mod must not crash the game.
+
+## Update Installed Mod
+
+Rebuild the zip after any shipped Lua/config/version change:
+
+```powershell
+Remove-Item -Force artifacts/FS25_RealFfbTelemetry.zip -ErrorAction SilentlyContinue
+Compress-Archive -Path fs25-mod/* -DestinationPath artifacts/FS25_RealFfbTelemetry.zip
+Copy-Item -Force artifacts/FS25_RealFfbTelemetry.zip "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry.zip"
+Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry" -ErrorAction SilentlyContinue
+```
+
+Keep only the zip in the FS25 `mods` directory. A stale folder copy can make FS25 display or load an older mod version.
 
 ## Versioning
 

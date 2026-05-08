@@ -40,7 +40,7 @@ dotnet run --project windows-app/src/App/FS25FfbBridge.App.csproj
 
 1. Run the Windows app.
 2. Open `Telemetry`; it should show `Waiting`.
-3. Install `fs25-mod/` as `Documents/My Games/FarmingSimulator2025/mods/FS25_RealFfbTelemetry`.
+3. Install `artifacts/FS25_RealFfbTelemetry.zip` into `Documents/My Games/FarmingSimulator2025/mods/`.
 4. Start FS25 and enable `FS25 Real FFB Telemetry`.
 5. Enter a vehicle.
 6. The app should change to `Connected` and show vehicle/speed/RPM fields as available.
@@ -58,6 +58,19 @@ Manual transport checks are documented in `docs/telemetry-protocol.md`.
 ## Mod Versioning
 
 Mandatory rule: any change to files shipped inside `fs25-mod/` must update the FS25 mod version in both `fs25-mod/modDesc.xml` and [fs25-mod/VERSION.md](fs25-mod/VERSION.md), unless the commit message explicitly states why the shipped mod package is unaffected.
+
+## Update FS25 Mod Zip
+
+FS25 should use the zip package, matching the normal mod layout. After changing files under `fs25-mod/`, rebuild and replace the installed zip:
+
+```powershell
+Remove-Item -Force artifacts/FS25_RealFfbTelemetry.zip -ErrorAction SilentlyContinue
+Compress-Archive -Path fs25-mod/* -DestinationPath artifacts/FS25_RealFfbTelemetry.zip
+Copy-Item -Force artifacts/FS25_RealFfbTelemetry.zip "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry.zip"
+Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry" -ErrorAction SilentlyContinue
+```
+
+Do not keep both `FS25_RealFfbTelemetry.zip` and a `FS25_RealFfbTelemetry/` folder in the FS25 `mods` directory. If FS25 still shows an old version, close the game, remove the folder copy, replace the zip, and start FS25 again.
 
 ## Milestone 1 Baseline
 
