@@ -550,6 +550,14 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Road_horizontal_jerk_does_not_create_collision_pulse()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 45, surfaceType: "asphalt", collisionImpulse: 0.55, longitudinalJerkImpulse: 0.55, verticalImpactImpulse: 0.05, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.False(output.EventPulseActive);
+    }
+
+    [Fact]
     public void Terrain_rumble_does_not_create_event_pulse_by_itself()
     {
         var output = _calculator.Calculate(State(Packet(speedKmh: 15, isOnField: true, surfaceType: "field", suspensionImpulse: 0.20, verticalImpactImpulse: 0.05, groundContactRatio: 1)), new GameplayFfbSettings());

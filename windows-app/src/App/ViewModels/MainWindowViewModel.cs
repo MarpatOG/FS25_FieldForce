@@ -21,6 +21,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private AppConfig _config;
     private IntPtr _windowHandle;
     private bool _loadingConfig;
+    private bool _syncingEffectCategoryFromActiveVehicle;
+    private bool _effectCategoryPinnedByUser;
     private bool _gameplayFfbPausedByStopAll;
     private bool _disposed;
 
@@ -712,6 +714,32 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SelectedEffectCategory = EffectCategories[next];
     }
 
+    private void SyncSelectedEffectCategoryWithActiveVehicle(string? category)
+    {
+        if (_effectCategoryPinnedByUser)
+        {
+            return;
+        }
+
+        var normalized = VehicleCategoryFfbProfile.Categories.Contains(category ?? string.Empty)
+            ? category!
+            : VehicleCategoryFfbProfile.Unknown;
+        if (SelectedEffectCategory == normalized)
+        {
+            return;
+        }
+
+        _syncingEffectCategoryFromActiveVehicle = true;
+        try
+        {
+            SelectedEffectCategory = normalized;
+        }
+        finally
+        {
+            _syncingEffectCategoryFromActiveVehicle = false;
+        }
+    }
+
     private void SelectDevice(DeviceInfo? device)
     {
         if (device is null)
@@ -796,6 +824,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (_loadingConfig)
         {
             return;
+        }
+
+        if (!_syncingEffectCategoryFromActiveVehicle)
+        {
+            _effectCategoryPinnedByUser = true;
         }
 
         _loadingConfig = true;
@@ -1220,6 +1253,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             VehicleType = string.IsNullOrWhiteSpace(packet.VehicleType) ? "Unknown" : packet.VehicleType;
             VehicleCategory = string.IsNullOrWhiteSpace(packet.VehicleCategory) ? "Unknown" : packet.VehicleCategory;
             ActiveVehicleCategory = VehicleCategory;
+            SyncSelectedEffectCategoryWithActiveVehicle(packet.VehicleCategory);
             SpeedKmh = FormatNumber(packet.SpeedKmh, "0.0 km/h");
             SteeringAngle = FormatNumber(packet.SteeringAngle, "0.000");
             Rpm = FormatNumber(packet.Rpm, "0 rpm");

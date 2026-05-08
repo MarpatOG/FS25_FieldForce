@@ -89,10 +89,85 @@ public sealed class MainWindowViewModelTests
         Assert.Equal(100, backend.LastDeviceLimitPercent);
     }
 
+    [Fact]
+    public void Effect_editor_follows_active_vehicle_category_until_user_selects_profile()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        ApplyTelemetryState(viewModel, VehicleCategoryFfbProfile.Truck);
+        viewModel.TerrainRumbleEnabled = false;
+
+        var saved = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(configPath), new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.Equal(VehicleCategoryFfbProfile.Truck, viewModel.SelectedEffectCategory);
+        Assert.NotNull(saved);
+        Assert.False(saved!.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].TerrainRumble.Enabled);
+        Assert.True(saved.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].TerrainRumble.Enabled);
+    }
+
+    [Fact]
+    public void Manual_effect_category_selection_is_not_overridden_by_active_vehicle()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.SelectedEffectCategory = VehicleCategoryFfbProfile.Harvester;
+        ApplyTelemetryState(viewModel, VehicleCategoryFfbProfile.Truck);
+
+        Assert.Equal(VehicleCategoryFfbProfile.Harvester, viewModel.SelectedEffectCategory);
+    }
+
     private static int GetFreeUdpPort()
     {
         using var udp = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));
         return ((System.Net.IPEndPoint)udp.Client.LocalEndPoint!).Port;
+    }
+
+    private static void ApplyTelemetryState(MainWindowViewModel viewModel, string vehicleCategory)
+    {
+        var packet = new TelemetryPacket
+        {
+            Timestamp = 1,
+            GameState = "mission",
+            IsPlayerInVehicle = true,
+            VehicleName = "Truck",
+            VehicleType = "truck",
+            VehicleCategory = vehicleCategory,
+            SpeedKmh = 20
+        };
+        var state = new TelemetryReceiverState(
+            TelemetryStatus.Connected,
+            packet,
+            "{}",
+            30,
+            TimeSpan.FromMilliseconds(50),
+            null,
+            "127.0.0.1:34325",
+            "udp",
+            "file",
+            "udp",
+            null);
+        var method = typeof(MainWindowViewModel).GetMethod("ApplyTelemetryState", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method!.Invoke(viewModel, [state]);
     }
 
     private sealed class FakeFfbBackend : IFfbBackend

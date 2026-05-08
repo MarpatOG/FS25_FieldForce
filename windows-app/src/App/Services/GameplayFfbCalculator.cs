@@ -645,7 +645,7 @@ public sealed class GameplayFfbCalculator
         public static IReadOnlyList<EventPulse> CalculatePulses(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var pulses = new List<EventPulse>();
-            TryAddImpulsePulse(pulses, FfbPulseKind.Collision, features.CollisionImpulse, profile.CollisionFeedback, context, DirectionFromHorizontalImpact(packet));
+            TryAddImpulsePulse(pulses, FfbPulseKind.Collision, features.CollisionImpulse, profile.CollisionFeedback, context, DirectionFromHorizontalImpact(packet), CalculateCollisionSurfaceScale(features), CalculateCollisionMinImpulse(features, profile.CollisionFeedback));
             TryAddImpulsePulse(pulses, FfbPulseKind.Landing, features.LandingImpulse, profile.LandingFeedback, context, 1);
 
             var sideKind = SelectSidePulseKind(features);
@@ -712,6 +712,18 @@ public sealed class GameplayFfbCalculator
             return IsOffRoadSurface(features)
                 ? Math.Clamp(settings.MinImpulse, 0, 10)
                 : Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 0.58);
+        }
+
+        private static double CalculateCollisionSurfaceScale(TelemetryFeatures features)
+        {
+            return IsOffRoadSurface(features) ? 1.0 : 0.55;
+        }
+
+        private static double CalculateCollisionMinImpulse(TelemetryFeatures features, ImpulsePulseFeedbackSettings settings)
+        {
+            return IsOffRoadSurface(features)
+                ? Math.Clamp(settings.MinImpulse, 0, 10)
+                : Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 0.95);
         }
 
         private static bool ShouldAllowRoadBump(TelemetryFeatures features)
