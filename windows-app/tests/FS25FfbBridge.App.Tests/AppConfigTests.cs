@@ -67,7 +67,7 @@ public sealed class AppConfigTests
         Assert.Equal(28, config.GameplayFfb.TerrainRumble.StrengthPercent);
         Assert.Equal(18, config.GameplayFfb.DrivetrainPulse.StrengthPercent);
         Assert.Contains(VehicleCategoryFfbProfile.TractorWheeled, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
-        Assert.Contains(VehicleCategoryFfbProfile.HeavyTractorTracked, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
+        Assert.DoesNotContain(VehicleCategoryFfbProfile.HeavyTractorTracked, config.GameplayFfb.VehicleCategoryEffectProfiles.Keys);
         Assert.All(config.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
         {
             Assert.Equal(60, profile.SpeedSpring.StrengthPercent);

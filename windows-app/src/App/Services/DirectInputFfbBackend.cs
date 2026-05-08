@@ -13,6 +13,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private const int MomoTestConditionCoefficient = 10000;
     private const int MomoTestConditionSaturation = 10000;
     private const int MomoSpringDeadBand = 100;
+    private const int GameplaySpringDeadBand = 0;
     private const int MomoConstantMagnitude = 10000;
     private const int MomoVibrationMagnitude = 9000;
     private const int MomoVibrationHz = 24;
@@ -208,7 +209,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             FfbApplyResult? result = null;
             if (previous.SpringPercent != quantized.SpringPercent)
             {
-                result ??= ApplyConditionEffect(ref _gameplaySpringEffect, EffectGuid.Spring, quantized.SpringPercent, deadBand: MomoSpringDeadBand, "spring");
+                result ??= ApplyConditionEffect(ref _gameplaySpringEffect, EffectGuid.Spring, quantized.SpringPercent, deadBand: GameplaySpringDeadBand, "spring");
             }
 
             if (previous.DamperPercent != quantized.DamperPercent)
@@ -624,7 +625,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     {
         return output with
         {
-            SpringPercent = QuantizePercent(output.SpringPercent, 2),
+            SpringPercent = QuantizePercent(output.SpringPercent, 1),
             DamperPercent = QuantizePercent(output.DamperPercent, 2),
             FrictionPercent = QuantizePercent(output.FrictionPercent, 2),
             EngineVibrationPercent = QuantizePercent(output.EngineVibrationPercent, 2),

@@ -253,7 +253,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
         throttle = inVehicle and self:getFirstNumber(vehicle.axisForward, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisForward or nil) or nil,
         brake = inVehicle and self:getFirstNumber(vehicle.axisBrake, vehicle.brakePedal, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisBrake or nil) or nil,
         clutch = inVehicle and self:getFirstNumber(vehicle.axisClutch, vehicle.clutchPedal) or nil,
-        gear = inVehicle and self:getFirstNumber(vehicle.gear, vehicle.selectedGear, vehicle.spec_motorized ~= nil and vehicle.spec_motorized.gear) or nil
+        gear = inVehicle and self:getGear(vehicle) or nil
     }
 end
 
@@ -420,18 +420,13 @@ function FS25RealFfbTelemetry:getVehicleCategory(vehicle, wheelTireProfile)
     end
 
     if self:isTractorType(rawType) then
-        local heavy = self:isHeavyTractorType(rawType)
         local tracked = self:hasActiveCrawlers(vehicle)
 
-        if wheelTireProfile == "street" and not heavy and not tracked then
+        if wheelTireProfile == "street" and not tracked then
             return "Truck"
         end
 
-        if heavy and tracked then
-            return "HeavyTractorTracked"
-        elseif heavy then
-            return "HeavyTractorWheeled"
-        elseif tracked then
+        if tracked then
             return "TractorTracked"
         end
 
@@ -760,6 +755,47 @@ function FS25RealFfbTelemetry:getEngineStarted(vehicle)
     return nil
 end
 
+function FS25RealFfbTelemetry:getGear(vehicle)
+    if vehicle == nil then
+        return nil
+    end
+
+    local motorized = vehicle.spec_motorized
+    local motor = motorized ~= nil and motorized.motor or nil
+    local methodCandidates = {
+        { target = vehicle, name = "getGear" },
+        { target = vehicle, name = "getSelectedGear" },
+        { target = vehicle, name = "getCurrentGear" },
+        { target = motor, name = "getGear" },
+        { target = motor, name = "getSelectedGear" },
+        { target = motor, name = "getCurrentGear" }
+    }
+
+    for _, candidate in ipairs(methodCandidates) do
+        if candidate.target ~= nil and type(candidate.target[candidate.name]) == "function" then
+            local ok, value = pcall(function()
+                return candidate.target[candidate.name](candidate.target)
+            end)
+            if ok and type(value) == "number" then
+                return value
+            end
+        end
+    end
+
+    return self:getFirstNumber(
+        vehicle.gear,
+        vehicle.selectedGear,
+        vehicle.currentGear,
+        vehicle.activeGear,
+        motorized ~= nil and motorized.gear or nil,
+        motorized ~= nil and motorized.selectedGear or nil,
+        motorized ~= nil and motorized.currentGear or nil,
+        motor ~= nil and motor.gear or nil,
+        motor ~= nil and motor.selectedGear or nil,
+        motor ~= nil and motor.currentGear or nil,
+        motor ~= nil and motor.lastGear or nil)
+end
+
 function FS25RealFfbTelemetry:getMass(vehicle)
     if vehicle.getMass ~= nil then
         local ok, mass = pcall(function()
@@ -774,16 +810,56 @@ function FS25RealFfbTelemetry:getMass(vehicle)
 end
 
 function FS25RealFfbTelemetry:getTotalMass(vehicle)
+    local ownMass = self:getMass(vehicle)
     if vehicle.getTotalMass ~= nil then
         local ok, mass = pcall(function()
             return vehicle:getTotalMass()
         end)
-        if ok then
+        if ok and type(mass) == "number" and (ownMass == nil or mass > ownMass + 0.01) then
             return mass
         end
     end
 
-    return self:getMass(vehicle)
+    return self:calculateAttachedTotalMass(vehicle, {}, ownMass)
+end
+
+function FS25RealFfbTelemetry:calculateAttachedTotalMass(vehicle, visited, ownMass)
+    if vehicle == nil then
+        return ownMass
+    end
+
+    local key = tostring(vehicle)
+    if visited[key] == true then
+        return ownMass
+    end
+    visited[key] = true
+
+    local total = ownMass or self:getMass(vehicle) or 0
+    for _, attached in ipairs(self:getAttachedVehicles(vehicle)) do
+        if attached ~= nil then
+            total = total + (self:calculateAttachedTotalMass(attached, visited, self:getMass(attached)) or 0)
+        end
+    end
+
+    return total > 0 and total or ownMass
+end
+
+function FS25RealFfbTelemetry:getAttachedVehicles(vehicle)
+    local result = {}
+    local attacherSpec = vehicle ~= nil and vehicle.spec_attacherJoints or nil
+    local attachedImplements = attacherSpec ~= nil and attacherSpec.attachedImplements or nil
+    if type(attachedImplements) ~= "table" then
+        return result
+    end
+
+    for _, implement in pairs(attachedImplements) do
+        local object = implement ~= nil and (implement.object or implement.vehicle or implement.attachedObject) or nil
+        if object ~= nil then
+            table.insert(result, object)
+        end
+    end
+
+    return result
 end
 
 function FS25RealFfbTelemetry:getIsOnField(vehicle)
@@ -1089,8 +1165,16 @@ function FS25RealFfbTelemetry:calculateImpactImpulses(vehicle, motion, wheel)
     local localAx = motion.localAccelerationX or 0
     local localAz = motion.localAccelerationZ or 0
     local horizontalImpulse = math.min(math.sqrt((localAx * localAx) + (localAz * localAz)) / 9.81, 2)
+    local lateralImpulse = math.abs(localAx) / 9.81
+    local longitudinalImpulse = math.abs(localAz) / 9.81
+    local speedKmh = motion.speedKmh or 0
+    local hasCollisionShape = horizontalImpulse >= 1.25 or lateralImpulse >= longitudinalImpulse * 0.65
     local longitudinalJerkImpulse = horizontalImpulse
-    local collisionImpulse = horizontalImpulse >= 0.45 and (verticalImpactImpulse == nil or horizontalImpulse > verticalImpactImpulse * 1.35) and horizontalImpulse or nil
+    local collisionImpulse = speedKmh >= 4 and
+        horizontalImpulse >= 0.95 and
+        hasCollisionShape and
+        (verticalImpactImpulse == nil or horizontalImpulse > verticalImpactImpulse * 1.55) and
+        horizontalImpulse or nil
     local landingImpulse = nil
     local key = tostring(vehicle)
     local previous = self.lastImpactState ~= nil and self.lastImpactState[key] or nil

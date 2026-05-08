@@ -108,6 +108,21 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Heavy_tractor_categories_use_normal_tractor_effect_profiles()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring.StrengthPercent = 20;
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorTracked].SpeedSpring.StrengthPercent = 80;
+
+        var heavyWheeled = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.HeavyTractorWheeled)), settings);
+        var heavyTracked = _calculator.Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.HeavyTractorTracked)), settings);
+
+        Assert.Equal(VehicleCategoryFfbProfile.TractorWheeled, heavyWheeled.ActiveCategory);
+        Assert.Equal(VehicleCategoryFfbProfile.TractorTracked, heavyTracked.ActiveCategory);
+        Assert.True(heavyTracked.SpringPercent > heavyWheeled.SpringPercent);
+    }
+
+    [Fact]
     public void Unknown_vehicle_category_uses_unknown_effect_profile()
     {
         var settings = new GameplayFfbSettings();
@@ -494,6 +509,7 @@ public sealed class GameplayFfbCalculatorTests
 
         Assert.False(first.EventPulseActive);
         Assert.True(shifted.EventPulseActive);
+        Assert.Equal(FfbPulseKind.GearShift, shifted.EventPulseKind);
         Assert.False(repeated.EventPulseActive);
     }
 
@@ -553,6 +569,14 @@ public sealed class GameplayFfbCalculatorTests
     public void Road_horizontal_jerk_does_not_create_collision_pulse()
     {
         var output = _calculator.Calculate(State(Packet(speedKmh: 45, surfaceType: "asphalt", collisionImpulse: 0.55, longitudinalJerkImpulse: 0.55, verticalImpactImpulse: 0.05, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.False(output.EventPulseActive);
+    }
+
+    [Fact]
+    public void Offroad_moderate_horizontal_jerk_does_not_create_collision_pulse()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: true, surfaceType: "field", collisionImpulse: 0.65, longitudinalJerkImpulse: 0.65, verticalImpactImpulse: 0.05, groundContactRatio: 1)), new GameplayFfbSettings());
 
         Assert.False(output.EventPulseActive);
     }

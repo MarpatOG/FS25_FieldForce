@@ -133,13 +133,13 @@ public sealed class GameplayFfbCalculator
         {
             VehicleCategoryFfbProfile.TractorWheeled or
             VehicleCategoryFfbProfile.TractorTracked or
-            VehicleCategoryFfbProfile.HeavyTractorWheeled or
-            VehicleCategoryFfbProfile.HeavyTractorTracked or
             VehicleCategoryFfbProfile.Harvester or
             VehicleCategoryFfbProfile.Truck or
             VehicleCategoryFfbProfile.LoaderTelehandler or
             VehicleCategoryFfbProfile.LightVehicle or
             VehicleCategoryFfbProfile.Unknown => value,
+            VehicleCategoryFfbProfile.HeavyTractorWheeled => VehicleCategoryFfbProfile.TractorWheeled,
+            VehicleCategoryFfbProfile.HeavyTractorTracked => VehicleCategoryFfbProfile.TractorTracked,
             _ => VehicleCategoryFfbProfile.Unknown
         };
     }
@@ -245,7 +245,8 @@ public sealed class GameplayFfbCalculator
             FfbPulseKind.Landing => 1,
             FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit => 2,
             FfbPulseKind.Bump => 3,
-            FfbPulseKind.DrivetrainJerk => 4,
+            FfbPulseKind.GearShift => 4,
+            FfbPulseKind.DrivetrainJerk => 5,
             FfbPulseKind.EngineStartStop => 5,
             _ => 99
         };
@@ -716,13 +717,13 @@ public sealed class GameplayFfbCalculator
 
         private static double CalculateCollisionSurfaceScale(TelemetryFeatures features)
         {
-            return IsOffRoadSurface(features) ? 1.0 : 0.55;
+            return IsOffRoadSurface(features) ? 0.55 : 0.32;
         }
 
         private static double CalculateCollisionMinImpulse(TelemetryFeatures features, ImpulsePulseFeedbackSettings settings)
         {
             return IsOffRoadSurface(features)
-                ? Math.Clamp(settings.MinImpulse, 0, 10)
+                ? Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 0.90)
                 : Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 0.95);
         }
 

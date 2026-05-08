@@ -649,8 +649,6 @@ public sealed class VehicleCategoryFfbProfile
     [
         TractorWheeled,
         TractorTracked,
-        HeavyTractorWheeled,
-        HeavyTractorTracked,
         Harvester,
         Truck,
         LoaderTelehandler,
