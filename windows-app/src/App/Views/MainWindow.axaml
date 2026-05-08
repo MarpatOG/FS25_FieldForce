@@ -28,9 +28,10 @@
         <SolidColorBrush x:Key="DisabledTextBrush" Color="#8D928C"/>
         <SolidColorBrush x:Key="DisabledSurfaceBrush" Color="#ECE9E2"/>
         <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#EEECE6"/>
-        <SolidColorBrush x:Key="LogBackgroundBrush" Color="#20201E"/>
-        <SolidColorBrush x:Key="LogTextBrush" Color="#E8E1D4"/>
-        <SolidColorBrush x:Key="LogMutedBrush" Color="#AFA894"/>
+        <SolidColorBrush x:Key="LogBackgroundBrush" Color="#F5F3ED"/>
+        <SolidColorBrush x:Key="LogRowBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="LogTextBrush" Color="#111612"/>
+        <SolidColorBrush x:Key="LogMutedBrush" Color="#5E665F"/>
     </Window.Resources>
     <Window.Styles>
         <Style Selector="TextBlock">
@@ -174,17 +175,34 @@
         </Style>
         <Style Selector="ListBox.logList">
             <Setter Property="Background" Value="{StaticResource LogBackgroundBrush}"/>
-            <Setter Property="BorderBrush" Value="{StaticResource LogBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="Padding" Value="8"/>
+        </Style>
+        <Style Selector="ListBox.logList ListBoxItem">
+            <Setter Property="Background" Value="{StaticResource LogRowBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource LogTextBrush}"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
         <Style Selector="ListBox.logList ListBoxItem:selected">
-            <Setter Property="Background" Value="#3A3934"/>
+            <Setter Property="Background" Value="{StaticResource SelectionBrush}"/>
             <Setter Property="Foreground" Value="{StaticResource LogTextBrush}"/>
         </Style>
         <Style Selector="ListBox.logList ListBoxItem:selected TextBlock">
             <Setter Property="Foreground" Value="{StaticResource LogTextBrush}"/>
         </Style>
+        <Style Selector="ListBox.logList Expander">
+            <Setter Property="Background" Value="{StaticResource LogRowBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
         <Style Selector="TextBlock.logLine">
             <Setter Property="Foreground" Value="{StaticResource LogTextBrush}"/>
+            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="TextBlock.logMuted">
+            <Setter Property="Foreground" Value="{StaticResource LogMutedBrush}"/>
             <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace"/>
             <Setter Property="FontSize" Value="12"/>
         </Style>
@@ -909,17 +927,24 @@
                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Expander>
-                                        <Expander.Header>
-                                            <Grid ColumnDefinitions="64,92,*,52" ColumnSpacing="10" MinHeight="44">
-                                                <TextBlock Classes="logLine" Text="{Binding Time}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Classes="logLine" Text="{Binding Level}" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="2" Classes="logLine" Text="{Binding Summary}" TextWrapping="Wrap" VerticalAlignment="Center"/>
-                                                <TextBlock Grid.Column="3" Classes="logLine" Text="{Binding CountText}" VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Expander.Header>
-                                        <TextBlock Classes="logLine" Text="{Binding Details}" TextWrapping="Wrap" Margin="74,6,0,10"/>
-                                    </Expander>
+                                    <Border Background="{StaticResource LogRowBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4">
+                                        <Expander>
+                                            <Expander.Header>
+                                                <Grid ColumnDefinitions="72,104,*,52" ColumnSpacing="12" MinHeight="48" Margin="10,0">
+                                                    <TextBlock Classes="logMuted" Text="{Binding Time}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Classes="logMuted" Text="{Binding Level}" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" Classes="logLine" Text="{Binding Summary}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="3" Classes="logMuted" Text="{Binding CountText}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </Expander.Header>
+                                            <Border Background="{StaticResource LogBackgroundBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="20,10,20,14">
+                                                <TextBlock Classes="logLine" Text="{Binding Details}" TextWrapping="Wrap"/>
+                                            </Border>
+                                        </Expander>
+                                    </Border>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
