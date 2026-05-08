@@ -16,6 +16,14 @@ Place that zip in:
 Documents/My Games/FarmingSimulator2025/mods/
 ```
 
+If Windows redirects Documents to OneDrive, place it in the OneDrive FS25 profile instead, for example:
+
+```text
+%USERPROFILE%/OneDrive/Документы/My Games/FarmingSimulator2025/mods/
+```
+
+Use the `mods` directory beside the active FS25 `log.txt`.
+
 The zip contents should have `modDesc.xml` at the archive root:
 
 ```text

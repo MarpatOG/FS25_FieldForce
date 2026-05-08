@@ -14,6 +14,14 @@ Copy it to:
 Documents/My Games/FarmingSimulator2025/mods/FS25_RealFfbTelemetry.zip
 ```
 
+If Documents is redirected, the active FS25 profile can be under OneDrive instead, for example:
+
+```text
+%USERPROFILE%/OneDrive/Документы/My Games/FarmingSimulator2025/mods/FS25_RealFfbTelemetry.zip
+```
+
+Use the `mods` directory beside the active FS25 `log.txt`.
+
 The archive contents must be:
 
 ```text

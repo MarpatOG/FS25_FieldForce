@@ -70,6 +70,14 @@ Copy-Item -Force artifacts/FS25_RealFfbTelemetry.zip "$env:USERPROFILE\Documents
 Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry" -ErrorAction SilentlyContinue
 ```
 
+If Windows redirects Documents to OneDrive, FS25 may use this path instead:
+
+```text
+%USERPROFILE%\OneDrive\Документы\My Games\FarmingSimulator2025\mods
+```
+
+Check the active `log.txt` under `My Games/FarmingSimulator2025` when in doubt, and replace the zip in the same profile directory that FS25 is logging to.
+
 Do not keep both `FS25_RealFfbTelemetry.zip` and a `FS25_RealFfbTelemetry/` folder in the FS25 `mods` directory. If FS25 still shows an old version, close the game, remove the folder copy, replace the zip, and start FS25 again.
 
 ## Milestone 1 Baseline
