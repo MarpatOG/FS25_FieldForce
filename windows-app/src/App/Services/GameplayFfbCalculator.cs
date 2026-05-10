@@ -5,6 +5,9 @@ namespace FS25FfbBridge.App.Services;
 public sealed class GameplayFfbCalculator
 {
     private const double MovingSpeedThresholdKmh = 2.0;
+    private const double ImpulseNoiseFloor = 0.04;
+    private const double MinPulsePercentToEmit = 2.5;
+    private const double MinEventPercentForSuppression = 5.0;
     private DrivetrainSample? _lastDrivetrainSample;
     private SteeringModel? _lastSteeringModel;
 
@@ -309,9 +312,19 @@ public sealed class GameplayFfbCalculator
                (surfaceType == "unknown" && isOnField == true);
     }
 
+    private static bool IsRoadSurface(string surfaceType)
+    {
+        return surfaceType is "asphalt" or "road" or "concrete" or "pavement" or "tarmac";
+    }
+
     private static bool IsOffRoadSurface(TelemetryFeatures features)
     {
         return features.SurfaceClass is "field" or "wetField" or "grass" or "dirt" or "gravel" or "mud" or "snow" or "shallowwater";
+    }
+
+    private static bool IsUnknownMixedSurface(TelemetryFeatures features)
+    {
+        return features.SurfaceClass == "unknownMixed";
     }
 
     private static double CalculateHapticLoadScale(TelemetryFeatures features)
@@ -356,6 +369,51 @@ public sealed class GameplayFfbCalculator
         return Math.Clamp(magnitude / Math.Max(0.01, fullScale), 0, 1);
     }
 
+    private static bool IsValidFinite(double? value)
+    {
+        return value is not null && !double.IsNaN(value.Value) && !double.IsInfinity(value.Value);
+    }
+
+    private static double? FirstValid(params double?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (IsValidFinite(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private static double NormalizeImpulse(double? value)
+    {
+        if (!IsValidFinite(value))
+        {
+            return 0;
+        }
+
+        var magnitude = Math.Abs(value!.Value);
+        return magnitude < ImpulseNoiseFloor ? 0 : Math.Clamp(magnitude, 0, 2);
+    }
+
+    private static double MaxValidImpulse(params double?[] values)
+    {
+        var max = 0.0;
+        foreach (var value in values)
+        {
+            max = Math.Max(max, NormalizeImpulse(value));
+        }
+
+        return max;
+    }
+
+    private static int CountValidImpulses(params double?[] values)
+    {
+        return values.Count(value => NormalizeImpulse(value) > 0);
+    }
+
     public static class TelemetryFeatureExtractor
     {
         public static TelemetryFeatures Extract(TelemetryPacket packet, GameplayFfbEffectProfile profile)
@@ -365,15 +423,15 @@ public sealed class GameplayFfbCalculator
             var surfaceType = NormalizeSurfaceType(packet);
             var surfaceClass = IsOffRoadSurface(surfaceType, packet.IsOnField)
                 ? (surfaceType == "unknown" ? "field" : surfaceType)
-                : "road";
+                : IsRoadSurface(surfaceType) ? "road" : "unknownMixed";
             var loadFactor = CalculateLoadFactor(packet.Mass, packet.TotalMass);
-            var steeringContact = packet.SteeringGroundContactRatio ?? packet.GroundContactRatio;
-            var contactConfidence = packet.SteeringGroundContactRatio is not null ? 1.0 : packet.GroundContactRatio is not null ? 0.55 : 0.0;
-            var suspension = packet.SuspensionImpulse ?? packet.BumpImpulse;
-            var suspensionConfidence = packet.SuspensionImpulse is not null ? 1.0 : packet.BumpImpulse is not null ? 0.55 : 0.0;
-            var verticalImpact = packet.VerticalImpactImpulse ?? packet.SuspensionImpulse ?? packet.BumpImpulse;
-            var landing = packet.LandingImpulse ?? 0;
-            var collision = packet.CollisionImpulse ?? 0;
+            var steeringContact = FirstValid(packet.SteeringGroundContactRatio, packet.GroundContactRatio);
+            var contactConfidence = IsValidFinite(packet.SteeringGroundContactRatio) ? 1.0 : IsValidFinite(packet.GroundContactRatio) ? 0.55 : 0.0;
+            var suspension = MaxValidImpulse(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse);
+            var suspensionConfidence = CountValidImpulses(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse) > 0 ? 1.0 : 0.0;
+            var verticalImpact = MaxValidImpulse(packet.VerticalImpactImpulse, packet.BumpImpulse, packet.SuspensionImpulse);
+            var landing = NormalizeImpulse(packet.LandingImpulse);
+            var collision = NormalizeImpulse(packet.CollisionImpulse);
             var longitudinalJerk = packet.LongitudinalJerkImpulse ??
                                     Math.Clamp(Math.Abs(packet.LocalAccelerationZ ?? packet.LocalAccelerationX ?? 0) / 9.81, 0, 2);
             var slip = Math.Max(packet.SteeringWheelSlip ?? 0, packet.MaxWheelSlip ?? packet.WheelSlip ?? 0);
@@ -395,14 +453,14 @@ public sealed class GameplayFfbCalculator
                 loadFactor,
                 packet.Mass is not null && packet.TotalMass is not null ? 1.0 : 0.0,
                 Math.Max(NormalizeAbs(packet.PitchDeg, profile.MotionFeedback.FullPitchDeg), NormalizeAbs(packet.SlopeDeg, profile.MotionFeedback.FullPitchDeg)),
-                Math.Clamp(Math.Abs(suspension ?? 0), 0, 2),
+                suspension,
                 suspensionConfidence,
-                Math.Clamp(Math.Abs(verticalImpact ?? 0), 0, 2),
-                Math.Clamp(Math.Abs(landing), 0, 2),
-                Math.Clamp(Math.Abs(collision), 0, 2),
+                verticalImpact,
+                landing,
+                collision,
                 Math.Clamp(Math.Abs(longitudinalJerk), 0, 2),
-                Math.Clamp(Math.Abs(packet.LeftSuspensionImpulse ?? 0), 0, 2),
-                Math.Clamp(Math.Abs(packet.RightSuspensionImpulse ?? 0), 0, 2),
+                NormalizeImpulse(packet.LeftSuspensionImpulse),
+                NormalizeImpulse(packet.RightSuspensionImpulse),
                 packet.Rpm is null ? 0 : Math.Clamp((packet.Rpm.Value - minRpm) / (maxRpm - minRpm), 0, 1),
                 packet.Throttle is not null || packet.Brake is not null || packet.Clutch is not null || packet.Gear is not null ? 1.0 : 0.0);
         }
@@ -684,11 +742,8 @@ public sealed class GameplayFfbCalculator
                 return new(new ContinuousHaptics(0, 0, 0, 0, 0, 0, 0, 0), features.SuspensionConfidence);
             }
 
-            var offRoad = IsOffRoadSurface(features);
-            var minImpulse = offRoad
-                ? Math.Clamp(settings.MinImpulse, 0, 10)
-                : Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 0.42);
-            var fullImpulse = Math.Max(minImpulse + 0.01, offRoad ? settings.FullImpulse : Math.Max(settings.FullImpulse, 1.15));
+            var minImpulse = CalculateTerrainMinImpulse(features, settings);
+            var fullImpulse = CalculateTerrainFullImpulse(features, settings, minImpulse);
             var impulse = Math.Min(features.SuspensionImpulse, fullImpulse);
             if (impulse <= minImpulse)
             {
@@ -700,47 +755,53 @@ public sealed class GameplayFfbCalculator
             var minHz = Math.Clamp(settings.MinFrequencyHz, 4, 60);
             var maxHz = Math.Clamp(settings.MaxFrequencyHz, minHz, 60);
             var hz = Quantize((int)Math.Round(minHz + ((maxHz - minHz) * curve)), 2);
-            var surfaceScale = offRoad ? 1.10 : 0.14;
+            var surfaceScale = CalculateTerrainSurfaceScale(features);
             var rumble = CalculateMaxCapped(settings, context.TelemetryFade) * curve * surfaceScale * CalculateHapticLoadScale(features);
             return new(new ContinuousHaptics(0, 0, 0, 0, 0, 0, rumble, hz), features.SuspensionConfidence);
         }
 
         public static IReadOnlyList<EventPulse> CalculatePulses(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
-            var pulses = new List<EventPulse>();
-            if (ShouldAllowCollisionPulse(features))
+            return CalculatePulseCandidates(packet, features, profile, context)
+                .Where(candidate => candidate.Valid)
+                .Select(candidate => candidate.Pulse)
+                .ToArray();
+        }
+
+        public static IReadOnlyList<EventPulseCandidate> CalculatePulseCandidates(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        {
+            var candidates = new List<EventPulseCandidate>
             {
-                TryAddImpulsePulse(
-                    pulses,
-                    FfbPulseKind.Collision,
-                    features.CollisionImpulse,
-                    profile.CollisionFeedback,
-                    context,
-                    DirectionFromHorizontalImpact(packet),
-                    CalculateCollisionSurfaceScale(features),
-                    CalculateCollisionMinImpulse(features, profile.CollisionFeedback));
-            }
-
-            TryAddImpulsePulse(pulses, FfbPulseKind.Landing, features.LandingImpulse, profile.LandingFeedback, context, 1);
-
+                CreateImpulseCandidate(FfbPulseKind.Collision, features.CollisionImpulse, profile.CollisionFeedback, context, DirectionFromHorizontalImpact(packet), CalculateCollisionSurfaceScale(features), CalculateCollisionMinImpulse(features, profile.CollisionFeedback)),
+                CreateImpulseCandidate(FfbPulseKind.Landing, features.LandingImpulse, profile.LandingFeedback, context, 1)
+            };
             var sideKind = SelectSidePulseKind(features);
             if (sideKind is not FfbPulseKind.Bump)
             {
                 var sideImpulse = Math.Max(features.LeftSuspensionImpulse, features.RightSuspensionImpulse);
-                TryAddImpulsePulse(pulses, sideKind, sideImpulse, profile.SuspensionHitFeedback, context, sideKind == FfbPulseKind.LeftSuspensionHit ? -1 : 1, CalculatePulseSurfaceScale(features), CalculatePulseMinImpulse(features, profile.SuspensionHitFeedback));
+                candidates.Add(CreateImpulseCandidate(sideKind, sideImpulse, profile.SuspensionHitFeedback, context, sideKind == FfbPulseKind.LeftSuspensionHit ? -1 : 1, CalculatePulseSurfaceScale(features), CalculatePulseMinImpulse(features, profile.SuspensionHitFeedback)));
             }
 
             if (ShouldAllowRoadBump(features))
             {
                 var direction = Math.Sign(packet.LocalAccelerationX ?? packet.SteeringAngle ?? 1);
-                TryAddImpulsePulse(pulses, FfbPulseKind.Bump, features.VerticalImpactImpulse, profile.BumpFeedback, context, direction == 0 ? 1 : direction, CalculatePulseSurfaceScale(features), CalculatePulseMinImpulse(features, profile.BumpFeedback));
+                var bump = CreateImpulseCandidate(FfbPulseKind.Bump, features.VerticalImpactImpulse, profile.BumpFeedback, context, direction == 0 ? 1 : direction, CalculatePulseSurfaceScale(features), CalculatePulseMinImpulse(features, profile.BumpFeedback));
+                if (HasSuppressingEvent(candidates, FfbPulseKind.Collision))
+                {
+                    bump = bump with { Valid = false, SuppressReason = "CollisionCandidateSelected" };
+                }
+                else if (HasSuppressingEvent(candidates, FfbPulseKind.Landing))
+                {
+                    bump = bump with { Valid = false, SuppressReason = "LandingCandidateSelected" };
+                }
+
+                candidates.Add(bump);
             }
 
-            return pulses;
+            return candidates;
         }
 
-        private static void TryAddImpulsePulse(
-            List<EventPulse> pulses,
+        private static EventPulseCandidate CreateImpulseCandidate(
             FfbPulseKind kind,
             double impulse,
             ImpulsePulseFeedbackSettings settings,
@@ -751,7 +812,7 @@ public sealed class GameplayFfbCalculator
         {
             if (!settings.Enabled)
             {
-                return;
+                return EventPulseCandidate.Invalid(kind, impulse, "DisabledBySettings");
             }
 
             var minImpulse = Math.Clamp(minImpulseOverride ?? settings.MinImpulse, 0, 10);
@@ -759,7 +820,7 @@ public sealed class GameplayFfbCalculator
             var magnitude = Math.Abs(impulse);
             if (magnitude <= minImpulse)
             {
-                return;
+                return EventPulseCandidate.Invalid(kind, impulse, "BelowMinImpulse");
             }
 
             var ratio = Math.Clamp((magnitude - minImpulse) / (fullImpulse - minImpulse), 0, 1);
@@ -768,25 +829,77 @@ public sealed class GameplayFfbCalculator
                 direction = 1;
             }
 
-            pulses.Add(new EventPulse(
+            var percent = CalculateMaxCapped(settings, context.TelemetryFade) * ApplyCurve(ratio, settings.Curve) * Math.Max(0, outputScale);
+            if (percent < MinPulsePercentToEmit)
+            {
+                return EventPulseCandidate.Invalid(kind, impulse, "BelowMinPercent", ratio, percent);
+            }
+
+            return new EventPulseCandidate(
                 kind,
-                CalculateMaxCapped(settings, context.TelemetryFade) * ApplyCurve(ratio, settings.Curve) * Math.Max(0, outputScale),
-                Math.Clamp(settings.DurationMs, 20, 250),
+                impulse,
+                ratio,
+                percent,
+                true,
+                "None",
+                new EventPulse(
+                kind,
+                percent,
+                Math.Clamp(Math.Max(settings.DurationMs, context.DeviceProfile.Name.Contains("MOMO", StringComparison.OrdinalIgnoreCase) ? 80 : settings.DurationMs), 20, 250),
                 Math.Clamp(settings.CooldownMs, 20, 500),
                 direction,
                 1.0));
         }
 
+        private static bool HasSuppressingEvent(IEnumerable<EventPulseCandidate> candidates, FfbPulseKind kind)
+        {
+            return candidates.Any(candidate => candidate.Kind == kind && candidate.Valid && candidate.Percent >= MinEventPercentForSuppression);
+        }
+
         private static double CalculatePulseSurfaceScale(TelemetryFeatures features)
         {
-            return (IsOffRoadSurface(features) ? 1.05 : 0.18) * CalculateHapticLoadScale(features);
+            var surfaceScale = IsOffRoadSurface(features) ? 1.05 : IsUnknownMixedSurface(features) ? 0.58 : 0.50;
+            return surfaceScale * CalculateHapticLoadScale(features);
         }
 
         private static double CalculatePulseMinImpulse(TelemetryFeatures features, ImpulsePulseFeedbackSettings settings)
         {
-            return IsOffRoadSurface(features)
-                ? Math.Clamp(settings.MinImpulse, 0, 10)
-                : Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), 0.58);
+            if (IsOffRoadSurface(features))
+            {
+                return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.20 : 0.18);
+            }
+
+            if (IsUnknownMixedSurface(features))
+            {
+                return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.30 : 0.24);
+            }
+
+            return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.35 : 0.34);
+        }
+
+        private static double CalculateTerrainMinImpulse(TelemetryFeatures features, TerrainRumbleSettings settings)
+        {
+            var configured = Math.Clamp(settings.MinImpulse, 0, 10);
+            if (IsOffRoadSurface(features))
+            {
+                return Math.Max(configured, 0.10);
+            }
+
+            return IsUnknownMixedSurface(features)
+                ? Math.Max(configured, 0.18)
+                : Math.Max(configured, 0.24);
+        }
+
+        private static double CalculateTerrainFullImpulse(TelemetryFeatures features, TerrainRumbleSettings settings, double minImpulse)
+        {
+            var configured = settings.FullImpulse;
+            var target = IsOffRoadSurface(features) ? configured : IsUnknownMixedSurface(features) ? Math.Max(configured, 0.85) : Math.Max(configured, 0.95);
+            return Math.Max(minImpulse + 0.01, target);
+        }
+
+        private static double CalculateTerrainSurfaceScale(TelemetryFeatures features)
+        {
+            return IsOffRoadSurface(features) ? 1.10 : IsUnknownMixedSurface(features) ? 0.60 : 0.30;
         }
 
         private static double CalculateCollisionSurfaceScale(TelemetryFeatures features)
@@ -833,11 +946,6 @@ public sealed class GameplayFfbCalculator
 
         private static bool ShouldAllowRoadBump(TelemetryFeatures features)
         {
-            if (features.CollisionImpulse > 0 || features.LandingImpulse > 0)
-            {
-                return false;
-            }
-
             if (features.ContactConfidence > 0 && features.ContactRatio < 0.15)
             {
                 return false;
@@ -861,16 +969,22 @@ public sealed class GameplayFfbCalculator
 
         private static FfbPulseKind SelectSidePulseKind(TelemetryFeatures features)
         {
-            var minSideImpulse = IsOffRoadSurface(features) ? 0.26 : 0.58;
-            var dominance = IsOffRoadSurface(features) ? 1.45 : 1.80;
-            if (features.LeftSuspensionImpulse >= minSideImpulse &&
-                features.LeftSuspensionImpulse > features.RightSuspensionImpulse * dominance)
+            var minSideImpulse = IsOffRoadSurface(features) ? 0.20 : IsUnknownMixedSurface(features) ? 0.30 : 0.35;
+            var dominance = IsOffRoadSurface(features) ? 1.25 : IsUnknownMixedSurface(features) ? 1.40 : 1.45;
+            var minSideDelta = IsOffRoadSurface(features) ? 0.12 : IsUnknownMixedSurface(features) ? 0.15 : 0.18;
+            var left = features.LeftSuspensionImpulse;
+            var right = features.RightSuspensionImpulse;
+            var sideDelta = Math.Abs(left - right);
+            if (left >= minSideImpulse &&
+                (left > right * dominance || sideDelta >= minSideDelta) &&
+                left > right)
             {
                 return FfbPulseKind.LeftSuspensionHit;
             }
 
-            if (features.RightSuspensionImpulse >= minSideImpulse &&
-                features.RightSuspensionImpulse > features.LeftSuspensionImpulse * dominance)
+            if (right >= minSideImpulse &&
+                (right > left * dominance || sideDelta >= minSideDelta) &&
+                right > left)
             {
                 return FfbPulseKind.RightSuspensionHit;
             }
@@ -975,7 +1089,11 @@ public sealed class GameplayFfbCalculator
             var cappedPulses = pulses
                 .Select(p => p with
                 {
-                    Percent = Math.Min(Math.Abs(p.Percent), profile.BumpPulseCapPercent),
+                    Percent = Math.Min(
+                        profile.Name.Contains("MOMO", StringComparison.OrdinalIgnoreCase) && Math.Abs(p.Percent) > 0
+                            ? Math.Max(Math.Abs(p.Percent), 6)
+                            : Math.Abs(p.Percent),
+                        profile.BumpPulseCapPercent),
                     DurationMs = Math.Min(p.DurationMs, profile.MaxBumpDurationMs)
                 })
                 .ToArray();
@@ -1107,6 +1225,21 @@ public sealed class GameplayFfbCalculator
 
         var ratio = Math.Clamp((value - minWetness) / Math.Max(0.01, 1 - minWetness), 0, 1);
         return Math.Clamp(CalculateMaxCapped(settings, fade) / 100.0, 0, 1) * ApplyCurve(ratio, settings.Curve);
+    }
+
+    public sealed record EventPulseCandidate(
+        FfbPulseKind Kind,
+        double RawImpulse,
+        double Ratio,
+        double Percent,
+        bool Valid,
+        string SuppressReason,
+        EventPulse Pulse)
+    {
+        public static EventPulseCandidate Invalid(FfbPulseKind kind, double rawImpulse, string reason, double ratio = 0, double percent = 0)
+        {
+            return new(kind, rawImpulse, ratio, percent, false, reason, new EventPulse(kind, 0, 0, 0, 1, 0));
+        }
     }
 
     private sealed record DrivetrainSample(string? VehicleName, bool? EngineStarted, double? Throttle, double? Brake, double? Clutch, int? Gear);

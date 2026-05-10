@@ -516,14 +516,15 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
-    public void Asphalt_side_suspension_impulse_is_suppressed()
+    public void Asphalt_side_suspension_impulse_can_emit_when_delta_is_clear()
     {
         var output = _calculator.Calculate(
             State(Packet(speedKmh: 18, surfaceType: "asphalt", verticalImpactImpulse: 0.35, leftSuspensionImpulse: 0.8, rightSuspensionImpulse: 0.15, groundContactRatio: 1)),
             new GameplayFfbSettings(),
             DeviceHapticProfile.Generic);
 
-        Assert.True(output.BumpImpulsePercent is >= -3 and <= 3);
+        Assert.Equal(FfbPulseKind.LeftSuspensionHit, output.EventPulseKind);
+        Assert.True(Math.Abs(output.BumpImpulsePercent) >= 4);
     }
 
     [Theory]
@@ -554,13 +555,14 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
-    public void Unknown_surface_without_field_flag_stays_conservative_for_suspension_haptics()
+    public void Unknown_surface_without_field_flag_uses_mixed_suspension_haptics()
     {
         var settings = new GameplayFfbSettings();
+        var road = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: false, surfaceType: "asphalt", suspensionImpulse: 0.32, verticalImpactImpulse: 0.35, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
         var unknown = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: false, surfaceType: "unknown", suspensionImpulse: 0.32, verticalImpactImpulse: 0.35, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
         var field = _calculator.Calculate(State(Packet(speedKmh: 18, isOnField: true, surfaceType: "unknown", suspensionImpulse: 0.32, verticalImpactImpulse: 0.35, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
 
-        Assert.Equal(0, unknown.TerrainRumblePercent);
+        Assert.True(unknown.TerrainRumblePercent > road.TerrainRumblePercent);
         Assert.True(field.TerrainRumblePercent > unknown.TerrainRumblePercent);
     }
 
@@ -611,6 +613,67 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Feature_extractor_uses_max_valid_impulse_fallback()
+    {
+        var features = GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(
+            new TelemetryPacket
+            {
+                SpeedKmh = 15,
+                IsPlayerInVehicle = true,
+                SuspensionImpulse = 0.02,
+                VerticalImpactImpulse = 0.70,
+                BumpImpulse = 0.65
+            },
+            new GameplayFfbSettings());
+
+        Assert.Equal(0.70, features.SuspensionImpulse);
+        Assert.Equal(0.70, features.VerticalImpactImpulse);
+    }
+
+    [Fact]
+    public void Collision_noise_does_not_suppress_bump()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.7, collisionImpulse: 0.03, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.True(output.EventPulseActive);
+        Assert.Equal(FfbPulseKind.Bump, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Landing_noise_does_not_suppress_bump()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.7, landingImpulse: 0.04, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.True(output.EventPulseActive);
+        Assert.Equal(FfbPulseKind.Bump, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Strong_collision_has_priority_over_bump()
+    {
+        var settings = new GameplayFfbSettings();
+        foreach (var profile in settings.VehicleCategoryEffectProfiles.Values)
+        {
+            profile.CollisionFeedback.StrengthPercent = 100;
+            profile.CollisionFeedback.MaxOutputPercent = 100;
+            profile.CollisionFeedback.FullImpulse = 2.0;
+        }
+
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.5, collisionImpulse: 2.0, groundContactRatio: 1)), settings);
+
+        Assert.Equal(FfbPulseKind.Collision, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Road_bump_passes_for_noticeable_impact()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 18, surfaceType: "asphalt", verticalImpactImpulse: 0.55, groundContactRatio: 1)), new GameplayFfbSettings(), DeviceHapticProfile.Generic);
+
+        Assert.Equal(FfbPulseKind.Bump, output.EventPulseKind);
+        Assert.True(Math.Abs(output.BumpImpulsePercent) >= 4);
+    }
+
+    [Fact]
     public void Side_impulse_dominance_selects_left_or_right_suspension_hit()
     {
         var left = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.3, leftSuspensionImpulse: 0.8, rightSuspensionImpulse: 0.2, groundContactRatio: 1)), new GameplayFfbSettings());
@@ -618,6 +681,38 @@ public sealed class GameplayFfbCalculatorTests
 
         Assert.Equal(FfbPulseKind.LeftSuspensionHit, left.EventPulseKind);
         Assert.Equal(FfbPulseKind.RightSuspensionHit, right.EventPulseKind);
+    }
+
+    [Fact]
+    public void Side_impulse_absolute_delta_selects_suspension_hit()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.35, leftSuspensionImpulse: 0.48, rightSuspensionImpulse: 0.30, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.Equal(FfbPulseKind.LeftSuspensionHit, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Symmetric_side_impulse_falls_back_to_bump()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.55, leftSuspensionImpulse: 0.42, rightSuspensionImpulse: 0.39, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.Equal(FfbPulseKind.Bump, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Unknown_contact_does_not_suppress_bump()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.7)), new GameplayFfbSettings());
+
+        Assert.Equal(FfbPulseKind.Bump, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Known_low_contact_suppresses_bump()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, verticalImpactImpulse: 0.7, groundContactRatio: 0.1)), new GameplayFfbSettings());
+
+        Assert.NotEqual(FfbPulseKind.Bump, output.EventPulseKind);
     }
 
     [Fact]

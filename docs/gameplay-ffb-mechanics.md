@@ -75,15 +75,15 @@ loadFactor = clamp(totalMass / mass, 1, 4) when both masses are valid, otherwise
 loadRatio = clamp((loadFactor - 1) / 2, 0, 1)
 slip = clamp(max(steeringWheelSlip, maxWheelSlip, wheelSlip, 0), 0, 1)
 contactRatio = clamp(steeringGroundContactRatio ?? groundContactRatio ?? 1, 0, 1)
-surfaceClass = field/wetField when exact field surface or legacy isOnField fallback matches, otherwise road
+surfaceClass = road/offroad/unknownMixed; legacy isOnField=true promotes unknown surfaces to offroad
 wetness = max(groundWetness, rainScale) when either telemetry value exists; wetField fallback is 0.6
 rpmRatio = clamp((rpm - EngineVibration.MinRpm) / (EngineVibration.MaxRpm - EngineVibration.MinRpm), 0, 1)
 yawRateRatio = clamp(abs(yawRateDegPerSec) / MotionFeedback.FullYawRateDegPerSec, 0, 1)
 slopeRatio = max(abs(pitchDeg), abs(slopeDeg)) normalized by MotionFeedback.FullPitchDeg
-suspensionImpulse = clamp(abs(suspensionImpulse ?? bumpImpulse ?? 0), 0, 2)
-verticalImpactImpulse = clamp(abs(verticalImpactImpulse ?? suspensionImpulse ?? bumpImpulse ?? 0), 0, 2)
-landingImpulse = clamp(abs(landingImpulse ?? 0), 0, 2)
-collisionImpulse = clamp(abs(collisionImpulse ?? 0), 0, 2)
+suspensionImpulse = maxValid(abs(suspensionImpulse), abs(bumpImpulse), abs(verticalImpactImpulse)), clamped 0..2
+verticalImpactImpulse = maxValid(abs(verticalImpactImpulse), abs(bumpImpulse), abs(suspensionImpulse)), clamped 0..2
+landingImpulse = normalized separately with small impulse noise rejected
+collisionImpulse = normalized separately with small impulse noise rejected
 longitudinalJerkImpulse = clamp(abs(longitudinalJerkImpulse ?? local horizontal acceleration fallback), 0, 2)
 ```
 
@@ -254,11 +254,13 @@ hz = quantize2(MinFrequencyHz + (MaxFrequencyHz - MinFrequencyHz) * curve(ratio)
 
 It is active only when Slip Feedback is enabled, speed is at least `MinSpeedKmh`, and slip is above `MinSlip`.
 
-`Suspension Terrain Rumble` is a low-frequency continuous haptic derived from suspension impulse. It never creates a finite pulse by itself. Haptics classify `field`, `wetField`, `grass`, `dirt`, `gravel`, `mud`, `snow`, and `shallowWater` as off-road. `asphalt`, ordinary roads, and `unknown` without `isOnField == true` are treated conservatively as road:
+`Suspension Terrain Rumble` is a low-frequency continuous haptic derived from suspension impulse. It never creates a finite pulse by itself. Haptics classify `field`, `wetField`, `grass`, `dirt`, `gravel`, `mud`, `snow`, and `shallowWater` as off-road. `asphalt`, ordinary roads, concrete, pavement, and tarmac are road. Missing, custom, or otherwise unknown surfaces without `isOnField == true` use intermediate `unknownMixed` tuning instead of strict road:
 
 ```text
-roadMinImpulse = max(TerrainRumble.MinImpulse, 0.42)
-roadFullImpulse = max(TerrainRumble.FullImpulse, 1.15)
+roadMinImpulse = max(TerrainRumble.MinImpulse, 0.24)
+unknownMixedMinImpulse = max(TerrainRumble.MinImpulse, 0.18)
+roadFullImpulse = max(TerrainRumble.FullImpulse, 0.95)
+unknownMixedFullImpulse = max(TerrainRumble.FullImpulse, 0.85)
 offroadLoadScale = clamp(1 + sqrt(max(loadFactor - 1, 0)) * 0.24, 1, 1.42)
 surfaceScale = offroad ? 1.10 : 0.14
 ratio = clamp((suspensionImpulse - surfaceMinImpulse)

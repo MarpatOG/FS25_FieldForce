@@ -43,7 +43,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Bump Feedback`: asphalt only produces short, softened pulses for noticeable vertical hits; off-road bumps are stronger and still return to zero after the pulse.
 - `Suspension Hit`: left/right suspension impulse dominance shows a suspension-hit pulse, not a generic bump. Road side hits require a clearer imbalance than off-road side hits.
 - `Implement/trailer load`: when `totalMass > mass`, off-road Terrain Rumble, Bump Feedback, and Suspension Hit increase moderately; asphalt should not turn into constant vibration.
-- `Unknown surface`: `unknown` without `isOnField` remains road-like and conservative; `unknown` with `isOnField` follows off-road suspension/terrain behavior.
+- `Unknown surface`: `unknown` without `isOnField` uses the intermediate `unknownMixed` suspension/terrain tuning, so custom map surfaces are not damped as strict road; `unknown` with `isOnField` follows off-road suspension/terrain behavior.
 - `Landing`: contact loss followed by vertical impact shows the landing pulse.
 - `Collision`: hard horizontal contact shows the collision pulse and suppresses normal bump in the same frame.
 - `Drivetrain Pulse`: gear changes or acceleration/braking jerk show drivetrain pulse activity with lower strength than bump/collision.
