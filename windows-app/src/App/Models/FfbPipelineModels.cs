@@ -110,8 +110,8 @@ public sealed record DeviceHapticProfile(
         SurfaceHapticCapPercent: 18,
         SlipHapticCapPercent: 18,
         TerrainRumbleCapPercent: 14,
-        BumpPulseCapPercent: 34,
-        MaxBumpDurationMs: 90,
+        BumpPulseCapPercent: 100,
+        MaxBumpDurationMs: 160,
         SlewLimitPerSecond: 150,
         SteeringRateDamperScale: 1.20);
 

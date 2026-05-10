@@ -399,7 +399,8 @@ public sealed class GameplayFfbCalculatorTests
         Assert.True(momo.EngineVibrationPercent <= generic.EngineVibrationPercent);
         Assert.True(momo.SurfaceVibrationPercent <= generic.SurfaceVibrationPercent);
         Assert.True(momo.SlipVibrationPercent <= generic.SlipVibrationPercent);
-        Assert.True(Math.Abs(momo.BumpImpulsePercent) <= Math.Abs(generic.BumpImpulsePercent));
+        Assert.True(Math.Abs(momo.BumpImpulsePercent) >= Math.Abs(generic.BumpImpulsePercent));
+        Assert.True(momo.BumpDurationMs >= generic.BumpDurationMs);
     }
 
     [Fact]
@@ -665,6 +666,23 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Steering_motion_on_full_contact_does_not_create_collision_pulse()
+    {
+        var output = _calculator.Calculate(State(Packet(
+            speedKmh: 25,
+            surfaceType: "grass",
+            steeringAngle: 0.16,
+            yawRateDegPerSec: 9,
+            groundContactRatio: 1,
+            collisionImpulse: 2.0,
+            verticalImpactImpulse: 0,
+            leftSuspensionImpulse: 0,
+            rightSuspensionImpulse: 0)), new GameplayFfbSettings());
+
+        Assert.NotEqual(FfbPulseKind.Collision, output.EventPulseKind);
+    }
+
+    [Fact]
     public void Road_bump_passes_for_noticeable_impact()
     {
         var output = _calculator.Calculate(State(Packet(speedKmh: 18, surfaceType: "asphalt", verticalImpactImpulse: 0.55, groundContactRatio: 1)), new GameplayFfbSettings(), DeviceHapticProfile.Generic);
@@ -771,6 +789,19 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Finite_pulse_floor_survives_force_limits_without_exceeding_them()
+    {
+        var method = typeof(DirectInputFfbBackend).GetMethod("ScaleMagnitudeForLimitsWithFloor", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var raised = (int)method!.Invoke(null, [600, 70, 100, 5000])!;
+        var cappedByLimit = (int)method.Invoke(null, [600, 5, 100, 5000])!;
+
+        Assert.Equal(5000, raised);
+        Assert.Equal(500, cappedByLimit);
+    }
+
+    [Fact]
     public void Bump_impulse_produces_signed_short_pulse_and_fades_with_stale_telemetry()
     {
         var settings = new GameplayFfbSettings();
@@ -781,6 +812,18 @@ public sealed class GameplayFfbCalculatorTests
         Assert.InRange(fresh.BumpDurationMs, 20, 250);
         Assert.False(lost.IsActive);
         Assert.Equal(0, lost.BumpImpulsePercent);
+    }
+
+    [Fact]
+    public void Bump_and_side_hit_cooldowns_are_limited_for_terrain_pulses()
+    {
+        var bump = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.8, groundContactRatio: 1)), new GameplayFfbSettings());
+        var side = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.35, leftSuspensionImpulse: 0.8, rightSuspensionImpulse: 0.15, groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.Equal(FfbPulseKind.Bump, bump.EventPulseKind);
+        Assert.InRange(bump.BumpCooldownMs, 20, 105);
+        Assert.Equal(FfbPulseKind.LeftSuspensionHit, side.EventPulseKind);
+        Assert.InRange(side.BumpCooldownMs, 20, 85);
     }
 
     [Fact]

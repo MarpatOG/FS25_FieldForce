@@ -17,6 +17,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private const int MomoConstantMagnitude = 10000;
     private const int MomoVibrationMagnitude = 9000;
     private const int MomoVibrationHz = 24;
+    private const int MinimumGameplayPulseMagnitude = 5000;
     private static readonly TimeSpan ConstantTestDuration = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VibrationTestDuration = TimeSpan.FromSeconds(3);
 
@@ -256,7 +257,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
             _lastGameplayOutput = quantized;
             _log.Information(
-                "Gameplay FFB updated: result=applied, spring={Spring}%, damper={Damper}%, friction={Friction}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, terrain={Terrain}%/{TerrainHz}Hz, slip={Slip}%/{SlipHz}Hz, bump={Bump}%, load={Load:0.00}, fade={Fade:0.00}",
+                "Gameplay FFB updated: result=applied, spring={Spring}%, damper={Damper}%, friction={Friction}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, terrain={Terrain}%/{TerrainHz}Hz, slip={Slip}%/{SlipHz}Hz, pulse={PulseKind}/{Bump}%/{Duration}ms, load={Load:0.00}, fade={Fade:0.00}",
                 quantized.SpringPercent,
                 quantized.DamperPercent,
                 quantized.FrictionPercent,
@@ -268,7 +269,9 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                 quantized.TerrainRumbleHz,
                 quantized.SlipVibrationPercent,
                 quantized.SlipVibrationHz,
+                quantized.EventPulseKind,
                 quantized.BumpImpulsePercent,
+                quantized.BumpDurationMs,
                 quantized.LoadFactor,
                 quantized.TelemetryFade);
             return FfbApplyResult.Applied;
@@ -390,9 +393,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return _device!.CreateEffect(effectGuid, parameters);
     }
 
-    private IDirectInputEffect CreateConstantEffect(int magnitude, int direction, TimeSpan duration)
+    private IDirectInputEffect CreateConstantEffect(int magnitude, int direction, TimeSpan duration, int minimumScaledMagnitude = 0)
     {
-        var scaledMagnitude = ScaleMagnitude(magnitude);
+        var scaledMagnitude = minimumScaledMagnitude > 0
+            ? ScaleMagnitudeForLimitsWithFloor(magnitude, _globalLimitPercent, _deviceLimitPercent, minimumScaledMagnitude)
+            : ScaleMagnitude(magnitude);
         _log.Information("Preparing constant effect: axis={AxisOffset}, magnitude={Magnitude}, direction={Direction}", _primaryAxisOffset, scaledMagnitude, direction);
         var parameters = BaseParameters(duration, direction);
         parameters.Parameters = new ConstantForce
@@ -503,7 +508,8 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             _gameplayBumpEffect = CreateEffectWithAcquireRetry(() => CreateConstantEffect(
                 PercentToDirectInputMagnitude(Math.Abs(output.BumpImpulsePercent)),
                 direction,
-                TimeSpan.FromMilliseconds(Math.Clamp(output.BumpDurationMs, 20, 250))), "bump feedback");
+                TimeSpan.FromMilliseconds(Math.Clamp(output.BumpDurationMs, 20, 250)),
+                MinimumGameplayPulseMagnitude), "bump feedback");
             _gameplayBumpEffect.Download().CheckError();
             _gameplayBumpEffect.Start(1).CheckError();
             _lastPulseAtByKind[kind] = now;
@@ -614,6 +620,19 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     {
         var limit = Math.Min(Math.Clamp(globalLimitPercent, 0, 100), Math.Clamp(deviceLimitPercent, 0, 100)) / 100.0;
         return Math.Clamp((int)Math.Round(Math.Abs(magnitude) * limit), 0, DirectInputMax);
+    }
+
+    internal static int ScaleMagnitudeForLimitsWithFloor(int magnitude, int globalLimitPercent, int deviceLimitPercent, int minimumMagnitude)
+    {
+        if (magnitude <= 0)
+        {
+            return 0;
+        }
+
+        var limit = Math.Min(Math.Clamp(globalLimitPercent, 0, 100), Math.Clamp(deviceLimitPercent, 0, 100)) / 100.0;
+        var limitMagnitude = Math.Clamp((int)Math.Round(DirectInputMax * limit), 0, DirectInputMax);
+        var floor = Math.Clamp(minimumMagnitude, 0, limitMagnitude);
+        return Math.Min(Math.Max(ScaleMagnitudeForLimits(magnitude, globalLimitPercent, deviceLimitPercent), floor), limitMagnitude);
     }
 
     private static int PercentToDirectInputMagnitude(int percent)
