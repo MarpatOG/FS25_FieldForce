@@ -36,7 +36,7 @@ FS25_RealFfbTelemetry.zip
 
 Enable `FS25 Real FFB Telemetry` in a savegame. Start the Windows bridge before or after FS25; if the bridge is not running, the mod must not crash the game.
 
-The in-game telemetry overlay can be toggled without restarting from `Settings` -> `General Settings` -> `Real FFB telemetry overlay`.
+The in-game telemetry overlay can be toggled from `Settings` -> `General Settings` -> `FS25 Real FFB` -> `Telemetry overlay`.
 
 ## Update Installed Mod
 
@@ -80,18 +80,10 @@ Edit `config/TelemetryConfig.lua`:
 - `updateRateHz`: default `125` for UDP telemetry
 - `fileFallbackRateHz`: default `30` for diagnostic/compatibility file fallback writes
 - `debug`: default `false`
-- `overlay.enabled`: default `true`; default for the in-game telemetry debug overlay before a saved user override exists
+- `overlay.enabled`: default `true`; default for the in-game telemetry debug overlay before a saved menu override exists
 - `overlay.x`, `overlay.y`: screen-space overlay position, where `0,0` is bottom-left
 - `overlay.fontSize`, `overlay.lineHeight`: text sizing
 - `overlay.maxRawLength`: max raw JSON characters shown in the overlay
-
-The overlay setting is saved separately by FS25 after changing `Real FFB telemetry overlay` in General Settings:
-
-```text
-Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/settings.json
-```
-
-Delete that file to return to the `overlay.enabled` default from `TelemetryConfig.lua`.
 
 ## Transport Diagnostics
 

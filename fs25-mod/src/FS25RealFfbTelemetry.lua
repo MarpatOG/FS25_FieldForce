@@ -2,8 +2,8 @@ FS25RealFfbTelemetry = {}
 
 local FS25RealFfbTelemetry_mt = Class(FS25RealFfbTelemetry)
 
-FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED = "FS25RealFfbTelemetry.overlayEnabled"
 FS25RealFfbTelemetry.SETTINGS_FILE_NAME = "settings.json"
+FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED = "overlayEnabled"
 
 function FS25RealFfbTelemetry.new()
     local self = setmetatable({}, FS25RealFfbTelemetry_mt)
@@ -31,6 +31,8 @@ function FS25RealFfbTelemetry.new()
     self.lastWriteError = nil
     self.overlayConfig = self.config.overlay or {}
     self.overlayEnabled = self.overlayConfig.enabled ~= false
+    self.uiRegistered = false
+    self.uiControls = {}
     self.fileWarningLogged = false
     self.transportWarningLogged = false
     self.motionAccelerationSmoothingSec = 0.08
@@ -43,7 +45,9 @@ function FS25RealFfbTelemetry.new()
 end
 
 function FS25RealFfbTelemetry:loadMap()
+    FS25RealFfbTelemetry.instance = self
     self:loadOverlayUserSettings()
+    self:installMenuHook()
     print(string.format("[FS25 Real FFB] Telemetry mod loaded. Target udp://%s:%d @ %d Hz", self.host, self.port, self.updateRateHz))
     self:initTransport()
 end
@@ -1702,6 +1706,7 @@ end
 
 function FS25RealFfbTelemetry:setOverlayEnabled(enabled, doSave)
     self.overlayEnabled = enabled == true
+    self:updateOverlaySettingUi()
 
     if doSave == true then
         self:saveOverlayUserSettings()
@@ -1730,16 +1735,9 @@ function FS25RealFfbTelemetry:loadOverlayUserSettings()
         return
     end
 
-    local payload = payloadOrError
-    if payload == nil or payload == "" then
-        return
-    end
-
-    local enabled = self:parseOverlayEnabledSetting(payload)
+    local enabled = self:parseOverlayEnabledSetting(payloadOrError)
     if enabled ~= nil then
-        self:setOverlayEnabled(enabled, false)
-    elseif self.debug then
-        print("[FS25 Real FFB] Overlay settings file did not contain " .. FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED)
+        self.overlayEnabled = enabled
     end
 end
 
@@ -1764,11 +1762,11 @@ function FS25RealFfbTelemetry:parseOverlayEnabledSetting(payload)
         return nil
     end
 
-    local settingKey = string.gsub(FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED, "%.", "%%.")
-    if string.find(payload, "\"" .. settingKey .. "\"%s*:%s*true") ~= nil then
+    local key = FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED
+    if string.find(payload, "\"" .. key .. "\"%s*:%s*true") ~= nil then
         return true
     end
-    if string.find(payload, "\"" .. settingKey .. "\"%s*:%s*false") ~= nil then
+    if string.find(payload, "\"" .. key .. "\"%s*:%s*false") ~= nil then
         return false
     end
 
@@ -1776,7 +1774,7 @@ function FS25RealFfbTelemetry:parseOverlayEnabledSetting(payload)
 end
 
 function FS25RealFfbTelemetry:draw()
-    if not self:getOverlayEnabled() then
+    if not self.overlayEnabled then
         return
     end
 
@@ -2208,7 +2206,166 @@ function FS25RealFfbTelemetry:writeFileDirect(path, payload, reason)
     return false, tostring(err)
 end
 
-function FS25RealFfbTelemetry.getSettingText(key, fallback)
+function FS25RealFfbTelemetry:installMenuHook()
+    if FS25RealFfbTelemetry.menuHookInstalled == true then
+        return
+    end
+
+    if InGameMenu == nil or Utils == nil or type(Utils.appendedFunction) ~= "function" then
+        return
+    end
+
+    InGameMenu.onMenuOpened = Utils.appendedFunction(InGameMenu.onMenuOpened, FS25RealFfbTelemetry.initUiSettings)
+    FS25RealFfbTelemetry.menuHookInstalled = true
+end
+
+function FS25RealFfbTelemetry.initUiSettings()
+    local instance = FS25RealFfbTelemetry.instance
+    if instance == nil then
+        return
+    end
+
+    local ok, err = pcall(function()
+        instance:registerUiSettings()
+    end)
+
+    if not ok then
+        print("[FS25 Real FFB] Could not register settings UI: " .. tostring(err))
+    end
+end
+
+function FS25RealFfbTelemetry:registerUiSettings()
+    if self.uiRegistered == true then
+        return
+    end
+
+    if g_gui == nil or g_gui.screenControllers == nil or g_gui.screenControllers[InGameMenu] == nil then
+        return
+    end
+
+    local settingsPage = g_gui.screenControllers[InGameMenu].pageSettings
+    if settingsPage == nil or settingsPage.gameSettingsLayout == nil or settingsPage.checkWoodHarvesterAutoCutBox == nil then
+        return
+    end
+
+    self.uiControls = {}
+    self.uiSection = self:createSettingsSection(settingsPage, "fs25RealFfbTelemetry_settings_title")
+    if self.uiSection ~= nil then
+        table.insert(self.uiControls, self.uiSection)
+    end
+
+    self.uiOverlayEnabled = self:createBoolSetting(
+        settingsPage,
+        "fs25RealFfbTelemetry_overlayEnabled",
+        "fs25RealFfbTelemetry_overlayEnabled",
+        "onOverlayEnabledChanged")
+
+    if self.uiOverlayEnabled == nil then
+        return
+    end
+
+    table.insert(self.uiControls, self.uiOverlayEnabled)
+    self:updateOverlaySettingUi()
+    self:registerSettingsFocusControls(settingsPage)
+
+    if InGameMenuSettingsFrame ~= nil and Utils ~= nil and type(Utils.appendedFunction) == "function" then
+        InGameMenuSettingsFrame.onFrameOpen = Utils.appendedFunction(InGameMenuSettingsFrame.onFrameOpen, function()
+            self:updateOverlaySettingUi()
+        end)
+    end
+
+    settingsPage.gameSettingsLayout:invalidateLayout()
+    self.uiRegistered = true
+end
+
+function FS25RealFfbTelemetry:createSettingsSection(settingsPage, i18nKey)
+    for _, elem in ipairs(settingsPage.gameSettingsLayout.elements) do
+        if elem.name == "sectionHeader" then
+            local sectionTitle = elem:clone(settingsPage.gameSettingsLayout)
+            sectionTitle:setText(self:getI18nText(i18nKey, "FS25 Real FFB"))
+            sectionTitle.focusId = FocusManager:serveAutoFocusId()
+            table.insert(settingsPage.controlsList, sectionTitle)
+            return sectionTitle
+        end
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:createBoolSetting(settingsPage, id, i18nKey, callbackName)
+    local elementBox = settingsPage.checkWoodHarvesterAutoCutBox:clone(settingsPage.gameSettingsLayout)
+    self:updateSettingsFocusIds(elementBox)
+
+    elementBox.id = id .. "Box"
+
+    local optionElement = elementBox.elements[1]
+    optionElement.target = self
+    optionElement.id = id
+    optionElement:setDisabled(false)
+    optionElement:setCallback("onClickCallback", callbackName)
+
+    self.name = settingsPage.name
+
+    local textElement = elementBox.elements[2]
+    textElement:setText(self:getI18nText(i18nKey .. "_title", "Telemetry overlay"))
+
+    local toolTip = optionElement.elements[1]
+    if toolTip ~= nil then
+        toolTip:setText(self:getI18nText(i18nKey .. "_info", "Shows or hides the in-game Real FFB telemetry overlay."))
+    end
+
+    table.insert(settingsPage.controlsList, elementBox)
+    return elementBox
+end
+
+function FS25RealFfbTelemetry:updateSettingsFocusIds(element)
+    if element == nil then
+        return
+    end
+
+    element.focusId = FocusManager:serveAutoFocusId()
+    if element.elements ~= nil then
+        for _, child in pairs(element.elements) do
+            self:updateSettingsFocusIds(child)
+        end
+    end
+end
+
+function FS25RealFfbTelemetry:registerSettingsFocusControls(settingsPage)
+    if FocusManager == nil or Utils == nil or type(Utils.appendedFunction) ~= "function" then
+        return
+    end
+
+    local controls = self.uiControls
+    FocusManager.setGui = Utils.appendedFunction(FocusManager.setGui, function(_, gui)
+        for _, control in ipairs(controls) do
+            if control.focusId ~= nil and FocusManager.currentFocusData ~= nil and
+                FocusManager.currentFocusData.idToElementMapping ~= nil and
+                FocusManager.currentFocusData.idToElementMapping[control.focusId] == nil then
+                FocusManager:loadElementFromCustomValues(control, nil, nil, false, false)
+            end
+        end
+
+        if settingsPage.gameSettingsLayout ~= nil then
+            settingsPage.gameSettingsLayout:invalidateLayout()
+        end
+    end)
+end
+
+function FS25RealFfbTelemetry:onOverlayEnabledChanged(state)
+    self:setOverlayEnabled(state == 2, true)
+end
+
+function FS25RealFfbTelemetry:updateOverlaySettingUi()
+    if self.uiOverlayEnabled == nil or self.uiOverlayEnabled.elements == nil or self.uiOverlayEnabled.elements[1] == nil then
+        return
+    end
+
+    local optionElement = self.uiOverlayEnabled.elements[1]
+    optionElement:setState(self:getOverlayEnabled() and 2 or 1)
+end
+
+function FS25RealFfbTelemetry:getI18nText(key, fallback)
     if g_i18n ~= nil and type(g_i18n.getText) == "function" then
         local ok, text = pcall(function()
             return g_i18n:getText(key)
@@ -2221,72 +2378,5 @@ function FS25RealFfbTelemetry.getSettingText(key, fallback)
     return fallback
 end
 
-function FS25RealFfbTelemetry.getOverlaySettingTexts()
-    return {
-        FS25RealFfbTelemetry.getSettingText("FS25RealFfbTelemetry_setting_off", FS25RealFfbTelemetry.getSettingText("setting_off", "Off")),
-        FS25RealFfbTelemetry.getSettingText("FS25RealFfbTelemetry_setting_on", FS25RealFfbTelemetry.getSettingText("setting_on", "On"))
-    }
-end
-
-function FS25RealFfbTelemetry.getOverlaySettingReadValue()
-    local instance = FS25RealFfbTelemetry.instance
-    local enabled = true
-    if instance ~= nil then
-        enabled = instance:getOverlayEnabled()
-    elseif FS25RealFfbTelemetryConfig ~= nil then
-        enabled = FS25RealFfbTelemetryConfig.overlay == nil or FS25RealFfbTelemetryConfig.overlay.enabled ~= false
-    end
-
-    return enabled and 2 or 1
-end
-
-function FS25RealFfbTelemetry.writeOverlaySettingValue(value)
-    local enabled = tonumber(value) == 2 or value == true
-    local instance = FS25RealFfbTelemetry.instance
-
-    if instance ~= nil then
-        instance:setOverlayEnabled(enabled, true)
-    end
-end
-
-function FS25RealFfbTelemetry.registerSettings(settingsModel)
-    if settingsModel == nil or type(settingsModel.addSetting) ~= "function" then
-        return
-    end
-
-    local key = FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED
-    if settingsModel.settings ~= nil and settingsModel.settings[key] ~= nil then
-        return
-    end
-
-    settingsModel:addSetting(
-        key,
-        FS25RealFfbTelemetry.getOverlaySettingReadValue,
-        FS25RealFfbTelemetry.writeOverlaySettingValue,
-        false,
-        FS25RealFfbTelemetry.getOverlaySettingTexts)
-end
-
-function FS25RealFfbTelemetry.installSettingsHook()
-    if FS25RealFfbTelemetry.settingsHookInstalled == true then
-        return
-    end
-
-    if SettingsModel == nil or Utils == nil or type(Utils.appendedFunction) ~= "function" or SettingsModel.addManagedSettings == nil then
-        return
-    end
-
-    if SettingsModel.SETTING ~= nil then
-        SettingsModel.SETTING.FS25_REAL_FFB_TELEMETRY_OVERLAY = FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED
-    end
-
-    SettingsModel.addManagedSettings = Utils.appendedFunction(SettingsModel.addManagedSettings, FS25RealFfbTelemetry.registerSettings)
-    FS25RealFfbTelemetry.settingsHookInstalled = true
-end
-
-FS25RealFfbTelemetry.installSettingsHook()
 FS25RealFfbTelemetry.instance = FS25RealFfbTelemetry.new()
-if g_settingsModel ~= nil then
-    FS25RealFfbTelemetry.registerSettings(g_settingsModel)
-end
 addModEventListener(FS25RealFfbTelemetry.instance)

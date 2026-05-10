@@ -10,7 +10,7 @@ Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a
 - FS25 Lua telemetry mod: implemented for Milestone 2 as a defensive UDP sender.
 - Telemetry receiver: implemented in the Windows app with UDP and file fallback.
 - Gameplay-driven FFB effects: Speed Spring, Speed Damper, Mechanical Friction, Load Resistance, RPM Vibration, Surface Feedback, Slip Feedback, Wetness, Motion, and Bump Feedback are implemented with conservative Logitech MOMO defaults.
-- FS25 overlay: displays a compact vertical diagnostic panel with transmitted telemetry fields and can be toggled from General Settings.
+- FS25 overlay: displays a compact vertical diagnostic panel with transmitted telemetry fields and can be toggled from the in-game General Settings page.
 - Windows app overlay: displays live effect activation lamps from the actual gameplay FFB output.
 
 ## Requirements
@@ -55,7 +55,7 @@ Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/teleme
 
 Manual transport checks are documented in `docs/telemetry-protocol.md`.
 
-The in-game telemetry overlay uses `overlay.enabled` from `fs25-mod/config/TelemetryConfig.lua` as its default. After the user changes `Real FFB telemetry overlay` under FS25 `Settings` -> `General Settings`, the override is saved to `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/settings.json`.
+The in-game telemetry overlay uses `overlay.enabled` from `fs25-mod/config/TelemetryConfig.lua` as its default. It can be changed in FS25 under `Settings` -> `General Settings` -> `FS25 Real FFB` -> `Telemetry overlay`.
 
 ## Mod Versioning
 

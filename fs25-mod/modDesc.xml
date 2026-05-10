@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <modDesc descVersion="98">
     <author>FS25 Real FFB Bridge</author>
-    <version>0.6.0.0</version>
+    <version>0.6.1.0</version>
     <title>
         <en>FS25 Real FFB Telemetry</en>
     </title>
@@ -9,20 +9,7 @@
         <en>Sends active vehicle telemetry to the FS25 FFB Bridge Windows app over localhost UDP. Does not modify vehicle physics or steering.</en>
     </description>
     <multiplayer supported="false"/>
-    <l10n>
-        <text name="setting_FS25RealFfbTelemetry.overlayEnabled">
-            <en>Real FFB telemetry overlay</en>
-            <ru>Оверлей телеметрии Real FFB</ru>
-        </text>
-        <text name="FS25RealFfbTelemetry_setting_off">
-            <en>Off</en>
-            <ru>Выкл.</ru>
-        </text>
-        <text name="FS25RealFfbTelemetry_setting_on">
-            <en>On</en>
-            <ru>Вкл.</ru>
-        </text>
-    </l10n>
+    <l10n filenamePrefix="languages/l10n"/>
     <extraSourceFiles>
         <sourceFile filename="config/TelemetryConfig.lua"/>
         <sourceFile filename="src/FS25RealFfbTelemetry.lua"/>

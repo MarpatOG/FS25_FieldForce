@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<l10n version="1">
+    <texts>
+        <text name="fs25RealFfbTelemetry_settings_title" text="FS25 Real FFB"/>
+        <text name="fs25RealFfbTelemetry_overlayEnabled_title" text="Telemetry overlay"/>
+        <text name="fs25RealFfbTelemetry_overlayEnabled_info" text="Shows or hides the in-game Real FFB telemetry overlay."/>
+    </texts>
+</l10n>
