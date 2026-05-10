@@ -91,7 +91,16 @@ FS25RealFfbTelemetryConfig = {
 
 Keep `debug=false` for normal use.
 Set `debug=true` only while diagnosing transport issues; the mod will then print sent UDP/file payloads and extra file write details.
-Set `overlay.enabled=false` if the in-game debug overlay is not needed.
+Use `Settings` -> `General Settings` -> `Real FFB telemetry overlay` to turn the in-game debug overlay on or off without restarting.
+`overlay.enabled` remains the default used before any saved user override exists.
+
+The saved override is stored here:
+
+```text
+Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/settings.json
+```
+
+Delete `settings.json` to use the `TelemetryConfig.lua` default again.
 
 ## Run
 

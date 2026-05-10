@@ -2,6 +2,9 @@ FS25RealFfbTelemetry = {}
 
 local FS25RealFfbTelemetry_mt = Class(FS25RealFfbTelemetry)
 
+FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED = "FS25RealFfbTelemetry.overlayEnabled"
+FS25RealFfbTelemetry.SETTINGS_FILE_NAME = "settings.json"
+
 function FS25RealFfbTelemetry.new()
     local self = setmetatable({}, FS25RealFfbTelemetry_mt)
     self.config = FS25RealFfbTelemetryConfig or {}
@@ -28,17 +31,19 @@ function FS25RealFfbTelemetry.new()
     self.lastWriteError = nil
     self.overlayConfig = self.config.overlay or {}
     self.overlayEnabled = self.overlayConfig.enabled ~= false
-    self.motionAccelerationSmoothingSec = 0.08
-    self.motionVerticalImpactDeadbandG = 0.22
     self.fileWarningLogged = false
     self.transportWarningLogged = false
+    self.motionAccelerationSmoothingSec = 0.08
+    self.motionVerticalImpactDeadbandG = 0.22
     self.lastVehicleMotion = {}
     self.lastImpactState = {}
     self.lastSteeringSample = nil
+    self:loadOverlayUserSettings()
     return self
 end
 
 function FS25RealFfbTelemetry:loadMap()
+    self:loadOverlayUserSettings()
     print(string.format("[FS25 Real FFB] Telemetry mod loaded. Target udp://%s:%d @ %d Hz", self.host, self.port, self.updateRateHz))
     self:initTransport()
 end
@@ -1691,8 +1696,87 @@ function FS25RealFfbTelemetry:angleDifference(current, previous)
     return diff
 end
 
+function FS25RealFfbTelemetry:getOverlayEnabled()
+    return self.overlayEnabled == true
+end
+
+function FS25RealFfbTelemetry:setOverlayEnabled(enabled, doSave)
+    self.overlayEnabled = enabled == true
+
+    if doSave == true then
+        self:saveOverlayUserSettings()
+    end
+end
+
+function FS25RealFfbTelemetry:loadOverlayUserSettings()
+    local settingsPath = self:getOverlaySettingsPath()
+    if settingsPath == nil then
+        return
+    end
+
+    local ok, payloadOrError = pcall(function()
+        local file = io.open(settingsPath, "r")
+        if file == nil then
+            return nil
+        end
+
+        local payload = file:read("*a")
+        file:close()
+        return payload
+    end)
+
+    if not ok then
+        self:logFileWarning("Could not read overlay settings: " .. tostring(payloadOrError))
+        return
+    end
+
+    local payload = payloadOrError
+    if payload == nil or payload == "" then
+        return
+    end
+
+    local enabled = self:parseOverlayEnabledSetting(payload)
+    if enabled ~= nil then
+        self:setOverlayEnabled(enabled, false)
+    elseif self.debug then
+        print("[FS25 Real FFB] Overlay settings file did not contain " .. FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED)
+    end
+end
+
+function FS25RealFfbTelemetry:saveOverlayUserSettings()
+    local basePath, pathError = self:getModSettingsPath()
+    if basePath == nil then
+        self:logFileWarning("Could not save overlay settings: " .. tostring(pathError or "could not resolve modSettings path"))
+        return
+    end
+
+    self:createFolderIfPossible(basePath)
+
+    local payload = string.format("{\"%s\":%s}", FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED, self:getOverlayEnabled() and "true" or "false")
+    local ok, writeError = self:writeFile(basePath .. "/" .. FS25RealFfbTelemetry.SETTINGS_FILE_NAME, payload)
+    if not ok then
+        self:logFileWarning("Could not save overlay settings: " .. tostring(writeError))
+    end
+end
+
+function FS25RealFfbTelemetry:parseOverlayEnabledSetting(payload)
+    if type(payload) ~= "string" then
+        return nil
+    end
+
+    local settingKey = string.gsub(FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED, "%.", "%%.")
+    if string.find(payload, "\"" .. settingKey .. "\"%s*:%s*true") ~= nil then
+        return true
+    end
+    if string.find(payload, "\"" .. settingKey .. "\"%s*:%s*false") ~= nil then
+        return false
+    end
+
+    return nil
+end
+
 function FS25RealFfbTelemetry:draw()
-    if not self.overlayEnabled then
+    if not self:getOverlayEnabled() then
         return
     end
 
@@ -2047,6 +2131,19 @@ function FS25RealFfbTelemetry:getModSettingsPath()
     return profilePath .. "/modSettings/FS25_RealFfbTelemetry"
 end
 
+function FS25RealFfbTelemetry:getOverlaySettingsPath()
+    if self:getFileApiError() ~= nil then
+        return nil
+    end
+
+    local basePath = self:getModSettingsPath()
+    if basePath == nil then
+        return nil
+    end
+
+    return basePath .. "/" .. FS25RealFfbTelemetry.SETTINGS_FILE_NAME
+end
+
 function FS25RealFfbTelemetry:createFolderIfPossible(path)
     if type(createFolder) == "function" then
         local ok, result = pcall(createFolder, path)
@@ -2111,4 +2208,85 @@ function FS25RealFfbTelemetry:writeFileDirect(path, payload, reason)
     return false, tostring(err)
 end
 
-addModEventListener(FS25RealFfbTelemetry.new())
+function FS25RealFfbTelemetry.getSettingText(key, fallback)
+    if g_i18n ~= nil and type(g_i18n.getText) == "function" then
+        local ok, text = pcall(function()
+            return g_i18n:getText(key)
+        end)
+        if ok and text ~= nil and text ~= "" and text ~= key then
+            return text
+        end
+    end
+
+    return fallback
+end
+
+function FS25RealFfbTelemetry.getOverlaySettingTexts()
+    return {
+        FS25RealFfbTelemetry.getSettingText("FS25RealFfbTelemetry_setting_off", FS25RealFfbTelemetry.getSettingText("setting_off", "Off")),
+        FS25RealFfbTelemetry.getSettingText("FS25RealFfbTelemetry_setting_on", FS25RealFfbTelemetry.getSettingText("setting_on", "On"))
+    }
+end
+
+function FS25RealFfbTelemetry.getOverlaySettingReadValue()
+    local instance = FS25RealFfbTelemetry.instance
+    local enabled = true
+    if instance ~= nil then
+        enabled = instance:getOverlayEnabled()
+    elseif FS25RealFfbTelemetryConfig ~= nil then
+        enabled = FS25RealFfbTelemetryConfig.overlay == nil or FS25RealFfbTelemetryConfig.overlay.enabled ~= false
+    end
+
+    return enabled and 2 or 1
+end
+
+function FS25RealFfbTelemetry.writeOverlaySettingValue(value)
+    local enabled = tonumber(value) == 2 or value == true
+    local instance = FS25RealFfbTelemetry.instance
+
+    if instance ~= nil then
+        instance:setOverlayEnabled(enabled, true)
+    end
+end
+
+function FS25RealFfbTelemetry.registerSettings(settingsModel)
+    if settingsModel == nil or type(settingsModel.addSetting) ~= "function" then
+        return
+    end
+
+    local key = FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED
+    if settingsModel.settings ~= nil and settingsModel.settings[key] ~= nil then
+        return
+    end
+
+    settingsModel:addSetting(
+        key,
+        FS25RealFfbTelemetry.getOverlaySettingReadValue,
+        FS25RealFfbTelemetry.writeOverlaySettingValue,
+        false,
+        FS25RealFfbTelemetry.getOverlaySettingTexts)
+end
+
+function FS25RealFfbTelemetry.installSettingsHook()
+    if FS25RealFfbTelemetry.settingsHookInstalled == true then
+        return
+    end
+
+    if SettingsModel == nil or Utils == nil or type(Utils.appendedFunction) ~= "function" or SettingsModel.addManagedSettings == nil then
+        return
+    end
+
+    if SettingsModel.SETTING ~= nil then
+        SettingsModel.SETTING.FS25_REAL_FFB_TELEMETRY_OVERLAY = FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED
+    end
+
+    SettingsModel.addManagedSettings = Utils.appendedFunction(SettingsModel.addManagedSettings, FS25RealFfbTelemetry.registerSettings)
+    FS25RealFfbTelemetry.settingsHookInstalled = true
+end
+
+FS25RealFfbTelemetry.installSettingsHook()
+FS25RealFfbTelemetry.instance = FS25RealFfbTelemetry.new()
+if g_settingsModel ~= nil then
+    FS25RealFfbTelemetry.registerSettings(g_settingsModel)
+end
+addModEventListener(FS25RealFfbTelemetry.instance)
