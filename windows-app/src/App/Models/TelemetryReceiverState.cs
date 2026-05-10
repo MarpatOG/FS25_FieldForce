@@ -2,7 +2,7 @@ namespace FS25FfbBridge.App.Models;
 
 public sealed record TelemetryReceiverState(
     TelemetryStatus Status,
-    TelemetryPacket? LastPacket,
+    TelemetryPacketV1? LastPacket,
     string LastRawPacket,
     double PacketRate,
     TimeSpan? LastPacketAge,

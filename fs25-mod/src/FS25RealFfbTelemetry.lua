@@ -40,6 +40,8 @@ function FS25RealFfbTelemetry.new()
     self.lastVehicleMotion = {}
     self.lastImpactState = {}
     self.lastSteeringSample = nil
+    self.frameSequence = 0
+    self.lastFrameMonotonicSeconds = nil
     self:loadOverlayUserSettings()
     return self
 end
@@ -154,7 +156,7 @@ function FS25RealFfbTelemetry:initFileFallback()
     self:createFolderIfPossible(basePath)
     self.filePath = basePath .. "/" .. tostring(self.config.fileName or "telemetry.json")
 
-    local ok, writeError = self:writeFile(self.filePath, "{\"gameState\":\"init\",\"isPlayerInVehicle\":false}")
+    local ok, writeError = self:writeFile(self.filePath, self:encodeJson(self:collectTelemetry()))
     if ok then
         self.fileEnabled = true
         print("[FS25 Real FFB] File telemetry fallback enabled: " .. self.filePath)
@@ -164,8 +166,17 @@ function FS25RealFfbTelemetry:initFileFallback()
 end
 
 function FS25RealFfbTelemetry:sendTelemetry()
+    local buildStartSeconds = self:getMonotonicSeconds()
     local packet = self:collectTelemetry()
+    local buildTimeMs = math.max(0, (self:getMonotonicSeconds() - buildStartSeconds) * 1000)
+    self:addBuildDiagnostics(packet, buildTimeMs)
     local payload = self:encodeJson(packet)
+    self:addPayloadDiagnostics(packet, string.len(payload))
+    payload = self:encodeJson(packet)
+    if packet.diagnostics ~= nil then
+        packet.diagnostics.payloadBytes = string.len(payload)
+        payload = self:encodeJson(packet)
+    end
     local sent = false
 
     if self.udpEnabled then
@@ -200,11 +211,11 @@ function FS25RealFfbTelemetry:sendTelemetry()
 
     self.lastPacket = packet
     self.lastPayload = payload
-    self.lastPacketTime = packet.timestamp
-    self.lastSendTime = packet.monotonicSeconds
+    self.lastPacketTime = packet.frame ~= nil and packet.frame.timestampMs or nil
+    self.lastSendTime = packet._monotonicSeconds
     self.lastPacketSource = self:getTransportLabel(sent)
     if sent then
-        self:recordSend(packet.monotonicSeconds)
+        self:recordSend(packet._monotonicSeconds)
     end
 end
 
@@ -218,54 +229,165 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local weather = inVehicle and self:getWeatherTelemetry() or {}
 
     local steeringAngle = inVehicle and self:getSteeringAngle(vehicle) or nil
+    local nowSeconds = self:getMonotonicSeconds()
+    self.frameSequence = (self.frameSequence or 0) + 1
+    local dtMs = self.lastFrameMonotonicSeconds ~= nil and math.max(0, (nowSeconds - self.lastFrameMonotonicSeconds) * 1000) or nil
+    self.lastFrameMonotonicSeconds = nowSeconds
 
-    return {
-        timestamp = self:getTimestamp(),
-        monotonicSeconds = self:getMonotonicSeconds(),
-        gameState = self:getGameState(),
-        isPlayerInVehicle = inVehicle,
-        vehicleName = inVehicle and self:getVehicleName(vehicle) or nil,
-        vehicleType = inVehicle and self:getVehicleType(vehicle) or nil,
-        vehicleCategory = inVehicle and self:getVehicleCategory(vehicle, wheel.wheelTireProfile) or nil,
+    local packet = {
+        protocol = {
+            name = "FS25_REAL_FFB_TELEMETRY",
+            version = "1.0.0"
+        },
+        frame = {
+            sequence = self.frameSequence,
+            dtMs = dtMs,
+            telemetryRateHz = self.updateRateHz,
+            timestampMs = self:getTimestamp(),
+            isDuplicate = false,
+            isInterpolated = false
+        },
+        game = {
+            state = self:getGameState()
+        },
+        player = {
+            isInVehicle = inVehicle
+        },
+        vehicle = nil,
+        controls = nil,
+        motion = nil,
+        steering = nil,
+        engine = nil,
+        transmission = nil,
+        wheels = self:jsonArray({}),
+        suspension = nil,
+        surface = nil,
+        environment = {
+            groundWetness = weather.groundWetness,
+            rainScale = weather.rainScale
+        },
+        attachments = self:jsonArray({}),
+        collisions = nil,
+        diagnostics = {
+            payloadBytes = nil,
+            buildTimeMs = nil,
+            warnings = self:jsonArray({})
+        },
+        _monotonicSeconds = nowSeconds
+    }
+
+    if not inVehicle then
+        return packet
+    end
+
+    local speedKmh = motion.speedKmh or self:getSpeedKmh(vehicle)
+    packet.vehicle = {
+        name = self:getVehicleName(vehicle),
+        type = self:getVehicleType(vehicle),
+        category = self:getVehicleCategory(vehicle, wheel.wheelTireProfile),
         wheelTireTypes = wheel.wheelTireTypes,
         wheelTireProfile = wheel.wheelTireProfile,
-        speedKmh = inVehicle and (motion.speedKmh or self:getSpeedKmh(vehicle)) or nil,
-        steeringAngle = steeringAngle,
-        steeringRate = inVehicle and self:getSteeringRate(vehicle, steeringAngle) or nil,
-        rpm = inVehicle and self:getRpm(vehicle) or nil,
-        engineStarted = inVehicle and self:getEngineStarted(vehicle) or nil,
-        mass = inVehicle and self:getMass(vehicle) or nil,
-        totalMass = inVehicle and self:getTotalMass(vehicle) or nil,
-        isOnField = inVehicle and self:getIsOnField(vehicle) or nil,
-        surfaceType = surface.surfaceType,
-        surfaceAttribute = surface.surfaceAttribute,
-        groundWetness = surface.groundWetness or weather.groundWetness,
-        rainScale = weather.rainScale,
-        wheelSlip = wheel.wheelSlip,
-        maxWheelSlip = wheel.maxWheelSlip,
-        groundContactRatio = wheel.groundContactRatio,
-        steeringGroundContactRatio = wheel.steeringGroundContactRatio,
-        steeringWheelSlip = wheel.steeringWheelSlip,
+        massT = self:kgToTons(self:getMass(vehicle)),
+        totalMassT = self:kgToTons(self:getTotalMass(vehicle))
+    }
+    packet.controls = {
+        throttle = self:getFirstNumber(vehicle.axisForward, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisForward or nil),
+        brake = self:getFirstNumber(vehicle.axisBrake, vehicle.brakePedal, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisBrake or nil),
+        clutch = self:getFirstNumber(vehicle.axisClutch, vehicle.clutchPedal)
+    }
+    packet.motion = {
+        speedMps = type(speedKmh) == "number" and (speedKmh / 3.6) or nil,
+        speedKmh = speedKmh,
         pitchDeg = motion.pitchDeg,
         rollDeg = motion.rollDeg,
-        yawRateDegPerSec = motion.yawRateDegPerSec,
+        yawRateRadPerSec = self:degToRad(motion.yawRateDegPerSec),
         slopeDeg = motion.slopeDeg,
-        localAccelerationX = motion.localAccelerationX,
-        localAccelerationY = motion.localAccelerationY,
-        localAccelerationZ = motion.localAccelerationZ,
-        bumpImpulse = impact.verticalImpactImpulse,
-        suspensionImpulse = impact.suspensionImpulse,
+        localAccelerationMps2 = {
+            x = motion.localAccelerationX,
+            y = motion.localAccelerationY,
+            z = motion.localAccelerationZ
+        }
+    }
+    packet.steering = {
+        angle = steeringAngle,
+        rate = self:getSteeringRate(vehicle, steeringAngle)
+    }
+    packet.engine = {
+        rpm = self:getRpm(vehicle),
+        started = self:getEngineStarted(vehicle)
+    }
+    packet.transmission = {
+        gear = self:getGear(vehicle)
+    }
+    packet.wheels = self:jsonArray(wheel.wheels or {})
+    packet.suspension = {
+        impulse = impact.suspensionImpulse,
         verticalImpactImpulse = impact.verticalImpactImpulse,
         landingImpulse = impact.landingImpulse,
-        collisionImpulse = impact.collisionImpulse,
-        longitudinalJerkImpulse = impact.longitudinalJerkImpulse,
-        leftSuspensionImpulse = self:calculateSideSuspensionImpulse(impact.verticalImpactImpulse, wheel.leftSuspensionImpulse, wheel.leftContactRatio),
-        rightSuspensionImpulse = self:calculateSideSuspensionImpulse(impact.verticalImpactImpulse, wheel.rightSuspensionImpulse, wheel.rightContactRatio),
-        throttle = inVehicle and self:getFirstNumber(vehicle.axisForward, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisForward or nil) or nil,
-        brake = inVehicle and self:getFirstNumber(vehicle.axisBrake, vehicle.brakePedal, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisBrake or nil) or nil,
-        clutch = inVehicle and self:getFirstNumber(vehicle.axisClutch, vehicle.clutchPedal) or nil,
-        gear = inVehicle and self:getGear(vehicle) or nil
+        leftImpulse = self:calculateSideSuspensionImpulse(impact.verticalImpactImpulse, wheel.leftSuspensionImpulse, wheel.leftContactRatio),
+        rightImpulse = self:calculateSideSuspensionImpulse(impact.verticalImpactImpulse, wheel.rightSuspensionImpulse, wheel.rightContactRatio)
     }
+    packet.surface = {
+        isOnField = self:getIsOnField(vehicle),
+        type = surface.surfaceType,
+        attribute = surface.surfaceAttribute
+    }
+    packet.environment = {
+        groundWetness = surface.groundWetness or weather.groundWetness,
+        rainScale = weather.rainScale
+    }
+    packet.collisions = {
+        collisionImpulse = impact.collisionImpulse,
+        longitudinalJerkImpulse = impact.longitudinalJerkImpulse
+    }
+
+    return packet
+end
+
+function FS25RealFfbTelemetry:kgToTons(value)
+    if type(value) ~= "number" then
+        return nil
+    end
+
+    return value / 1000
+end
+
+function FS25RealFfbTelemetry:degToRad(value)
+    if type(value) ~= "number" then
+        return nil
+    end
+
+    return value * math.pi / 180
+end
+
+function FS25RealFfbTelemetry:jsonArray(values)
+    values = values or {}
+    values.__jsonArray = true
+    return values
+end
+
+function FS25RealFfbTelemetry:addBuildDiagnostics(packet, buildTimeMs)
+    if packet == nil or packet.diagnostics == nil then
+        return
+    end
+
+    packet.diagnostics.buildTimeMs = buildTimeMs
+    if buildTimeMs > 2 then
+        table.insert(packet.diagnostics.warnings, string.format("packet_build_time_ms %.3f exceeds 2 ms", buildTimeMs))
+    end
+end
+
+function FS25RealFfbTelemetry:addPayloadDiagnostics(packet, payloadBytes)
+    if packet == nil or packet.diagnostics == nil then
+        return
+    end
+
+    packet.diagnostics.payloadBytes = payloadBytes
+    if payloadBytes > 49152 then
+        table.insert(packet.diagnostics.warnings, string.format("payload_bytes %d exceeds hard warning budget 49152", payloadBytes))
+    elseif payloadBytes > 24576 then
+        table.insert(packet.diagnostics.warnings, string.format("payload_bytes %d exceeds warning budget 24576", payloadBytes))
+    end
 end
 
 function FS25RealFfbTelemetry:getActiveVehicle()
@@ -1081,11 +1203,15 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
     local rightSuspensionCount = 0
     local tireTypes = {}
     local tireTypeSet = {}
+    local wheelPackets = {}
 
-    for _, wheel in ipairs(wheels) do
+    for index, wheel in ipairs(wheels) do
         local physics = wheel.physics
         local side = self:getWheelSide(vehicle, wheel)
         local isSteeringWheel = math.abs(self:getFirstNumber(wheel.steeringAngle, wheel.rotatedTime, wheel.steeringInput, wheel.steeringAxis) or 0) > 0.0001
+        local slip = nil
+        local hasContact = nil
+        local suspensionImpulse = nil
         if isSteeringWheel then
             steeringWheelCount = steeringWheelCount + 1
         end
@@ -1102,7 +1228,7 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
                 table.insert(tireTypes, tireType)
             end
 
-            local slip = physics.netInfo ~= nil and physics.netInfo.slip or nil
+            slip = physics.netInfo ~= nil and physics.netInfo.slip or nil
             if type(slip) == "number" then
                 slip = math.max(0, slip)
                 slipTotal = slipTotal + slip
@@ -1114,7 +1240,7 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
                 end
             end
 
-            local hasContact = physics.hasGroundContact == true or physics.hasWaterContact == true or physics.hasSnowContact == true
+            hasContact = physics.hasGroundContact == true or physics.hasWaterContact == true or physics.hasSnowContact == true
             if hasContact then
                 contactCount = contactCount + 1
                 if isSteeringWheel then
@@ -1127,7 +1253,7 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
                 end
             end
 
-            local suspensionImpulse = self:getWheelSuspensionImpulse(wheel, physics)
+            suspensionImpulse = self:getWheelSuspensionImpulse(wheel, physics)
             if suspensionImpulse ~= nil then
                 if side < 0 then
                     leftSuspensionImpulse = math.max(leftSuspensionImpulse, suspensionImpulse)
@@ -1138,9 +1264,19 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
                 end
             end
         end
+
+        table.insert(wheelPackets, {
+            index = index - 1,
+            side = side < 0 and "left" or side > 0 and "right" or "center",
+            isSteering = isSteeringWheel,
+            slip = slip,
+            hasGroundContact = hasContact,
+            suspensionImpulse = suspensionImpulse
+        })
     end
 
     return {
+        wheels = wheelPackets,
         wheelSlip = slipCount > 0 and (slipTotal / slipCount) or nil,
         maxWheelSlip = slipCount > 0 and maxSlip or nil,
         groundContactRatio = #wheels > 0 and (contactCount / #wheels) or nil,
@@ -1662,7 +1798,7 @@ function FS25RealFfbTelemetry:shouldWriteFileFallback(packet)
         return false
     end
 
-    local nowMs = (packet ~= nil and type(packet.monotonicSeconds) == "number") and (packet.monotonicSeconds * 1000) or nil
+    local nowMs = (packet ~= nil and type(packet._monotonicSeconds) == "number") and (packet._monotonicSeconds * 1000) or nil
     if nowMs == nil then
         return true
     end
@@ -1860,26 +1996,35 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
         return lines
     end
 
-    table.insert(lines, "timestamp: " .. self:formatNumber(packet.timestamp, "", 0))
-    table.insert(lines, "gameState: " .. tostring(packet.gameState or "-"))
-    table.insert(lines, "isPlayerInVehicle: " .. self:boolText(packet.isPlayerInVehicle))
-    table.insert(lines, "vehicleName: " .. tostring(packet.vehicleName or "-"))
-    table.insert(lines, "vehicleType: " .. tostring(packet.vehicleType or "-"))
-    table.insert(lines, "vehicleCategory: " .. tostring(packet.vehicleCategory or "-"))
-    table.insert(lines, "wheelTireTypes: " .. tostring(packet.wheelTireTypes or "-"))
-    table.insert(lines, "wheelTireProfile: " .. tostring(packet.wheelTireProfile or "-"))
-    table.insert(lines, "speedKmh: " .. self:formatNumber(packet.speedKmh, "", 1))
-    table.insert(lines, "steeringAngle: " .. self:formatNumber(packet.steeringAngle, "", 3))
-    table.insert(lines, "rpm: " .. self:formatNumber(packet.rpm, "", 0))
-    table.insert(lines, "engineStarted: " .. self:boolText(packet.engineStarted))
-    table.insert(lines, "mass: " .. self:formatNumber(packet.mass, "", 0))
-    table.insert(lines, "totalMass: " .. self:formatNumber(packet.totalMass, "", 0))
-    table.insert(lines, "isOnField: " .. self:boolText(packet.isOnField))
-    table.insert(lines, "surfaceType: " .. tostring(packet.surfaceType or "-") .. " attr " .. self:formatNumber(packet.surfaceAttribute, "", 0))
-    table.insert(lines, "wet/rain: " .. self:formatNumber(packet.groundWetness, "", 2) .. " / " .. self:formatNumber(packet.rainScale, "", 2))
-    table.insert(lines, "slip/max: " .. self:formatNumber(packet.wheelSlip, "", 2) .. " / " .. self:formatNumber(packet.maxWheelSlip, "", 2))
-    table.insert(lines, "pitch/roll/slope: " .. self:formatNumber(packet.pitchDeg, "", 1) .. " / " .. self:formatNumber(packet.rollDeg, "", 1) .. " / " .. self:formatNumber(packet.slopeDeg, "", 1))
-    table.insert(lines, "accelY/bump: " .. self:formatNumber(packet.localAccelerationY, "", 2) .. " / " .. self:formatNumber(packet.bumpImpulse, "", 2))
+    local vehicle = packet.vehicle or {}
+    local motion = packet.motion or {}
+    local steering = packet.steering or {}
+    local engine = packet.engine or {}
+    local surface = packet.surface or {}
+    local environment = packet.environment or {}
+    local suspension = packet.suspension or {}
+    local accel = motion.localAccelerationMps2 or {}
+
+    table.insert(lines, "timestamp: " .. self:formatNumber(packet.frame ~= nil and packet.frame.timestampMs or nil, "", 0))
+    table.insert(lines, "gameState: " .. tostring(packet.game ~= nil and packet.game.state or "-"))
+    table.insert(lines, "isPlayerInVehicle: " .. self:boolText(packet.player ~= nil and packet.player.isInVehicle or nil))
+    table.insert(lines, "vehicleName: " .. tostring(vehicle.name or "-"))
+    table.insert(lines, "vehicleType: " .. tostring(vehicle.type or "-"))
+    table.insert(lines, "vehicleCategory: " .. tostring(vehicle.category or "-"))
+    table.insert(lines, "wheelTireTypes: " .. tostring(vehicle.wheelTireTypes or "-"))
+    table.insert(lines, "wheelTireProfile: " .. tostring(vehicle.wheelTireProfile or "-"))
+    table.insert(lines, "speedKmh: " .. self:formatNumber(motion.speedKmh, "", 1))
+    table.insert(lines, "steeringAngle: " .. self:formatNumber(steering.angle, "", 3))
+    table.insert(lines, "rpm: " .. self:formatNumber(engine.rpm, "", 0))
+    table.insert(lines, "engineStarted: " .. self:boolText(engine.started))
+    table.insert(lines, "massT: " .. self:formatNumber(vehicle.massT, "", 2))
+    table.insert(lines, "totalMassT: " .. self:formatNumber(vehicle.totalMassT, "", 2))
+    table.insert(lines, "isOnField: " .. self:boolText(surface.isOnField))
+    table.insert(lines, "surfaceType: " .. tostring(surface.type or "-") .. " attr " .. self:formatNumber(surface.attribute, "", 0))
+    table.insert(lines, "wet/rain: " .. self:formatNumber(environment.groundWetness, "", 2) .. " / " .. self:formatNumber(environment.rainScale, "", 2))
+    table.insert(lines, "wheels: " .. tostring(packet.wheels ~= nil and #packet.wheels or 0))
+    table.insert(lines, "pitch/roll/slope: " .. self:formatNumber(motion.pitchDeg, "", 1) .. " / " .. self:formatNumber(motion.rollDeg, "", 1) .. " / " .. self:formatNumber(motion.slopeDeg, "", 1))
+    table.insert(lines, "accelY/bump: " .. self:formatNumber(accel.y, "", 2) .. " / " .. self:formatNumber(suspension.verticalImpactImpulse, "", 2))
 
     return lines
 end
@@ -1992,59 +2137,7 @@ function FS25RealFfbTelemetry:truncateText(value, maxLength)
 end
 
 function FS25RealFfbTelemetry:encodeJson(packet)
-    local fields = {
-        "timestamp",
-        "gameState",
-        "isPlayerInVehicle",
-        "vehicleName",
-        "vehicleType",
-        "vehicleCategory",
-        "wheelTireTypes",
-        "wheelTireProfile",
-        "speedKmh",
-        "steeringAngle",
-        "steeringRate",
-        "rpm",
-        "engineStarted",
-        "mass",
-        "totalMass",
-        "isOnField",
-        "surfaceType",
-        "surfaceAttribute",
-        "groundWetness",
-        "rainScale",
-        "wheelSlip",
-        "maxWheelSlip",
-        "groundContactRatio",
-        "steeringGroundContactRatio",
-        "steeringWheelSlip",
-        "pitchDeg",
-        "rollDeg",
-        "yawRateDegPerSec",
-        "slopeDeg",
-        "localAccelerationX",
-        "localAccelerationY",
-        "localAccelerationZ",
-        "bumpImpulse",
-        "suspensionImpulse",
-        "verticalImpactImpulse",
-        "landingImpulse",
-        "collisionImpulse",
-        "longitudinalJerkImpulse",
-        "leftSuspensionImpulse",
-        "rightSuspensionImpulse",
-        "throttle",
-        "brake",
-        "clutch",
-        "gear"
-    }
-
-    local parts = {}
-    for _, key in ipairs(fields) do
-        table.insert(parts, string.format("\"%s\":%s", key, self:jsonValue(packet[key])))
-    end
-
-    return "{" .. table.concat(parts, ",") .. "}"
+    return self:jsonValue(packet)
 end
 
 function FS25RealFfbTelemetry:jsonValue(value)
@@ -2058,6 +2151,29 @@ function FS25RealFfbTelemetry:jsonValue(value)
         return tostring(value)
     elseif valueType == "boolean" then
         return value and "true" or "false"
+    elseif valueType == "table" then
+        if value.__jsonArray == true then
+            local items = {}
+            for index = 1, #value do
+                table.insert(items, self:jsonValue(value[index]))
+            end
+            return "[" .. table.concat(items, ",") .. "]"
+        end
+
+        local keys = {}
+        for key, _ in pairs(value) do
+            if type(key) == "string" and string.sub(key, 1, 1) ~= "_" then
+                table.insert(keys, key)
+            end
+        end
+        table.sort(keys)
+
+        local parts = {}
+        for _, key in ipairs(keys) do
+            table.insert(parts, string.format("\"%s\":%s", self:escapeJson(key), self:jsonValue(value[key])))
+        end
+
+        return "{" .. table.concat(parts, ",") .. "}"
     end
 
     return "\"" .. self:escapeJson(tostring(value)) .. "\""

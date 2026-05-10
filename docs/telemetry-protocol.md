@@ -1,153 +1,125 @@
-# Telemetry Protocol
+# Telemetry Protocol v1.0
 
-The telemetry mod uses UDP JSON over localhost when FS25 Lua socket support is available. If socket support is unavailable, the Lua mod writes the same JSON packet to a file in `modSettings`, and the Windows app reads that file.
+The FS25 telemetry mod sends UDP JSON over localhost when Lua socket support is available. If socket support is unavailable, it writes the same v1 packet to the file fallback path.
 
 ## Transport
 
-- Protocol: UDP
+- Protocol: UDP JSON
 - Default host: `127.0.0.1`
 - Default port: `34325`
-- Sender: FS25 Lua mod
-- Receiver: Windows app
-- Default UDP target send rate: `125 Hz`
-- File fallback target write rate: `30 Hz`
+- Default UDP target rate: `125 Hz`
+- File fallback target rate: `30 Hz`
 - File fallback: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
-- Effect status diagnostic file: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json`
 
-Packet loss is acceptable for UDP. The receiver always keeps the last valid packet visible and changes status to `Lost` when packets or file updates stop.
-The Windows receiver reports UDP status, file fallback status, last valid packet source, parser status, and the latest transport error separately so a UDP bind failure does not hide file fallback diagnostics. Fresh UDP packets are the primary source; file fallback is accepted only before UDP is available, when UDP bind failed, or after UDP has timed out.
+The Windows receiver accepts only packets with:
+
+```json
+{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.0.0" } }
+```
+
+Flat legacy JSON is rejected and does not replace the last valid packet.
 
 ## Packet Shape
 
-```json
-{
-  "timestamp": 123456,
-  "gameState": "mission",
-  "isPlayerInVehicle": true,
-  "vehicleName": "Tractor",
-  "vehicleType": "tractor",
-  "vehicleCategory": "TractorWheeled",
-  "wheelTireTypes": "street,mud",
-  "wheelTireProfile": "mixed",
-  "speedKmh": 12.4,
-  "steeringAngle": 0.13,
-  "steeringRate": 0.8,
-  "rpm": 850,
-  "engineStarted": true,
-  "mass": 6200,
-  "totalMass": 8800,
-  "isOnField": false,
-  "surfaceType": "field",
-  "surfaceAttribute": 1,
-  "groundWetness": 0.35,
-  "rainScale": 0.2,
-  "wheelSlip": 0.12,
-  "maxWheelSlip": 0.24,
-  "groundContactRatio": 1.0,
-  "steeringGroundContactRatio": 1.0,
-  "steeringWheelSlip": 0.18,
-  "pitchDeg": 3.1,
-  "rollDeg": -2.4,
-  "yawRateDegPerSec": 8.5,
-  "slopeDeg": 4.0,
-  "localAccelerationX": 0.3,
-  "localAccelerationY": 1.8,
-  "localAccelerationZ": -0.6,
-  "bumpImpulse": 0.42,
-  "suspensionImpulse": 0.30,
-  "verticalImpactImpulse": 0.42,
-  "landingImpulse": null,
-  "collisionImpulse": null,
-  "longitudinalJerkImpulse": 0.12,
-  "leftSuspensionImpulse": 0.18,
-  "rightSuspensionImpulse": 0.06,
-  "throttle": 0.6,
-  "brake": 0.0,
-  "clutch": 0.0,
-  "gear": 3
-}
+The top-level wire object contains only these blocks:
+
+```text
+protocol, frame, game, player, vehicle, controls, motion, steering,
+engine, transmission, wheels, suspension, surface, environment,
+attachments, collisions, diagnostics
 ```
 
-## Field Notes
-
-- `timestamp`: FS game time when available, otherwise Lua clock.
-- `vehicleType`: raw FS25 `typeName`/`typeDesc` value kept as a legacy/debug field.
-- `vehicleCategory`: normalized category used by the Windows app to select a full category effect profile. Values are `TractorWheeled`, `TractorTracked`, `HeavyTractorWheeled`, `HeavyTractorTracked`, `Harvester`, `Truck`, `LoaderTelehandler`, `LightVehicle`, and `Unknown`.
-- `wheelTireTypes`: comma-separated unique FS25 wheel tire type names read from `wheel.physics.tireType` through `WheelsUtil.getTireTypeName(...)` when available, for example `street`, `mud`, `offRoad`, or `crawler`.
-- `wheelTireProfile`: normalized tire profile: `street`, `agricultural`, `mixed`, `tracked`, or `unknown`.
-- `speedKmh`: in-game vehicle speed in km/h. The Lua mod primarily derives this from rootNode world-position delta with a `2 km/h` standstill deadband scaled by sample `dt`, so FFB speed effects do not react to stale API spikes or physics jitter while parked. When rootNode position exists but there is not enough history yet, speed is reported as `0`. Raw game speed fields are used only as fallbacks when rootNode position is unavailable and are not multiplied by `3600`.
-- `steeringAngle`: first available vehicle or wheel steering value.
-- `steeringRate`: steering delta per second for the same vehicle, derived from consecutive `steeringAngle` samples when the sample gap is valid.
-- `rpm`: best-effort motor RPM.
-- `engineStarted`: best-effort motor running state from vehicle/motorized APIs.
-- `mass` and `totalMass`: best-effort vehicle mass values.
-- `isOnField`: legacy compatibility field; new surface logic prefers `surfaceType`.
-- `surfaceType`: strict exact surface label. Supported exact labels are `asphalt`, `field`, `wetField`, `grass`, `shallowWater`, `snow`, `dirt`, `gravel`, `mud`, and `unknown`. `dirt`, `gravel`, and `mud` are emitted only if FS25 returns those exact names or an exact wheel surface sound mapping for the raw terrain attribute.
-- `surfaceAttribute`: raw terrain attribute number. It is not mapped to dirt/gravel/mud by guesswork.
-- `groundWetness` and `rainScale`: best-effort normalized `0..1` weather values when available.
-- `wheelSlip`, `maxWheelSlip`, and `groundContactRatio`: aggregated wheel physics values. `wheelSlip` is average wheel slip, `maxWheelSlip` is the maximum wheel slip, and `groundContactRatio` is contacted wheels divided by wheel count.
-- `steeringWheelSlip` and `steeringGroundContactRatio`: steering-wheel-specific slip and contact values. The Windows app prefers these for steering-load decisions and falls back to all-wheel values.
-- `pitchDeg`, `rollDeg`, `yawRateDegPerSec`, and `slopeDeg`: vehicle attitude and terrain slope values.
-- `localAccelerationX/Y/Z`: acceleration in vehicle-local axes when enough motion history is available.
-- `verticalImpactImpulse`: normalized vertical impact from root-node local Y acceleration. This is the preferred road-bump input.
-- `suspensionImpulse`: wheel suspension/load impulse when available, otherwise a conservative fallback. It drives continuous terrain rumble.
-- `landingImpulse`: vertical impact emitted when wheel contact returns after contact loss.
-- `collisionImpulse`: hard horizontal contact from local X/Z acceleration, intended for rare crash/contact pulses.
-- `longitudinalJerkImpulse`: acceleration/braking jerk when no suspension or collision evidence confirms a hit.
-- `bumpImpulse`: legacy alias for `verticalImpactImpulse`; new Windows calculators prefer the explicit fields.
-- `leftSuspensionImpulse` and `rightSuspensionImpulse`: side-specific best-effort suspension impulse fields. The sender prefers wheel suspension/load fields when available, and falls back to distributing `verticalImpactImpulse` by left/right wheel contact ratio.
-- `throttle`, `brake`, `clutch`, and `gear`: best-effort drivetrain/control fields. The Windows calculator uses transitions in these fields for drivetrain event pulses.
-- Missing values are sent as `null`.
-
-## Vehicle Categories
-
-The Lua mod classifies vehicles from FS25 `vehicle.typeName` and `vehicle.typeDesc` with token/alias matching, so `roadTractor` and `semiTruck` are treated as road trucks instead of matching the generic tractor token. Truck aliases include `truck`, `trucks`, `semiTruck`, `roadTractor`, `lkw`, and `semi truck`. Tractor categories are split into wheeled/tracked variants by the FS25 `Crawlers` specialization data (`vehicle.spec_crawlers.crawlers` and wheel-configuration crawler tables). GIANTS documents `Crawlers` as the specialization for crawlers and tracks with rotating or scrolling elements: https://gdn.giants-software.com/documentation_scripting_fs25.php?category=77&class=655&version=script
-
-If a raw truck category uses agricultural or tracked tire profiles from FS25 wheel physics, the Lua mod temporarily emits `TractorWheeled` or `TractorTracked` respectively. Model names such as Volvo, Mack, Unimog, or Heizomat are not parsed.
-
-Heavy tractor detection uses explicit raw type/category names such as large/heavy tractor equivalents. Mass is not used as the primary criterion, and model names are not parsed. If the raw type/category data is missing or unexpected, the mod emits `Unknown`.
-
-## Receiver States
-
-- `Waiting`: app is listening, no packet has arrived.
-- `Connected`: packets are arriving within the timeout.
-- `Lost`: at least one packet arrived, then packets stopped for more than the configured timeout.
-
-Malformed JSON updates the raw packet preview and parser status, but it does not replace the last valid decoded packet.
-If the UDP port is already in use, the app reports the bind error and continues watching the fallback file.
-
-## Effect Status Return File
-
-The Windows app writes `effectStatus.json` at up to 10 Hz, plus immediate zero-status writes on Stop All, telemetry loss, and shutdown/dispose. The FS25 Lua overlay no longer reads this file; live effect activation lamps are shown in the Windows app from the same gameplay FFB output that drives DirectInput.
+Example:
 
 ```json
 {
-  "timestampMs": 1715000000000,
-  "activeCategory": "Truck",
-  "activeEffectsText": "Spring, Damper",
-  "speedSpring": true,
-  "speedDamper": true,
-  "friction": false,
-  "rpmVibration": false,
-  "surfaceFeedback": false,
-  "slipFeedback": false,
-  "bump": false,
-  "suspensionHit": false,
-  "landing": false,
-  "collision": false,
-  "drivetrainPulse": false,
-  "steeringLoad": true,
-  "speedStability": true,
-  "surfaceTraction": false,
-  "suspensionTerrain": false,
-  "loadSlopeImplement": true,
-  "engineDrivetrain": false
+  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.0.0" },
+  "frame": {
+    "sequence": 1,
+    "dtMs": 8,
+    "telemetryRateHz": 125,
+    "timestampMs": 123456,
+    "isDuplicate": false,
+    "isInterpolated": false
+  },
+  "game": { "state": "mission" },
+  "player": { "isInVehicle": true },
+  "vehicle": {
+    "name": "Tractor",
+    "type": "tractor",
+    "category": "TractorWheeled",
+    "wheelTireTypes": "street,mud",
+    "wheelTireProfile": "mixed",
+    "massT": 6.2,
+    "totalMassT": 8.8
+  },
+  "controls": { "throttle": 0.6, "brake": 0.0, "clutch": 0.0 },
+  "motion": {
+    "speedMps": 3.444,
+    "speedKmh": 12.4,
+    "pitchDeg": 3.1,
+    "rollDeg": -2.4,
+    "yawRateRadPerSec": 0.14835,
+    "slopeDeg": 4.0,
+    "localAccelerationMps2": { "x": 0.3, "y": 1.8, "z": -0.6 }
+  },
+  "steering": { "angle": 0.13, "rate": 0.8 },
+  "engine": { "rpm": 850, "started": true },
+  "transmission": { "gear": 3 },
+  "wheels": [
+    { "index": 0, "side": "left", "isSteering": true, "slip": 0.24, "hasGroundContact": true, "suspensionImpulse": 0.18 }
+  ],
+  "suspension": {
+    "impulse": 0.30,
+    "verticalImpactImpulse": 0.46,
+    "landingImpulse": null,
+    "leftImpulse": 0.18,
+    "rightImpulse": 0.06
+  },
+  "surface": { "isOnField": true, "type": "field", "attribute": 1 },
+  "environment": { "groundWetness": 0.35, "rainScale": 0.2 },
+  "attachments": [],
+  "collisions": { "collisionImpulse": null, "longitudinalJerkImpulse": 0.21 },
+  "diagnostics": { "payloadBytes": 1800, "buildTimeMs": 0.4, "warnings": [] }
 }
 ```
+
+## Nullability
+
+When no driveable vehicle is active:
+
+- `vehicle=null`
+- `controls`, `motion`, `steering`, `engine`, `transmission`, `suspension`, `surface`, and `collisions` are `null`
+- `wheels=[]`
+- `attachments=[]`
+
+The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
+
+## Units
+
+- `massT`, `totalMassT`: metric tonnes.
+- `speedMps`: meters per second.
+- `speedKmh`: kilometers per hour for UI and profile thresholds.
+- `localAccelerationMps2`: vehicle-local acceleration in meters per second squared.
+- `yawRateRadPerSec`: radians per second.
+- `steering.angle`: normalized/raw steering angle from FS25 source data.
+- `steering.rate`: steering angle delta per second.
+
+## Derived Features
+
+The wire packet must not contain FFB-derived fields such as speed ratio, normalized slip, terrain bump, collision strength, side hit strength, engine vibration, or any effect percentage. Windows derives those values in `TelemetryFeatureExtractor` from the nested raw telemetry.
+
+## Diagnostics
+
+Payload budget:
+
+- target: under `16 KB`
+- warning: above `24 KB`
+- hard warning: above `48 KB`
+
+Lua records payload and build diagnostics in `diagnostics`. If packet build time is greater than `2 ms`, a warning is appended to `diagnostics.warnings`.
 
 ## Manual UDP Test
-
-PowerShell example:
 
 ```powershell
 $udp = [System.Net.Sockets.UdpClient]::new()
@@ -159,8 +131,6 @@ $udp.Dispose()
 ```
 
 ## Manual File Fallback Test
-
-PowerShell example:
 
 ```powershell
 $path = "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\modSettings\FS25_RealFfbTelemetry\telemetry.json"

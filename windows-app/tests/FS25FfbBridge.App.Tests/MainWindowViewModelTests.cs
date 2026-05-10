@@ -143,15 +143,17 @@ public sealed class MainWindowViewModelTests
 
     private static void ApplyTelemetryState(MainWindowViewModel viewModel, string vehicleCategory)
     {
-        var packet = new TelemetryPacket
+        var packet = new TelemetryPacketV1
         {
-            Timestamp = 1,
-            GameState = "mission",
-            IsPlayerInVehicle = true,
-            VehicleName = "Truck",
-            VehicleType = "truck",
-            VehicleCategory = vehicleCategory,
-            SpeedKmh = 20
+            Protocol = new TelemetryProtocolV1 { Name = TelemetryPacketV1.ExpectedProtocolName, Version = TelemetryPacketV1.ExpectedProtocolVersion },
+            Frame = new TelemetryFrameV1 { TimestampMs = 1, DtMs = 33, TelemetryRateHz = 30, Sequence = 1, IsDuplicate = false, IsInterpolated = false },
+            Game = new TelemetryGameV1 { State = "mission" },
+            Player = new TelemetryPlayerV1 { IsInVehicle = true },
+            Vehicle = new TelemetryVehicleV1 { Name = "Truck", Type = "truck", Category = vehicleCategory },
+            Motion = new TelemetryMotionV1 { SpeedKmh = 20, SpeedMps = 20 / 3.6 },
+            Wheels = [],
+            Attachments = [],
+            Diagnostics = new TelemetryDiagnosticsV1()
         };
         var state = new TelemetryReceiverState(
             TelemetryStatus.Connected,

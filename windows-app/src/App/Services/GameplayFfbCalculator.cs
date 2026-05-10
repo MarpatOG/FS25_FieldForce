@@ -28,7 +28,7 @@ public sealed class GameplayFfbCalculator
 
         var packet = state.LastPacket;
         var fade = CalculateTelemetryFade(state.LastPacketAge);
-        if (fade <= 0 || packet is null || packet.IsPlayerInVehicle != true)
+        if (fade <= 0 || packet is null || !packet.IsPlayerInVehicle)
         {
             _lastDrivetrainSample = null;
             _lastSteeringModel = null;
@@ -294,7 +294,7 @@ public sealed class GameplayFfbCalculator
         return Math.Clamp(Math.Min(Math.Max(0, speedKmh), cappedSpeedKmh) / fullEffectSpeedKmh, 0, 1);
     }
 
-    private static string NormalizeSurfaceType(TelemetryPacket packet)
+    private static string NormalizeSurfaceType(TelemetryPacketV1 packet)
     {
         var value = packet.SurfaceType?.Trim();
         if (string.IsNullOrWhiteSpace(value))
@@ -339,7 +339,7 @@ public sealed class GameplayFfbCalculator
         return Math.Clamp(1 + (Math.Sqrt(extraLoad) * 0.24), 1, 1.42);
     }
 
-    private static double? CalculateWetness(TelemetryPacket packet)
+    private static double? CalculateWetness(TelemetryPacketV1 packet)
     {
         if (packet.GroundWetness is null && packet.RainScale is null)
         {
@@ -417,7 +417,7 @@ public sealed class GameplayFfbCalculator
 
     public static class TelemetryFeatureExtractor
     {
-        public static TelemetryFeatures Extract(TelemetryPacket packet, GameplayFfbEffectProfile profile)
+        public static TelemetryFeatures Extract(TelemetryPacketV1 packet, GameplayFfbEffectProfile profile)
         {
             var rawSpeed = Math.Max(0, packet.SpeedKmh ?? 0);
             var speed = rawSpeed < MovingSpeedThresholdKmh ? 0 : rawSpeed;
@@ -425,7 +425,7 @@ public sealed class GameplayFfbCalculator
             var surfaceClass = IsOffRoadSurface(surfaceType, packet.IsOnField)
                 ? (surfaceType == "unknown" ? "field" : surfaceType)
                 : IsRoadSurface(surfaceType) ? "road" : "unknownMixed";
-            var loadFactor = CalculateLoadFactor(packet.Mass, packet.TotalMass);
+            var loadFactor = CalculateLoadFactor(packet.MassKg, packet.TotalMassKg);
             var steeringContact = FirstValid(packet.SteeringGroundContactRatio, packet.GroundContactRatio);
             var contactConfidence = IsValidFinite(packet.SteeringGroundContactRatio) ? 1.0 : IsValidFinite(packet.GroundContactRatio) ? 0.55 : 0.0;
             var suspension = MaxValidImpulse(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse);
@@ -452,7 +452,7 @@ public sealed class GameplayFfbCalculator
                 packet.SurfaceType is not null ? 1.0 : packet.IsOnField is not null ? 0.7 : 0.0,
                 CalculateFeatureWetness(packet, surfaceType),
                 loadFactor,
-                packet.Mass is not null && packet.TotalMass is not null ? 1.0 : 0.0,
+                packet.MassKg is not null && packet.TotalMassKg is not null ? 1.0 : 0.0,
                 Math.Max(NormalizeAbs(packet.PitchDeg, profile.MotionFeedback.FullPitchDeg), NormalizeAbs(packet.SlopeDeg, profile.MotionFeedback.FullPitchDeg)),
                 suspension,
                 suspensionConfidence,
@@ -761,7 +761,7 @@ public sealed class GameplayFfbCalculator
             return new(new ContinuousHaptics(0, 0, 0, 0, 0, 0, rumble, hz), features.SuspensionConfidence);
         }
 
-        public static IReadOnlyList<EventPulse> CalculatePulses(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static IReadOnlyList<EventPulse> CalculatePulses(TelemetryPacketV1 packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             return CalculatePulseCandidates(packet, features, profile, context)
                 .Where(candidate => candidate.Valid)
@@ -769,7 +769,7 @@ public sealed class GameplayFfbCalculator
                 .ToArray();
         }
 
-        public static IReadOnlyList<EventPulseCandidate> CalculatePulseCandidates(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static IReadOnlyList<EventPulseCandidate> CalculatePulseCandidates(TelemetryPacketV1 packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var collisionCandidate = CreateImpulseCandidate(FfbPulseKind.Collision, features.CollisionImpulse, profile.CollisionFeedback, context, features, DirectionFromHorizontalImpact(packet), CalculateCollisionSurfaceScale(features), CalculateCollisionMinImpulse(features, profile.CollisionFeedback));
             if (collisionCandidate.Valid && !ShouldAllowCollisionPulse(features))
@@ -999,7 +999,7 @@ public sealed class GameplayFfbCalculator
             return true;
         }
 
-        private static double DirectionFromHorizontalImpact(TelemetryPacket packet)
+        private static double DirectionFromHorizontalImpact(TelemetryPacketV1 packet)
         {
             var accel = packet.LocalAccelerationZ ?? packet.LocalAccelerationX ?? 1;
             var direction = Math.Sign(accel);
@@ -1034,7 +1034,7 @@ public sealed class GameplayFfbCalculator
 
     public static class EngineDrivetrainLayer
     {
-        public static LayerContribution<ContinuousHaptics> CalculateContinuous(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        public static LayerContribution<ContinuousHaptics> CalculateContinuous(TelemetryPacketV1 packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var hz = 0;
             if (!profile.EngineVibration.Enabled || packet.EngineStarted != true || packet.Rpm is null || features.RpmRatio <= 0)
@@ -1178,7 +1178,7 @@ public sealed class GameplayFfbCalculator
         return from + ((to - from) * Math.Clamp(ratio, 0, 1));
     }
 
-    private IReadOnlyList<EventPulse> CalculateDrivetrainPulses(TelemetryPacket packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+    private IReadOnlyList<EventPulse> CalculateDrivetrainPulses(TelemetryPacketV1 packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
     {
         if (!profile.DrivetrainPulse.Enabled || features.DrivetrainConfidence < 1.0)
         {
@@ -1243,7 +1243,7 @@ public sealed class GameplayFfbCalculator
         ];
     }
 
-    private static double? CalculateFeatureWetness(TelemetryPacket packet, string surfaceType)
+    private static double? CalculateFeatureWetness(TelemetryPacketV1 packet, string surfaceType)
     {
         return CalculateWetness(packet) ?? (surfaceType == "wetField" ? 0.6 : null);
     }

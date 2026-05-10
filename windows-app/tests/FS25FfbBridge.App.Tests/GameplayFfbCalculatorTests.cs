@@ -69,6 +69,16 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void No_vehicle_v1_packet_produces_zero_ffb()
+    {
+        var output = _calculator.Calculate(State(NoVehiclePacket()), new GameplayFfbSettings());
+
+        Assert.False(output.IsActive);
+        Assert.Equal(0, output.SpringPercent);
+        Assert.Equal(0, output.BumpImpulsePercent);
+    }
+
+    [Fact]
     public void Vehicle_category_profile_applies_multipliers()
     {
         var settings = new GameplayFfbSettings();
@@ -617,14 +627,7 @@ public sealed class GameplayFfbCalculatorTests
     public void Feature_extractor_uses_max_valid_impulse_fallback()
     {
         var features = GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(
-            new TelemetryPacket
-            {
-                SpeedKmh = 15,
-                IsPlayerInVehicle = true,
-                SuspensionImpulse = 0.02,
-                VerticalImpactImpulse = 0.70,
-                BumpImpulse = 0.65
-            },
+            Packet(speedKmh: 15, suspensionImpulse: 0.02, verticalImpactImpulse: 0.70, bumpImpulse: 0.65),
             new GameplayFfbSettings());
 
         Assert.Equal(0.70, features.SuspensionImpulse);
@@ -839,7 +842,7 @@ public sealed class GameplayFfbCalculatorTests
         Assert.Equal(0, lost.SpringPercent);
     }
 
-    private static TelemetryReceiverState State(TelemetryPacket packet, TimeSpan? age = null)
+    private static TelemetryReceiverState State(TelemetryPacketV1 packet, TimeSpan? age = null)
     {
         return new TelemetryReceiverState(
             TelemetryStatus.Connected,
@@ -855,7 +858,7 @@ public sealed class GameplayFfbCalculatorTests
             null);
     }
 
-    private static TelemetryPacket Packet(
+    private static TelemetryPacketV1 Packet(
         double speedKmh,
         double rpm = 900,
         bool engineStarted = true,
@@ -891,47 +894,89 @@ public sealed class GameplayFfbCalculatorTests
         int? gear = null,
         string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled)
     {
-        return new TelemetryPacket
+        return new TelemetryPacketV1
         {
-            Timestamp = 1,
-            GameState = "mission",
-            IsPlayerInVehicle = true,
-            VehicleName = "Tractor",
-            VehicleType = "tractor",
-            VehicleCategory = vehicleCategory,
-            SpeedKmh = speedKmh,
-            SteeringAngle = steeringAngle ?? 0,
-            SteeringRate = steeringRate,
-            Rpm = rpm,
-            EngineStarted = engineStarted,
-            Mass = mass,
-            TotalMass = totalMass,
-            IsOnField = isOnField,
-            SurfaceType = surfaceType,
-            SurfaceAttribute = surfaceAttribute,
-            GroundWetness = groundWetness,
-            RainScale = rainScale,
-            MaxWheelSlip = maxWheelSlip,
-            GroundContactRatio = groundContactRatio,
-            SteeringGroundContactRatio = steeringGroundContactRatio,
-            PitchDeg = pitchDeg,
-            RollDeg = rollDeg,
-            YawRateDegPerSec = yawRateDegPerSec,
-            LocalAccelerationX = localAccelerationX,
-            LocalAccelerationY = localAccelerationY,
-            LocalAccelerationZ = localAccelerationZ,
-            BumpImpulse = bumpImpulse,
-            SuspensionImpulse = suspensionImpulse ?? bumpImpulse,
-            VerticalImpactImpulse = verticalImpactImpulse,
-            LandingImpulse = landingImpulse,
-            CollisionImpulse = collisionImpulse,
-            LongitudinalJerkImpulse = longitudinalJerkImpulse,
-            LeftSuspensionImpulse = leftSuspensionImpulse,
-            RightSuspensionImpulse = rightSuspensionImpulse,
-            Throttle = throttle,
-            Brake = brake,
-            Clutch = clutch,
-            Gear = gear
+            Protocol = new TelemetryProtocolV1 { Name = TelemetryPacketV1.ExpectedProtocolName, Version = TelemetryPacketV1.ExpectedProtocolVersion },
+            Frame = new TelemetryFrameV1 { TimestampMs = 1, DtMs = 8, TelemetryRateHz = 125, Sequence = 1, IsDuplicate = false, IsInterpolated = false },
+            Game = new TelemetryGameV1 { State = "mission" },
+            Player = new TelemetryPlayerV1 { IsInVehicle = true },
+            Vehicle = new TelemetryVehicleV1
+            {
+                Name = "Tractor",
+                Type = "tractor",
+                Category = vehicleCategory,
+                WheelTireTypes = "street",
+                WheelTireProfile = "street",
+                MassT = mass / 1000.0,
+                TotalMassT = totalMass / 1000.0
+            },
+            Controls = new TelemetryControlsV1 { Throttle = throttle, Brake = brake, Clutch = clutch },
+            Motion = new TelemetryMotionV1
+            {
+                SpeedMps = speedKmh / 3.6,
+                SpeedKmh = speedKmh,
+                PitchDeg = pitchDeg,
+                RollDeg = rollDeg,
+                YawRateRadPerSec = yawRateDegPerSec is null ? null : yawRateDegPerSec * Math.PI / 180.0,
+                LocalAccelerationMps2 = new TelemetryVector3V1 { X = localAccelerationX, Y = localAccelerationY, Z = localAccelerationZ }
+            },
+            Steering = new TelemetrySteeringV1 { Angle = steeringAngle ?? 0, Rate = steeringRate },
+            Engine = new TelemetryEngineV1 { Rpm = rpm, Started = engineStarted },
+            Transmission = new TelemetryTransmissionV1 { Gear = gear },
+            Wheels = CreateWheels(maxWheelSlip, groundContactRatio, steeringGroundContactRatio),
+            Suspension = new TelemetrySuspensionV1
+            {
+                Impulse = suspensionImpulse ?? bumpImpulse,
+                VerticalImpactImpulse = verticalImpactImpulse ?? bumpImpulse,
+                LandingImpulse = landingImpulse,
+                LeftImpulse = leftSuspensionImpulse,
+                RightImpulse = rightSuspensionImpulse
+            },
+            Surface = new TelemetrySurfaceV1 { IsOnField = isOnField, Type = surfaceType, Attribute = surfaceAttribute },
+            Environment = new TelemetryEnvironmentV1 { GroundWetness = groundWetness, RainScale = rainScale },
+            Attachments = [],
+            Collisions = new TelemetryCollisionsV1 { CollisionImpulse = collisionImpulse, LongitudinalJerkImpulse = longitudinalJerkImpulse },
+            Diagnostics = new TelemetryDiagnosticsV1()
         };
+    }
+
+    private static TelemetryPacketV1 NoVehiclePacket()
+    {
+        return new TelemetryPacketV1
+        {
+            Protocol = new TelemetryProtocolV1 { Name = TelemetryPacketV1.ExpectedProtocolName, Version = TelemetryPacketV1.ExpectedProtocolVersion },
+            Frame = new TelemetryFrameV1 { TimestampMs = 1, DtMs = 8, TelemetryRateHz = 125, Sequence = 1, IsDuplicate = false, IsInterpolated = false },
+            Game = new TelemetryGameV1 { State = "mission" },
+            Player = new TelemetryPlayerV1 { IsInVehicle = false },
+            Vehicle = null,
+            Controls = null,
+            Motion = null,
+            Steering = null,
+            Engine = null,
+            Transmission = null,
+            Wheels = [],
+            Suspension = null,
+            Surface = null,
+            Environment = new TelemetryEnvironmentV1(),
+            Attachments = [],
+            Collisions = null,
+            Diagnostics = new TelemetryDiagnosticsV1()
+        };
+    }
+
+    private static List<TelemetryWheelV1> CreateWheels(double? slip, double? contactRatio, double? steeringContactRatio)
+    {
+        var contactCount = contactRatio is null ? 4 : (int)Math.Round(Math.Clamp(contactRatio.Value, 0, 1) * 4);
+        var steeringContactCount = steeringContactRatio is null ? 0 : (int)Math.Ceiling(Math.Clamp(steeringContactRatio.Value, 0, 1) * 4);
+        return Enumerable.Range(0, 4)
+            .Select(index => new TelemetryWheelV1
+            {
+                Index = index,
+                Side = index % 2 == 0 ? "left" : "right",
+                IsSteering = steeringContactRatio is not null,
+                Slip = slip,
+                HasGroundContact = steeringContactRatio is null ? index < contactCount : index < steeringContactCount
+            })
+            .ToList();
     }
 }

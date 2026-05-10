@@ -1,42 +1,122 @@
-{
-  "timestamp": 200500,
-  "gameState": "mission",
-  "isPlayerInVehicle": true,
-  "vehicleName": "Calibration Loader",
-  "vehicleType": "loader",
-  "vehicleCategory": "LoaderTelehandler",
-  "wheelTireTypes": "offRoad",
-  "wheelTireProfile": "agricultural",
-  "speedKmh": 14.0,
-  "steeringAngle": -0.08,
-  "steeringRate": -0.35,
-  "rpm": 1450,
-  "engineStarted": true,
-  "mass": 9200,
-  "totalMass": 10400,
-  "isOnField": false,
-  "surfaceType": "dirt",
-  "surfaceAttribute": 4,
-  "groundWetness": 0.0,
-  "rainScale": 0.0,
-  "wheelSlip": 0.09,
-  "maxWheelSlip": 0.15,
-  "groundContactRatio": 1.0,
-  "steeringGroundContactRatio": 1.0,
-  "steeringWheelSlip": 0.10,
-  "pitchDeg": -4.5,
-  "rollDeg": 3.0,
-  "yawRateDegPerSec": -8.0,
-  "slopeDeg": 2.5,
-  "localAccelerationX": -2.4,
-  "localAccelerationY": 9.5,
-  "localAccelerationZ": -1.2,
-  "bumpImpulse": 0.97,
-  "suspensionImpulse": 0.97,
-  "leftSuspensionImpulse": 0.88,
-  "rightSuspensionImpulse": 0.34,
-  "throttle": 0.30,
-  "brake": 0.18,
-  "clutch": 0.0,
-  "gear": 2
+﻿{
+    "protocol":  {
+                     "name":  "FS25_REAL_FFB_TELEMETRY",
+                     "version":  "1.0.0"
+                 },
+    "frame":  {
+                  "sequence":  1,
+                  "dtMs":  8,
+                  "telemetryRateHz":  125,
+                  "timestampMs":  123456,
+                  "isDuplicate":  false,
+                  "isInterpolated":  false
+              },
+    "game":  {
+                 "state":  "mission"
+             },
+    "player":  {
+                   "isInVehicle":  true
+               },
+    "vehicle":  {
+                    "name":  "Calibration Loader",
+                    "type":  "tractor",
+                    "category":  "TractorWheeled",
+                    "wheelTireTypes":  "street,mud",
+                    "wheelTireProfile":  "mixed",
+                    "massT":  8,
+                    "totalMassT":  8
+                },
+    "controls":  {
+                     "throttle":  0.35,
+                     "brake":  0,
+                     "clutch":  0
+                 },
+    "motion":  {
+                   "speedMps":  3.889,
+                   "speedKmh":  14,
+                   "pitchDeg":  1.2,
+                   "rollDeg":  -0.4,
+                   "yawRateRadPerSec":  0.0436,
+                   "slopeDeg":  1,
+                   "localAccelerationMps2":  {
+                                                 "x":  0.1,
+                                                 "y":  0,
+                                                 "z":  -0.2
+                                             }
+               },
+    "steering":  {
+                     "angle":  0.1,
+                     "rate":  0.2
+                 },
+    "engine":  {
+                   "rpm":  1000,
+                   "started":  true
+               },
+    "transmission":  {
+                         "gear":  2
+                     },
+    "wheels":  [
+                   {
+                       "index":  0,
+                       "side":  "left",
+                       "isSteering":  true,
+                       "slip":  0.09,
+                       "hasGroundContact":  true,
+                       "suspensionImpulse":  0.72
+                   },
+                   {
+                       "index":  1,
+                       "side":  "right",
+                       "isSteering":  true,
+                       "slip":  0.072,
+                       "hasGroundContact":  true,
+                       "suspensionImpulse":  0.432
+                   },
+                   {
+                       "index":  2,
+                       "side":  "left",
+                       "isSteering":  false,
+                       "slip":  0.063,
+                       "hasGroundContact":  true,
+                       "suspensionImpulse":  0.72
+                   },
+                   {
+                       "index":  3,
+                       "side":  "right",
+                       "isSteering":  false,
+                       "slip":  0.054,
+                       "hasGroundContact":  true,
+                       "suspensionImpulse":  0.432
+                   }
+               ],
+    "suspension":  {
+                       "impulse":  0.72,
+                       "verticalImpactImpulse":  0.72,
+                       "landingImpulse":  0.65,
+                       "leftImpulse":  0.72,
+                       "rightImpulse":  0.432
+                   },
+    "surface":  {
+                    "isOnField":  true,
+                    "type":  "field",
+                    "attribute":  1
+                },
+    "environment":  {
+                        "groundWetness":  0.1,
+                        "rainScale":  0
+                    },
+    "attachments":  [
+
+                    ],
+    "collisions":  {
+                       "collisionImpulse":  null,
+                       "longitudinalJerkImpulse":  0.05
+                   },
+    "diagnostics":  {
+                        "payloadBytes":  1800,
+                        "buildTimeMs":  0.4,
+                        "warnings":  [
+
+                                     ]
+                    }
 }

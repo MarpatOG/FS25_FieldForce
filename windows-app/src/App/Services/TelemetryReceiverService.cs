@@ -13,6 +13,26 @@ public sealed class TelemetryReceiverService : IDisposable
     {
         PropertyNameCaseInsensitive = true
     };
+    private static readonly HashSet<string> AllowedTopLevelKeys = new(StringComparer.Ordinal)
+    {
+        "protocol",
+        "frame",
+        "game",
+        "player",
+        "vehicle",
+        "controls",
+        "motion",
+        "steering",
+        "engine",
+        "transmission",
+        "wheels",
+        "suspension",
+        "surface",
+        "environment",
+        "attachments",
+        "collisions",
+        "diagnostics"
+    };
 
     private readonly AppLogService _log;
     private readonly ConcurrentQueue<DateTimeOffset> _packetTimes = new();
@@ -23,7 +43,7 @@ public sealed class TelemetryReceiverService : IDisposable
     private IReadOnlyList<string> _fileCandidates = [];
     private string? _activeFilePath;
     private DateTime _lastFileWriteTimeUtc;
-    private TelemetryPacket? _lastPacket;
+    private TelemetryPacketV1? _lastPacket;
     private DateTimeOffset? _lastPacketAt;
     private string _lastRawPacket = "";
     private string? _lastParseError;
@@ -249,11 +269,13 @@ public sealed class TelemetryReceiverService : IDisposable
 
         try
         {
-            var packet = JsonSerializer.Deserialize<TelemetryPacket>(raw, JsonOptions);
+            ValidateTopLevelContract(raw);
+            var packet = JsonSerializer.Deserialize<TelemetryPacketV1>(raw, JsonOptions);
             if (packet is null)
             {
                 throw new JsonException("Packet decoded as null.");
             }
+            packet.ValidateContract();
 
             TelemetryReceiverState state;
             var publishUiImmediately = false;
@@ -291,7 +313,7 @@ public sealed class TelemetryReceiverService : IDisposable
                 StateChanged?.Invoke(state);
             }
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or InvalidDataException)
         {
             lock (_stateLock)
             {
@@ -301,6 +323,23 @@ public sealed class TelemetryReceiverService : IDisposable
 
             _log.Warning("Telemetry parse error: {Error}", ex.Message);
             PublishState();
+        }
+    }
+
+    private static void ValidateTopLevelContract(string raw)
+    {
+        using var document = JsonDocument.Parse(raw);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            throw new JsonException("Telemetry packet root must be a JSON object.");
+        }
+
+        foreach (var property in document.RootElement.EnumerateObject())
+        {
+            if (!AllowedTopLevelKeys.Contains(property.Name))
+            {
+                throw new InvalidDataException($"Unsupported telemetry top-level field '{property.Name}'.");
+            }
         }
     }
 

@@ -126,8 +126,11 @@
                     <Border Classes="lamp" Classes.active="{Binding BumpFeedbackActive}" ToolTip.Tip="Bump">
                         <TextBlock Classes="lampCode" Text="BU"/>
                     </Border>
-                    <Border Classes="lamp" Classes.active="{Binding SuspensionHitActive}" ToolTip.Tip="Suspension hit">
-                        <TextBlock Classes="lampCode" Text="SH"/>
+                    <Border Classes="lamp" Classes.active="{Binding LeftSuspensionHitActive}" ToolTip.Tip="Left suspension hit">
+                        <TextBlock Classes="lampCode" Text="LSH"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding RightSuspensionHitActive}" ToolTip.Tip="Right suspension hit">
+                        <TextBlock Classes="lampCode" Text="RSH"/>
                     </Border>
                     <Border Classes="lamp" Classes.active="{Binding CollisionFeedbackActive}" ToolTip.Tip="Collision pulse">
                         <TextBlock Classes="lampCode" Text="CP"/>

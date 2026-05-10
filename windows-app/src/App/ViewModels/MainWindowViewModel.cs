@@ -324,6 +324,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _suspensionHitActive;
 
     [ObservableProperty]
+    private bool _leftSuspensionHitActive;
+
+    [ObservableProperty]
+    private bool _rightSuspensionHitActive;
+
+    [ObservableProperty]
     private bool _landingFeedbackActive;
 
     [ObservableProperty]
@@ -1135,7 +1141,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SurfaceFeedbackActive = output.SurfaceVibrationPercent > 0;
             SlipFeedbackActive = output.SlipVibrationPercent > 0;
             BumpFeedbackActive = output.EventPulseKind == FfbPulseKind.Bump;
-            SuspensionHitActive = output.EventPulseKind is FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit;
+            LeftSuspensionHitActive = output.EventPulseKind == FfbPulseKind.LeftSuspensionHit;
+            RightSuspensionHitActive = output.EventPulseKind == FfbPulseKind.RightSuspensionHit;
+            SuspensionHitActive = LeftSuspensionHitActive || RightSuspensionHitActive;
             LandingFeedbackActive = output.EventPulseKind == FfbPulseKind.Landing;
             CollisionFeedbackActive = output.EventPulseKind == FfbPulseKind.Collision;
             DrivetrainPulseActive = output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop;
@@ -1258,8 +1266,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SteeringAngle = FormatNumber(packet.SteeringAngle, "0.000");
             Rpm = FormatNumber(packet.Rpm, "0 rpm");
             EngineStatus = packet.EngineStarted is null ? "-" : packet.EngineStarted.Value ? "Started" : "Stopped";
-            Mass = FormatNumber(packet.Mass, "0 kg");
-            TotalMass = FormatNumber(packet.TotalMass, "0 kg");
+            Mass = FormatNumber(packet.MassKg, "0 kg");
+            TotalMass = FormatNumber(packet.TotalMassKg, "0 kg");
             MassAndTotal = $"{Mass} / {TotalMass}";
             IsOnField = packet.IsOnField is null ? "-" : packet.IsOnField.Value ? "Yes" : "No";
             SurfaceType = string.IsNullOrWhiteSpace(packet.SurfaceType) ? "-" : packet.SurfaceType;
@@ -1271,7 +1279,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WheelTireProfile = string.IsNullOrWhiteSpace(packet.WheelTireProfile) ? "-" : packet.WheelTireProfile;
             Attitude = $"{FormatNumber(packet.PitchDeg, "0.0 deg")} / {FormatNumber(packet.RollDeg, "0.0 deg")} / {FormatNumber(packet.SlopeDeg, "0.0 deg")}";
             LocalAcceleration = $"{FormatNumber(packet.LocalAccelerationX, "0.00")} / {FormatNumber(packet.LocalAccelerationY, "0.00")} / {FormatNumber(packet.LocalAccelerationZ, "0.00")}";
-            BumpImpulse = FormatNumber(packet.BumpImpulse, "0.00");
+            BumpImpulse = FormatNumber(packet.VerticalImpactImpulse, "0.00");
             GameState = string.IsNullOrWhiteSpace(packet.GameState) ? "-" : packet.GameState;
         }
 
