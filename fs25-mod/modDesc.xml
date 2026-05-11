@@ -8,7 +8,7 @@
     <description>
         <en>Sends active vehicle telemetry to the FS25 FFB Bridge Windows app over localhost UDP. Does not modify vehicle physics or steering.</en>
     </description>
-    <multiplayer supported="false"/>
+    <multiplayer supported="true"/>
     <l10n filenamePrefix="languages/l10n"/>
     <extraSourceFiles>
         <sourceFile filename="config/TelemetryConfig.lua"/>
