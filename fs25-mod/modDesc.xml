@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <modDesc descVersion="98">
     <author>FS25 Real FFB Bridge</author>
-    <version>1.0.0.0</version>
+    <version>1.0.0.1</version>
     <title>
         <en>FS25 Real FFB Telemetry</en>
     </title>
     <description>
         <en>Sends active vehicle telemetry to the FS25 FFB Bridge Windows app over localhost UDP. Does not modify vehicle physics or steering.</en>
     </description>
+    <iconFilename>icon_realFfbTelemetry.png</iconFilename>
     <multiplayer supported="true"/>
     <l10n filenamePrefix="languages/l10n"/>
     <extraSourceFiles>
