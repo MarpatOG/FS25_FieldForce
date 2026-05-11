@@ -553,6 +553,25 @@ public sealed class GameplayFfbCalculatorTests
         Assert.True(Math.Abs(output.BumpImpulsePercent) >= 4);
     }
 
+    [Fact]
+    public void Captured_asphalt_side_hits_emit_for_logged_unimog_element()
+    {
+        var settings = new GameplayFfbSettings();
+        var left = _calculator.Calculate(
+            State(Packet(speedKmh: 19.94, surfaceType: "asphalt", verticalImpactImpulse: 1.08, leftSuspensionImpulse: 0.542, rightSuspensionImpulse: null, groundContactRatio: 1)),
+            settings,
+            DeviceHapticProfile.Generic);
+        var right = _calculator.Calculate(
+            State(Packet(speedKmh: 21.40, surfaceType: "asphalt", verticalImpactImpulse: 0.533, leftSuspensionImpulse: 0.267, rightSuspensionImpulse: 0.533, groundContactRatio: 1)),
+            settings,
+            DeviceHapticProfile.Generic);
+
+        Assert.Equal(FfbPulseKind.LeftSuspensionHit, left.EventPulseKind);
+        Assert.Equal(FfbPulseKind.RightSuspensionHit, right.EventPulseKind);
+        Assert.True(Math.Abs(left.BumpImpulsePercent) >= 4);
+        Assert.True(Math.Abs(right.BumpImpulsePercent) >= 3);
+    }
+
     [Theory]
     [InlineData("field")]
     [InlineData("wetField")]

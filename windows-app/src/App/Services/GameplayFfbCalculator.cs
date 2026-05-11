@@ -894,7 +894,7 @@ public sealed class GameplayFfbCalculator
                 return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.30 : 0.24);
             }
 
-            return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.55 : 0.58);
+            return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.42 : 0.58);
         }
 
         private static double CalculateTerrainMinImpulse(TelemetryFeatures features, TerrainRumbleSettings settings)

@@ -103,9 +103,9 @@ public sealed class SuspensionHitFeedbackSettings : ImpulsePulseFeedbackSettings
         MaxOutputPercent = 65;
         Curve = FfbCurveKind.Aggressive;
         MinImpulse = 0.26;
-        FullImpulse = 1.25;
+        FullImpulse = 1.05;
         DurationMs = 50;
-        CooldownMs = 130;
+        CooldownMs = 85;
     }
 }
 
@@ -508,9 +508,9 @@ public class GameplayFfbEffectProfile
         settings.SuspensionHitFeedback.MaxOutputPercent = DefaultMaxOutputPercent;
         settings.SuspensionHitFeedback.Curve = FfbCurveKind.Aggressive;
         settings.SuspensionHitFeedback.MinImpulse = 0.26;
-        settings.SuspensionHitFeedback.FullImpulse = 1.25;
+        settings.SuspensionHitFeedback.FullImpulse = 1.05;
         settings.SuspensionHitFeedback.DurationMs = 50;
-        settings.SuspensionHitFeedback.CooldownMs = 130;
+        settings.SuspensionHitFeedback.CooldownMs = 85;
 
         settings.TerrainRumble.Enabled = true;
         settings.TerrainRumble.StrengthPercent = 28;

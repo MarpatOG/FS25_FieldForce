@@ -511,6 +511,30 @@
                                 <TextBlock Grid.Row="8" Classes="muted" Text="Transport error"/>
                                 <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding LastTransportError}" TextWrapping="Wrap"/>
                             </Grid>
+                            <Border Background="{StaticResource PanelAltBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="12">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                        <StackPanel>
+                                            <TextBlock Classes="section" Text="Telemetry Capture"/>
+                                            <TextBlock Classes="muted" Text="{Binding TelemetryCaptureStatus}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1"
+                                                MinHeight="40"
+                                                Content="{Binding TelemetryCaptureButtonText}"
+                                                Command="{Binding ToggleTelemetryCaptureCommand}"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="96,*" RowDefinitions="Auto,Auto" RowSpacing="6">
+                                        <TextBlock Classes="muted" Text="Hotkey"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding TelemetryCaptureHotkey}"/>
+                                        <TextBlock Grid.Row="1" Classes="muted" Text="File"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TelemetryCapturePath}" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
 

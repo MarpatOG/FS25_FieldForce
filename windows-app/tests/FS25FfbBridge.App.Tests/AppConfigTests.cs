@@ -11,7 +11,7 @@ public sealed class AppConfigTests
     {
         var config = new AppConfig();
 
-        Assert.Equal(12, config.EffectsProfileVersion);
+        Assert.Equal(AppConfig.CurrentEffectsProfileVersion, config.EffectsProfileVersion);
         Assert.Equal("Logitech MOMO Racing Wheel", config.DeviceProfileName);
         Assert.Equal(270, config.RotationDegrees);
         Assert.Equal(40, config.GlobalForceLimitPercent);
@@ -63,6 +63,8 @@ public sealed class AppConfigTests
         Assert.Equal(65, config.GameplayFfb.BumpFeedback.DurationMs);
         Assert.Equal(150, config.GameplayFfb.BumpFeedback.CooldownMs);
         Assert.Equal(30, config.GameplayFfb.SuspensionHitFeedback.StrengthPercent);
+        Assert.Equal(1.05, config.GameplayFfb.SuspensionHitFeedback.FullImpulse);
+        Assert.Equal(85, config.GameplayFfb.SuspensionHitFeedback.CooldownMs);
         Assert.Equal(34, config.GameplayFfb.LandingFeedback.StrengthPercent);
         Assert.Equal(40, config.GameplayFfb.CollisionFeedback.StrengthPercent);
         Assert.Equal(28, config.GameplayFfb.TerrainRumble.StrengthPercent);
@@ -119,7 +121,7 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(12, migrated.EffectsProfileVersion);
+        Assert.Equal(AppConfig.CurrentEffectsProfileVersion, migrated.EffectsProfileVersion);
         Assert.Equal(75, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
         Assert.Equal(45, migrated.GameplayFfb.SpeedDamper.StrengthPercent);
         Assert.Equal(80, migrated.GameplayFfb.SpeedDamper.MaxOutputPercent);
@@ -147,7 +149,7 @@ public sealed class AppConfigTests
         store.Save(migrated);
         var loadedAgain = store.Load();
 
-        Assert.Equal(12, loadedAgain.EffectsProfileVersion);
+        Assert.Equal(AppConfig.CurrentEffectsProfileVersion, loadedAgain.EffectsProfileVersion);
         Assert.Equal(57, loadedAgain.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedDamper.StrengthPercent);
         Assert.Equal(41, loadedAgain.GameplayFfb.SpeedDamper.StrengthPercent);
     }
@@ -170,7 +172,7 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(12, migrated.EffectsProfileVersion);
+        Assert.Equal(AppConfig.CurrentEffectsProfileVersion, migrated.EffectsProfileVersion);
         Assert.Equal(75, migrated.GameplayFfb.SpeedSpring.StrengthPercent);
         Assert.All(migrated.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
         {
@@ -200,7 +202,7 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(12, migrated.EffectsProfileVersion);
+        Assert.Equal(AppConfig.CurrentEffectsProfileVersion, migrated.EffectsProfileVersion);
         Assert.Equal(0.28, migrated.GameplayFfb.BumpFeedback.MinImpulse);
         Assert.Equal(150, migrated.GameplayFfb.BumpFeedback.CooldownMs);
         Assert.Equal(34, migrated.GameplayFfb.BumpFeedback.StrengthPercent);
@@ -229,13 +231,15 @@ public sealed class AppConfigTests
 
         var migrated = store.Load();
 
-        Assert.Equal(12, migrated.EffectsProfileVersion);
+        Assert.Equal(AppConfig.CurrentEffectsProfileVersion, migrated.EffectsProfileVersion);
         Assert.Equal(34, migrated.GameplayFfb.BumpFeedback.StrengthPercent);
         Assert.Equal(28, migrated.GameplayFfb.TerrainRumble.StrengthPercent);
         Assert.All(migrated.GameplayFfb.VehicleCategoryEffectProfiles.Values, profile =>
         {
             Assert.Equal(0.28, profile.BumpFeedback.MinImpulse);
             Assert.Equal(0.26, profile.SuspensionHitFeedback.MinImpulse);
+            Assert.Equal(1.05, profile.SuspensionHitFeedback.FullImpulse);
+            Assert.Equal(85, profile.SuspensionHitFeedback.CooldownMs);
             Assert.Equal(28, profile.TerrainRumble.StrengthPercent);
         });
     }

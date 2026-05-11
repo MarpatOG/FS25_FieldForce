@@ -18,6 +18,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly SafetyManager _safety;
     private readonly AppLogService _log;
     private readonly PanicHotkeyService _panicHotkey;
+    private readonly TelemetryCaptureLogService _telemetryCapture;
+    private readonly TelemetryCaptureHotkeyService _telemetryCaptureHotkey;
     private AppConfig _config;
     private IntPtr _windowHandle;
     private bool _loadingConfig;
@@ -142,6 +144,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string _telemetryParseStatus = "No packets yet";
+
+    [ObservableProperty]
+    private bool _telemetryCaptureRecording;
+
+    [ObservableProperty]
+    private string _telemetryCaptureStatus = "Not recording";
+
+    [ObservableProperty]
+    private string _telemetryCapturePath = "-";
+
+    public string TelemetryCaptureButtonText => TelemetryCaptureRecording ? "Stop Capture" : "Start Capture";
 
     [ObservableProperty]
     private bool _gameplayFfbEnabled;
@@ -426,6 +439,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _panicHotkey = new PanicHotkeyService(_log);
         _panicHotkey.Pressed += HandlePanicHotkey;
         _panicHotkey.Register();
+        _telemetryCapture = new TelemetryCaptureLogService(_log);
+        _telemetryCaptureHotkey = new TelemetryCaptureHotkeyService(_log);
+        _telemetryCaptureHotkey.Pressed += HandleTelemetryCaptureHotkey;
+        _telemetryCaptureHotkey.Register();
         _config = _configStore.Load();
         UseGlobalForceLimitOnly(_config.GameplayFfb);
         _loadingConfig = true;
@@ -448,6 +465,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         _backend.UpdateForceLimits(GlobalForceLimitPercent, 100);
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
+        _telemetryReceiver.FfbStateChanged += OnTelemetryFfbStateChanged;
         _telemetryReceiver.Start(
             _config.TelemetryHost,
             _config.TelemetryPort,
@@ -479,6 +497,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         FfbCurveKind.Aggressive
     ];
     public string PanicHotkey => _config.PanicHotkey;
+    public string TelemetryCaptureHotkey => "Ctrl+Alt+L";
     public bool CanRunEffects => SelectedDevice?.IsForceFeedbackCapable == true && _backend.HasSelectedFfbDevice;
     public string DeviceCountText => $"{Devices.Count} device(s)";
     public string FfbReadyText => $"FFB: {FfbStatus}";
@@ -681,6 +700,26 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _effectStatusWriter.WriteZero(ActiveVehicleCategory);
         GameplayFfbRuntimeStatus = "Paused by Stop All";
         BackendStatus = "All effects stopped";
+    }
+
+    [RelayCommand]
+    private void ToggleTelemetryCapture()
+    {
+        if (TelemetryCaptureRecording)
+        {
+            _telemetryCapture.Stop();
+            TelemetryCaptureRecording = false;
+            TelemetryCaptureStatus = $"Stopped at {_telemetryCapture.SampleCount} samples";
+            TelemetryCapturePath = _telemetryCapture.CurrentNdjsonPath ?? "-";
+            OnPropertyChanged(nameof(TelemetryCaptureButtonText));
+            return;
+        }
+
+        var path = _telemetryCapture.Start();
+        TelemetryCaptureRecording = true;
+        TelemetryCapturePath = path;
+        TelemetryCaptureStatus = "Recording 0 samples";
+        OnPropertyChanged(nameof(TelemetryCaptureButtonText));
     }
 
     private void StartEffect(FfbEffectKind kind)
@@ -1213,6 +1252,27 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Dispatcher.UIThread.Post(() => ApplyTelemetryState(state));
     }
 
+    private void OnTelemetryFfbStateChanged(TelemetryReceiverState state)
+    {
+        _telemetryCapture.Record(state);
+        if (_telemetryCapture.IsRecording && _telemetryCapture.SampleCount % 16 == 0)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_telemetryCapture.IsRecording)
+                {
+                    TelemetryCaptureStatus = $"Recording {_telemetryCapture.SampleCount} samples";
+                    TelemetryCapturePath = _telemetryCapture.CurrentNdjsonPath ?? "-";
+                }
+            });
+        }
+    }
+
+    private void HandleTelemetryCaptureHotkey()
+    {
+        Dispatcher.UIThread.Post(() => ToggleTelemetryCapture());
+    }
+
     private void ApplyTelemetryState(TelemetryReceiverState state)
     {
         TelemetryStatus = state.Status.ToString();
@@ -1347,7 +1407,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _effectStatusWriter.WriteZero(ActiveVehicleCategory);
         _gameplayFfb.Dispose();
         _telemetryReceiver.StateChanged -= OnTelemetryStateChanged;
+        _telemetryReceiver.FfbStateChanged -= OnTelemetryFfbStateChanged;
         _telemetryReceiver.Dispose();
+        _telemetryCaptureHotkey.Pressed -= HandleTelemetryCaptureHotkey;
+        _telemetryCaptureHotkey.Dispose();
+        _telemetryCapture.Dispose();
         _panicHotkey.Dispose();
         _backend.Dispose();
         _log.Dispose();
