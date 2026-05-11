@@ -509,7 +509,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                 PercentToDirectInputMagnitude(Math.Abs(output.BumpImpulsePercent)),
                 direction,
                 TimeSpan.FromMilliseconds(Math.Clamp(output.BumpDurationMs, 20, 250)),
-                MinimumGameplayPulseMagnitude), "bump feedback");
+                CalculateMinimumGameplayPulseMagnitude(kind)), "bump feedback");
             _gameplayBumpEffect.Download().CheckError();
             _gameplayBumpEffect.Start(1).CheckError();
             _lastPulseAtByKind[kind] = now;
@@ -633,6 +633,15 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         var limitMagnitude = Math.Clamp((int)Math.Round(DirectInputMax * limit), 0, DirectInputMax);
         var floor = Math.Clamp(minimumMagnitude, 0, limitMagnitude);
         return Math.Min(Math.Max(ScaleMagnitudeForLimits(magnitude, globalLimitPercent, deviceLimitPercent), floor), limitMagnitude);
+    }
+
+    internal static int CalculateMinimumGameplayPulseMagnitude(FfbPulseKind kind)
+    {
+        return kind switch
+        {
+            FfbPulseKind.DrivetrainJerk or FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop => 0,
+            _ => MinimumGameplayPulseMagnitude
+        };
     }
 
     private static int PercentToDirectInputMagnitude(int percent)

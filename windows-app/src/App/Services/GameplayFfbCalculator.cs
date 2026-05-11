@@ -878,7 +878,7 @@ public sealed class GameplayFfbCalculator
 
         private static double CalculatePulseSurfaceScale(TelemetryFeatures features)
         {
-            var surfaceScale = IsOffRoadSurface(features) ? 1.05 : IsUnknownMixedSurface(features) ? 0.58 : 0.50;
+            var surfaceScale = IsOffRoadSurface(features) ? 1.05 : IsUnknownMixedSurface(features) ? 0.58 : 0.18;
             return surfaceScale * CalculateHapticLoadScale(features);
         }
 
@@ -894,7 +894,7 @@ public sealed class GameplayFfbCalculator
                 return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.30 : 0.24);
             }
 
-            return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.35 : 0.34);
+            return Math.Max(Math.Clamp(settings.MinImpulse, 0, 10), settings is SuspensionHitFeedbackSettings ? 0.55 : 0.58);
         }
 
         private static double CalculateTerrainMinImpulse(TelemetryFeatures features, TerrainRumbleSettings settings)
@@ -919,7 +919,7 @@ public sealed class GameplayFfbCalculator
 
         private static double CalculateTerrainSurfaceScale(TelemetryFeatures features)
         {
-            return IsOffRoadSurface(features) ? 1.10 : IsUnknownMixedSurface(features) ? 0.60 : 0.30;
+            return IsOffRoadSurface(features) ? 1.10 : IsUnknownMixedSurface(features) ? 0.60 : 0.14;
         }
 
         private static double CalculateCollisionSurfaceScale(TelemetryFeatures features)
@@ -1009,8 +1009,8 @@ public sealed class GameplayFfbCalculator
         private static FfbPulseKind SelectSidePulseKind(TelemetryFeatures features)
         {
             var minSideImpulse = IsOffRoadSurface(features) ? 0.20 : IsUnknownMixedSurface(features) ? 0.30 : 0.35;
-            var dominance = IsOffRoadSurface(features) ? 1.25 : IsUnknownMixedSurface(features) ? 1.40 : 1.45;
-            var minSideDelta = IsOffRoadSurface(features) ? 0.12 : IsUnknownMixedSurface(features) ? 0.15 : 0.18;
+            var dominance = IsOffRoadSurface(features) ? 1.25 : IsUnknownMixedSurface(features) ? 1.40 : 1.80;
+            var minSideDelta = IsOffRoadSurface(features) ? 0.12 : IsUnknownMixedSurface(features) ? 0.15 : 0.24;
             var left = features.LeftSuspensionImpulse;
             var right = features.RightSuspensionImpulse;
             var sideDelta = Math.Abs(left - right);
