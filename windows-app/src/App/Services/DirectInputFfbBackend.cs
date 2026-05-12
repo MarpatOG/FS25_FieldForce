@@ -487,7 +487,6 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     {
         if (output.BumpImpulsePercent == 0)
         {
-            StopAndDisposeEffect(ref _gameplayBumpEffect, "bump feedback");
             return null;
         }
 

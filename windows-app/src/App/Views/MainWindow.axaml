@@ -867,7 +867,7 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="section" Text="Engine &amp; Drivetrain"/>
                                 <Grid ColumnDefinitions="132,86,*,50,112,130"
-                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                       RowSpacing="10"
                                       ColumnSpacing="12">
                                     <TextBlock Classes="muted" Text="Effect"/>
@@ -905,15 +905,19 @@
                                     <ComboBox Grid.Row="4" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding EngineStartStopPulseCurve, Mode=TwoWay}"/>
                                     <TextBlock Grid.Row="4" Grid.Column="5" Classes="output" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
 
-                                    <TextBlock Grid.Row="5" Text="Group limits" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Text="Engine cap" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="5" Grid.Column="1" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="5" Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                                        <Slider Width="120" Minimum="100" Maximum="700" TickFrequency="50" MinHeight="44" AutomationProperties.Name="Gear shift cooldown" IsSnapToTickEnabled="True" Value="{Binding GearShiftPulseCooldownMs, Mode=TwoWay}"/>
-                                        <Slider Width="120" Minimum="0" Maximum="100" TickFrequency="1" MinHeight="44" AutomationProperties.Name="Engine drivetrain max" IsSnapToTickEnabled="True" Value="{Binding EngineDrivetrainMaxPercent, Mode=TwoWay}"/>
-                                    </StackPanel>
+                                    <Slider Grid.Row="5" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="1" MinHeight="44" AutomationProperties.Name="Engine drivetrain max" IsSnapToTickEnabled="True" Value="{Binding EngineDrivetrainMaxPercent, Mode=TwoWay}"/>
                                     <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding EngineDrivetrainMaxPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="4" Text="{Binding GearShiftPulseCooldownMs, StringFormat={}{0} ms}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="5" Classes="output muted" Text="Limiter / cooldown" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="5" Classes="output muted" Text="Max engine output" VerticalAlignment="Center"/>
+
+                                    <TextBlock Grid.Row="6" Text="Gear cooldown" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Classes="muted" Text="-" VerticalAlignment="Center"/>
+                                    <Slider Grid.Row="6" Grid.Column="2" Minimum="100" Maximum="700" TickFrequency="50" MinHeight="44" AutomationProperties.Name="Gear shift cooldown" IsSnapToTickEnabled="True" Value="{Binding GearShiftPulseCooldownMs, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding GearShiftPulseCooldownMs, StringFormat={}{0} ms}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="5" Classes="output muted" Text="Min shift gap" VerticalAlignment="Center"/>
                                 </Grid>
                             </StackPanel>
                         </StackPanel>
