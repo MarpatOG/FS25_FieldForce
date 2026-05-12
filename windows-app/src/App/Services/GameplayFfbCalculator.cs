@@ -89,7 +89,7 @@ public sealed class GameplayFfbCalculator
             ClampPercent(capped.Haptics.SlipPercent),
             capped.Haptics.SlipPercent > 0 ? capped.Haptics.SlipHz : 0,
             bump is null ? 0 : ClampSignedPercent(bump.Percent * Math.Sign(bump.Direction == 0 ? bump.Percent : bump.Direction)),
-            bump is null ? 0 : Math.Clamp(bump.DurationMs, 20, 250),
+            bump is null ? 0 : Math.Clamp(bump.DurationMs, 20, bump.Kind == FfbPulseKind.EngineStartStop && bump.Percent > 0 ? 5000 : 250),
             bump is null ? 0 : Math.Clamp(bump.CooldownMs, 20, 500),
             features.LoadFactor,
             fade,
@@ -1350,10 +1350,13 @@ public sealed class GameplayFfbCalculator
     {
         var settings = profile.EngineStartStopPulse;
         var percent = Math.Min(CalculateMaxCapped(settings, context.TelemetryFade) * 0.85, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100));
+        var durationMs = direction > 0
+            ? Math.Clamp(settings.StartDurationMs, 40, 5000)
+            : Math.Clamp(settings.StopDurationMs, 40, 500);
         return new EventPulse(
             FfbPulseKind.EngineStartStop,
             percent * Math.Sign(direction == 0 ? 1 : direction),
-            Math.Clamp(settings.DurationMs, 40, 250),
+            durationMs,
             220,
             direction,
             percent > 0 ? 1.0 : 0.0);

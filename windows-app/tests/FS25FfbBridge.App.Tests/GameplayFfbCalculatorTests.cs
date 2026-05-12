@@ -199,7 +199,23 @@ public sealed class GameplayFfbCalculatorTests
         Assert.False(first.EngineStartStopPulseActive);
         Assert.True(start.EngineStartStopPulseActive);
         Assert.True(start.EngineStartPulsePercent > 0);
+        Assert.Equal(3000, start.EngineStartPulseDurationMs);
+        Assert.Equal(3000, start.BumpDurationMs);
         Assert.False(repeated.EngineStartStopPulseActive);
+    }
+
+    [Fact]
+    public void Engine_stop_seq_keeps_short_stop_duration()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+        _ = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: true, engineStopSeq: 0)), settings);
+        var stop = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: false, engineStopSeq: 1)), settings);
+
+        Assert.True(stop.EngineStartStopPulseActive);
+        Assert.True(stop.EngineStopPulsePercent > 0);
+        Assert.Equal(settings.EngineStartStopPulse.StopDurationMs, stop.EngineStopPulseDurationMs);
+        Assert.Equal(settings.EngineStartStopPulse.StopDurationMs, stop.BumpDurationMs);
     }
 
     [Fact]

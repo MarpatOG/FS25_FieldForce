@@ -50,7 +50,14 @@ public sealed class GearShiftPulseSettings : FfbEffectSettings
 
 public sealed class EngineStartStopPulseSettings : FfbEffectSettings
 {
-    public int DurationMs { get; set; } = 120;
+    public int StartDurationMs { get; set; } = 3000;
+    public int StopDurationMs { get; set; } = 120;
+    public int DurationMs
+    {
+        get => StopDurationMs;
+        set => StopDurationMs = value;
+    }
+
     public int StartFrequencyHz { get; set; } = 18;
     public int StopFrequencyHz { get; set; } = 12;
 }
@@ -256,7 +263,8 @@ public class GameplayFfbEffectProfile
         StrengthPercent = 30,
         MaxOutputPercent = 100,
         Curve = FfbCurveKind.Smooth,
-        DurationMs = 120,
+        StartDurationMs = 3000,
+        StopDurationMs = 120,
         StartFrequencyHz = 18,
         StopFrequencyHz = 12
     };
@@ -441,7 +449,8 @@ public class GameplayFfbEffectProfile
                 StrengthPercent = settings.EngineStartStopPulse.StrengthPercent,
                 MaxOutputPercent = settings.EngineStartStopPulse.MaxOutputPercent,
                 Curve = settings.EngineStartStopPulse.Curve,
-                DurationMs = settings.EngineStartStopPulse.DurationMs,
+                StartDurationMs = settings.EngineStartStopPulse.StartDurationMs,
+                StopDurationMs = settings.EngineStartStopPulse.StopDurationMs,
                 StartFrequencyHz = settings.EngineStartStopPulse.StartFrequencyHz,
                 StopFrequencyHz = settings.EngineStartStopPulse.StopFrequencyHz
             },
@@ -543,6 +552,8 @@ public class GameplayFfbEffectProfile
         settings.EngineRpmVibration.LuggingBoostPercent = Math.Clamp(settings.EngineRpmVibration.LuggingBoostPercent, 0, 100);
         settings.GearShiftPulse ??= new GearShiftPulseSettings();
         settings.EngineStartStopPulse ??= new EngineStartStopPulseSettings();
+        settings.EngineStartStopPulse.StartDurationMs = Math.Clamp(settings.EngineStartStopPulse.StartDurationMs, 40, 5000);
+        settings.EngineStartStopPulse.StopDurationMs = Math.Clamp(settings.EngineStartStopPulse.StopDurationMs, 40, 500);
         settings.GearShiftPulse.CooldownMs = Math.Clamp(settings.GearShiftPulse.CooldownMs, 100, 700);
         settings.EngineDrivetrainMaxPercent = Math.Clamp(settings.EngineDrivetrainMaxPercent, 0, 100);
         settings.SurfaceFeedback ??= new SurfaceFeedbackSettings();

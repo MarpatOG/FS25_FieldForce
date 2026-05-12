@@ -508,7 +508,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             _gameplayBumpEffect = CreateEffectWithAcquireRetry(() => CreateConstantEffect(
                 PercentToDirectInputMagnitude(Math.Abs(output.BumpImpulsePercent)),
                 direction,
-                TimeSpan.FromMilliseconds(Math.Clamp(output.BumpDurationMs, 20, 250)),
+                TimeSpan.FromMilliseconds(ClampGameplayPulseDuration(output)),
                 CalculateMinimumGameplayPulseMagnitude(kind)), "bump feedback");
             _gameplayBumpEffect.Download().CheckError();
             _gameplayBumpEffect.Start(1).CheckError();
@@ -643,6 +643,14 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             FfbPulseKind.DrivetrainJerk => 0,
             _ => MinimumGameplayPulseMagnitude
         };
+    }
+
+    private static int ClampGameplayPulseDuration(GameplayFfbOutput output)
+    {
+        var maxDurationMs = output.EventPulseKind == FfbPulseKind.EngineStartStop && output.BumpImpulsePercent > 0
+            ? 5000
+            : 250;
+        return Math.Clamp(output.BumpDurationMs, 20, maxDurationMs);
     }
 
     private static int PercentToDirectInputMagnitude(int percent)
