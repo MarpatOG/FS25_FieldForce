@@ -79,6 +79,7 @@ public sealed record TelemetryFeatures(
     double LongitudinalJerkImpulse,
     double LeftSuspensionImpulse,
     double RightSuspensionImpulse,
+    bool IsArticulatedVehicle,
     double RpmRatio,
     double DrivetrainConfidence);
 

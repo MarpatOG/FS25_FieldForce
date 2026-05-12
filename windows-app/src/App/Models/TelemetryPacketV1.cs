@@ -5,7 +5,7 @@ namespace FS25FfbBridge.App.Models;
 public sealed class TelemetryPacketV1
 {
     public const string ExpectedProtocolName = "FS25_REAL_FFB_TELEMETRY";
-    public const string ExpectedProtocolVersion = "1.0.0";
+    public const string ExpectedProtocolVersion = "1.1.0";
 
     [JsonPropertyName("protocol")]
     public TelemetryProtocolV1? Protocol { get; set; }
@@ -80,6 +80,9 @@ public sealed class TelemetryPacketV1
 
     [JsonIgnore]
     public string? WheelTireProfile => Vehicle?.WheelTireProfile;
+
+    [JsonIgnore]
+    public bool? IsArticulated => Vehicle?.IsArticulated;
 
     [JsonIgnore]
     public double? SpeedKmh => Motion?.SpeedKmh;
@@ -290,6 +293,9 @@ public sealed class TelemetryVehicleV1
 
     [JsonPropertyName("wheelTireProfile")]
     public string? WheelTireProfile { get; set; }
+
+    [JsonPropertyName("isArticulated")]
+    public bool? IsArticulated { get; set; }
 
     [JsonPropertyName("massT")]
     public double? MassT { get; set; }

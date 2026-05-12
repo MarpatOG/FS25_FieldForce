@@ -257,7 +257,7 @@ public sealed class GameplayFfbCalculatorTests
             1,
             VehicleCategoryFfbProfile.TractorWheeled,
             DeviceHapticProfile.Generic);
-        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
         var baseSteering = new SteeringModel(25, 10, 8);
 
         var stability = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(features, new GameplayFfbSettings(), context);
@@ -293,15 +293,15 @@ public sealed class GameplayFfbCalculatorTests
             DeviceHapticProfile.Generic);
         var settings = new GameplayFfbSettings();
         var slow = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(
-            new TelemetryFeatures(5, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new TelemetryFeatures(5, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0),
             settings,
             context).Value;
         var full = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(
-            new TelemetryFeatures(10, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new TelemetryFeatures(10, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0),
             settings,
             context).Value;
         var capped = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(
-            new TelemetryFeatures(40, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            new TelemetryFeatures(40, 0, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0),
             settings,
             context).Value;
 
@@ -320,7 +320,7 @@ public sealed class GameplayFfbCalculatorTests
             1,
             VehicleCategoryFfbProfile.TractorWheeled,
             DeviceHapticProfile.Generic);
-        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        var features = new TelemetryFeatures(40, 0.8, 0, 1.0, 0, 0, 1, 1, "road", 1, null, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0);
 
         var stabilized = GameplayFfbCalculator.SpeedStabilityLayer.Calculate(features, settings, context);
 
@@ -739,6 +739,21 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Articulated_vehicle_side_impulse_does_not_select_suspension_hit()
+    {
+        var output = _calculator.Calculate(State(Packet(
+            speedKmh: 15,
+            verticalImpactImpulse: 0.3,
+            leftSuspensionImpulse: 0.9,
+            rightSuspensionImpulse: 0.1,
+            groundContactRatio: 1,
+            isArticulated: true)), new GameplayFfbSettings());
+
+        Assert.NotEqual(FfbPulseKind.LeftSuspensionHit, output.EventPulseKind);
+        Assert.NotEqual(FfbPulseKind.RightSuspensionHit, output.EventPulseKind);
+    }
+
+    [Fact]
     public void Side_impulse_absolute_delta_selects_suspension_hit()
     {
         var output = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.35, leftSuspensionImpulse: 0.48, rightSuspensionImpulse: 0.30, groundContactRatio: 1)), new GameplayFfbSettings());
@@ -956,6 +971,7 @@ public sealed class GameplayFfbCalculatorTests
         double? brake = null,
         double? clutch = null,
         int? gear = null,
+        bool? isArticulated = null,
         string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled)
     {
         return new TelemetryPacketV1
@@ -971,6 +987,7 @@ public sealed class GameplayFfbCalculatorTests
                 Category = vehicleCategory,
                 WheelTireTypes = "street",
                 WheelTireProfile = "street",
+                IsArticulated = isArticulated,
                 MassT = mass / 1000.0,
                 TotalMassT = totalMass / 1000.0
             },

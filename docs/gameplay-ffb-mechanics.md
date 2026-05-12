@@ -29,6 +29,7 @@ Important source details:
 - `motion.localAccelerationMps2` is vehicle-local acceleration.
 - `motion.yawRateRadPerSec` is radians per second.
 - `vehicle.massT` and `vehicle.totalMassT` are metric tonnes.
+- `vehicle.isArticulated` marks articulated-frame vehicles whose frame/pivot motion should not be treated as a left/right suspension hit.
 - `wheels[]` carries per-wheel slip, steering flag, side, contact, and suspension impulse.
 - `suspension.verticalImpactImpulse`, `suspension.landingImpulse`, and `collisions.collisionImpulse` remain telemetry inputs; they are not effect percentages.
 - Missing optional FS25 API values are sent as `null`.
@@ -55,6 +56,7 @@ verticalImpactImpulse = maxValid(abs(suspension.verticalImpactImpulse), abs(susp
 landingImpulse = normalized separately with small impulse noise rejected
 collisionImpulse = normalized separately with small impulse noise rejected
 longitudinalJerkImpulse = clamp(abs(collisions.longitudinalJerkImpulse ?? local horizontal acceleration fallback), 0, 2)
+isArticulatedVehicle = vehicle.isArticulated == true
 ```
 
 FFB-derived values such as speed ratio, normalized slip, terrain rumble, side hit, collision strength, and engine vibration are never read from JSON.
@@ -89,7 +91,7 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 
 - Speed spring, speed damper, mechanical friction, load resistance, motion feedback, contact relief, and speed stability combine into DirectInput condition effects.
 - Engine vibration, surface feedback, slip feedback, and suspension terrain rumble produce continuous haptics.
-- Collision, landing, left/right suspension hit, bump, gear shift, drivetrain jerk, and engine start/stop share one finite pulse bus.
+- Collision, landing, left/right suspension hit, bump, gear shift, drivetrain jerk, and engine start/stop share one finite pulse bus. Articulated vehicles suppress left/right suspension-hit selection so pivot/pendulum movement falls back to the softer bump/rumble path.
 - Event priority is `Collision > Landing > Left/RightSuspensionHit > Bump > GearShift > DrivetrainJerk/EngineStartStop`.
 
 DirectInput outputs:

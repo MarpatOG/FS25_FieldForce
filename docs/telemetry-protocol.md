@@ -14,7 +14,7 @@ The FS25 telemetry mod sends UDP JSON over localhost when Lua socket support is 
 The Windows receiver accepts only packets with:
 
 ```json
-{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.0.0" } }
+{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" } }
 ```
 
 Flat legacy JSON is rejected and does not replace the last valid packet.
@@ -33,7 +33,7 @@ Example:
 
 ```json
 {
-  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.0.0" },
+  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" },
   "frame": {
     "sequence": 1,
     "dtMs": 8,
@@ -50,6 +50,7 @@ Example:
     "category": "TractorWheeled",
     "wheelTireTypes": "street,mud",
     "wheelTireProfile": "mixed",
+    "isArticulated": false,
     "massT": 6.2,
     "totalMassT": 8.8
   },
@@ -98,6 +99,7 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 ## Units
 
 - `massT`, `totalMassT`: metric tonnes.
+- `vehicle.isArticulated`: true for articulated-frame vehicles, used by the Windows bridge to avoid treating articulation suspension movement as a sharp left/right suspension hit.
 - `speedMps`: meters per second.
 - `speedKmh`: kilometers per hour for UI and profile thresholds.
 - `localAccelerationMps2`: vehicle-local acceleration in meters per second squared.

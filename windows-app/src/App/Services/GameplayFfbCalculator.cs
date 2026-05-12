@@ -462,6 +462,7 @@ public sealed class GameplayFfbCalculator
                 Math.Clamp(Math.Abs(longitudinalJerk), 0, 2),
                 NormalizeImpulse(packet.LeftSuspensionImpulse),
                 NormalizeImpulse(packet.RightSuspensionImpulse),
+                packet.IsArticulated == true,
                 packet.Rpm is null ? 0 : Math.Clamp((packet.Rpm.Value - minRpm) / (maxRpm - minRpm), 0, 1),
                 packet.Throttle is not null || packet.Brake is not null || packet.Clutch is not null || packet.Gear is not null ? 1.0 : 0.0);
         }
@@ -1016,6 +1017,11 @@ public sealed class GameplayFfbCalculator
 
         private static FfbPulseKind SelectSidePulseKind(TelemetryFeatures features)
         {
+            if (features.IsArticulatedVehicle)
+            {
+                return FfbPulseKind.Bump;
+            }
+
             var minSideImpulse = IsOffRoadSurface(features) ? 0.20 : IsUnknownMixedSurface(features) ? 0.30 : 0.35;
             var dominance = IsOffRoadSurface(features) ? 1.25 : IsUnknownMixedSurface(features) ? 1.40 : 1.80;
             var minSideDelta = IsOffRoadSurface(features) ? 0.12 : IsUnknownMixedSurface(features) ? 0.15 : 0.24;

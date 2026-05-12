@@ -10,7 +10,7 @@ public sealed class TelemetryReceiverServiceTests
 {
     private const string ValidPacket = """
         {
-          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.0.0" },
+          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" },
           "frame": { "sequence": 1, "dtMs": 8, "telemetryRateHz": 125, "timestampMs": 123456, "isDuplicate": false, "isInterpolated": false },
           "game": { "state": "mission" },
           "player": { "isInVehicle": true },
@@ -48,7 +48,7 @@ public sealed class TelemetryReceiverServiceTests
 
     private const string ExtendedPacket = """
         {
-          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.0.0" },
+          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" },
           "frame": { "sequence": 2, "dtMs": 8, "telemetryRateHz": 125, "timestampMs": 123464, "isDuplicate": false, "isInterpolated": false },
           "game": { "state": "mission" },
           "player": { "isInVehicle": true },
@@ -58,6 +58,7 @@ public sealed class TelemetryReceiverServiceTests
             "category": "TractorWheeled",
             "wheelTireTypes": "street,mud",
             "wheelTireProfile": "mixed",
+            "isArticulated": true,
             "massT": 6.2,
             "totalMassT": 8.8
           },
@@ -91,7 +92,7 @@ public sealed class TelemetryReceiverServiceTests
 
     private const string NoVehiclePacket = """
         {
-          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.0.0" },
+          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" },
           "frame": { "sequence": 3, "dtMs": 8, "telemetryRateHz": 125, "timestampMs": 123472, "isDuplicate": false, "isInterpolated": false },
           "game": { "state": "mission" },
           "player": { "isInVehicle": false },
@@ -163,6 +164,7 @@ public sealed class TelemetryReceiverServiceTests
         Assert.Equal(0.24, packet?.MaxWheelSlip);
         Assert.Equal("street,mud", packet?.WheelTireTypes);
         Assert.Equal("mixed", packet?.WheelTireProfile);
+        Assert.True(packet?.IsArticulated);
         Assert.Equal(-2.4, packet?.RollDeg);
         Assert.Equal(0.46, packet?.BumpImpulse);
         Assert.Equal(0.46, packet?.VerticalImpactImpulse);
@@ -284,7 +286,7 @@ public sealed class TelemetryReceiverServiceTests
         receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
         var stateTask = WaitForStateAsync(receiver, state => state.LastParseError is not null);
 
-        await SendUdpAsync(port, ValidPacket.Replace("\"1.0.0\"", "\"0.6.1\"", StringComparison.Ordinal));
+        await SendUdpAsync(port, ValidPacket.Replace("\"1.1.0\"", "\"0.6.1\"", StringComparison.Ordinal));
 
         var state = await stateTask;
         Assert.Null(state.LastPacket);

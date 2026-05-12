@@ -237,7 +237,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local packet = {
         protocol = {
             name = "FS25_REAL_FFB_TELEMETRY",
-            version = "1.0.0"
+            version = "1.1.0"
         },
         frame = {
             sequence = self.frameSequence,
@@ -287,6 +287,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
         category = self:getVehicleCategory(vehicle, wheel.wheelTireProfile),
         wheelTireTypes = wheel.wheelTireTypes,
         wheelTireProfile = wheel.wheelTireProfile,
+        isArticulated = self:getIsArticulatedVehicle(vehicle),
         massT = self:kgToTons(self:getMass(vehicle)),
         totalMassT = self:kgToTons(self:getTotalMass(vehicle))
     }
@@ -567,6 +568,14 @@ function FS25RealFfbTelemetry:getVehicleCategory(vehicle, wheelTireProfile)
     end
 
     return "Unknown"
+end
+
+function FS25RealFfbTelemetry:getIsArticulatedVehicle(vehicle)
+    if vehicle == nil then
+        return nil
+    end
+
+    return vehicle.spec_articulatedAxis ~= nil
 end
 
 function FS25RealFfbTelemetry:getVehicleTypeText(vehicle)

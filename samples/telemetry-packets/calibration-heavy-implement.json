@@ -1,7 +1,7 @@
-﻿{
+{
     "protocol":  {
                      "name":  "FS25_REAL_FFB_TELEMETRY",
-                     "version":  "1.0.0"
+                     "version":  "1.1.0"
                  },
     "frame":  {
                   "sequence":  1,
@@ -23,6 +23,7 @@
                     "category":  "TractorWheeled",
                     "wheelTireTypes":  "street,mud",
                     "wheelTireProfile":  "mixed",
+                    "isArticulated":  false,
                     "massT":  6,
                     "totalMassT":  12
                 },
