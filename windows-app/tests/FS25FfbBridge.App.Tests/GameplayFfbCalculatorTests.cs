@@ -805,6 +805,22 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Offroad_full_contact_bump_spike_does_not_create_collision_pulse()
+    {
+        var output = _calculator.Calculate(State(Packet(
+            speedKmh: 42,
+            isOnField: true,
+            surfaceType: "field",
+            collisionImpulse: 2.0,
+            verticalImpactImpulse: 0.45,
+            leftSuspensionImpulse: 0.42,
+            rightSuspensionImpulse: 0.36,
+            groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.NotEqual(FfbPulseKind.Collision, output.EventPulseKind);
+    }
+
+    [Fact]
     public void Terrain_rumble_does_not_create_event_pulse_by_itself()
     {
         var output = _calculator.Calculate(State(Packet(speedKmh: 15, isOnField: true, surfaceType: "field", suspensionImpulse: 0.20, verticalImpactImpulse: 0.05, groundContactRatio: 1)), new GameplayFfbSettings());

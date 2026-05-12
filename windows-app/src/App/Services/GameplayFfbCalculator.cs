@@ -959,6 +959,14 @@ public sealed class GameplayFfbCalculator
                 features.VerticalImpactImpulse >= 0.30 ||
                 (contactKnown && features.ContactRatio < 0.85);
 
+            if (fullContact &&
+                IsOffRoadSurface(features) &&
+                features.VerticalImpactImpulse >= 0.30 &&
+                sideImpulse < 0.75)
+            {
+                return false;
+            }
+
             if (fullContact && !hasImpactConfirmation)
             {
                 if (Math.Abs(features.SteeringAngle) > 0.05 || features.YawRateRatio > 0.10)

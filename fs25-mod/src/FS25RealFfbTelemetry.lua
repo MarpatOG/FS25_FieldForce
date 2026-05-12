@@ -1315,10 +1315,10 @@ function FS25RealFfbTelemetry:calculateImpactImpulses(vehicle, motion, wheel)
     local lateralImpulse = math.abs(localAx) / 9.81
     local longitudinalImpulse = math.abs(localAz) / 9.81
     local speedKmh = motion.speedKmh or 0
-    local hasCollisionShape = horizontalImpulse >= 1.25 or lateralImpulse >= longitudinalImpulse * 0.65
+    local hasCollisionShape = horizontalImpulse >= 1.55 or lateralImpulse >= longitudinalImpulse * 0.85
     local longitudinalJerkImpulse = horizontalImpulse
     local collisionImpulse = speedKmh >= 4 and
-        horizontalImpulse >= 0.95 and
+        horizontalImpulse >= 1.35 and
         hasCollisionShape and
         (verticalImpactImpulse == nil or horizontalImpulse > verticalImpactImpulse * 1.55) and
         horizontalImpulse or nil
