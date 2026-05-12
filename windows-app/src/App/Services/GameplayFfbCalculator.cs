@@ -273,9 +273,9 @@ public sealed class GameplayFfbCalculator
             FfbPulseKind.Landing => 1,
             FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit => 2,
             FfbPulseKind.Bump => 3,
-            FfbPulseKind.GearShift => 4,
+            FfbPulseKind.EngineStartStop => 4,
+            FfbPulseKind.GearShift => 5,
             FfbPulseKind.DrivetrainJerk => 5,
-            FfbPulseKind.EngineStartStop => 5,
             _ => 99
         };
     }

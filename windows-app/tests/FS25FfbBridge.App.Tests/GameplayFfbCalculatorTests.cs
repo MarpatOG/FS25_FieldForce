@@ -212,6 +212,20 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Engine_start_seq_takes_priority_over_same_frame_gear_change()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+        _ = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: false, gear: 1, engineStartSeq: 0, gearChangeSeq: 0)), settings);
+        var output = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: true, gear: 2, engineStartSeq: 1, gearChangeSeq: 1)), settings);
+
+        Assert.True(output.EngineStartStopPulseActive);
+        Assert.Equal(FfbPulseKind.EngineStartStop, output.EventPulseKind);
+        Assert.True(output.EngineStartPulsePercent > 0);
+    }
+
+
+    [Fact]
     public void Field_surface_enables_surface_feedback_and_modifies_condition_effects()
     {
         var settings = new GameplayFfbSettings();
@@ -914,14 +928,14 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
-    public void Drivetrain_pulses_do_not_use_finite_impact_floor()
+    public void Engine_drivetrain_event_pulses_use_small_floor()
     {
         var method = typeof(DirectInputFfbBackend).GetMethod("CalculateMinimumGameplayPulseMagnitude", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
         Assert.NotNull(method);
 
         Assert.Equal(0, (int)method!.Invoke(null, [FfbPulseKind.DrivetrainJerk])!);
-        Assert.Equal(0, (int)method.Invoke(null, [FfbPulseKind.GearShift])!);
-        Assert.Equal(0, (int)method.Invoke(null, [FfbPulseKind.EngineStartStop])!);
+        Assert.InRange((int)method.Invoke(null, [FfbPulseKind.GearShift])!, 1, 4999);
+        Assert.InRange((int)method.Invoke(null, [FfbPulseKind.EngineStartStop])!, 1, 4999);
         Assert.True((int)method.Invoke(null, [FfbPulseKind.Bump])! > 0);
         Assert.True((int)method.Invoke(null, [FfbPulseKind.LeftSuspensionHit])! > 0);
     }

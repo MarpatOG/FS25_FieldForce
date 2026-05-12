@@ -18,6 +18,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private const int MomoVibrationMagnitude = 9000;
     private const int MomoVibrationHz = 24;
     private const int MinimumGameplayPulseMagnitude = 5000;
+    private const int MinimumEngineDrivetrainPulseMagnitude = 1600;
     private static readonly TimeSpan ConstantTestDuration = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan VibrationTestDuration = TimeSpan.FromSeconds(3);
 
@@ -638,7 +639,8 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     {
         return kind switch
         {
-            FfbPulseKind.DrivetrainJerk or FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop => 0,
+            FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop => MinimumEngineDrivetrainPulseMagnitude,
+            FfbPulseKind.DrivetrainJerk => 0,
             _ => MinimumGameplayPulseMagnitude
         };
     }
