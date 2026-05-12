@@ -37,6 +37,9 @@ public sealed class EngineVibrationSettings : FfbEffectSettings
     public int MaxRpm { get; set; } = 2400;
     public int MinFrequencyHz { get; set; } = 16;
     public int MaxFrequencyHz { get; set; } = 34;
+    public int IdleStrengthPercent { get; set; } = 6;
+    public int LoadStrengthPercent { get; set; } = 18;
+    public int LuggingBoostPercent { get; set; } = 5;
 }
 
 public sealed class GearShiftPulseSettings : FfbEffectSettings
@@ -418,7 +421,10 @@ public class GameplayFfbEffectProfile
                 MinRpm = settings.EngineRpmVibration.MinRpm,
                 MaxRpm = settings.EngineRpmVibration.MaxRpm,
                 MinFrequencyHz = settings.EngineRpmVibration.MinFrequencyHz,
-                MaxFrequencyHz = settings.EngineRpmVibration.MaxFrequencyHz
+                MaxFrequencyHz = settings.EngineRpmVibration.MaxFrequencyHz,
+                IdleStrengthPercent = settings.EngineRpmVibration.IdleStrengthPercent,
+                LoadStrengthPercent = settings.EngineRpmVibration.LoadStrengthPercent,
+                LuggingBoostPercent = settings.EngineRpmVibration.LuggingBoostPercent
             },
             GearShiftPulse = new GearShiftPulseSettings
             {
@@ -532,6 +538,9 @@ public class GameplayFfbEffectProfile
         settings.MechanicalFriction ??= new MechanicalFrictionSettings();
         settings.LoadResistance ??= new LoadResistanceSettings();
         settings.EngineRpmVibration ??= settings.EngineVibration ?? new EngineVibrationSettings();
+        settings.EngineRpmVibration.IdleStrengthPercent = Math.Clamp(settings.EngineRpmVibration.IdleStrengthPercent, 0, 100);
+        settings.EngineRpmVibration.LoadStrengthPercent = Math.Clamp(settings.EngineRpmVibration.LoadStrengthPercent, 0, 100);
+        settings.EngineRpmVibration.LuggingBoostPercent = Math.Clamp(settings.EngineRpmVibration.LuggingBoostPercent, 0, 100);
         settings.GearShiftPulse ??= new GearShiftPulseSettings();
         settings.EngineStartStopPulse ??= new EngineStartStopPulseSettings();
         settings.GearShiftPulse.CooldownMs = Math.Clamp(settings.GearShiftPulse.CooldownMs, 100, 700);

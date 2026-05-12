@@ -215,6 +215,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _engineVibrationStrengthPercent;
 
     [ObservableProperty]
+    private int _engineIdleStrengthPercent;
+
+    [ObservableProperty]
+    private int _engineLoadStrengthPercent;
+
+    [ObservableProperty]
+    private int _engineLuggingBoostPercent;
+
+    [ObservableProperty]
     private FfbCurveKind _engineVibrationCurve;
 
     [ObservableProperty]
@@ -978,6 +987,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnLoadResistanceCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineIdleStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineLoadStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineLuggingBoostPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnGearShiftPulseEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnGearShiftPulseStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
@@ -1040,6 +1052,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         LoadResistanceCurve = settings.LoadResistance.Curve;
         EngineVibrationEnabled = settings.EngineVibration.Enabled;
         EngineVibrationStrengthPercent = settings.EngineVibration.StrengthPercent;
+        EngineIdleStrengthPercent = settings.EngineVibration.IdleStrengthPercent;
+        EngineLoadStrengthPercent = settings.EngineVibration.LoadStrengthPercent;
+        EngineLuggingBoostPercent = settings.EngineVibration.LuggingBoostPercent;
         EngineVibrationCurve = settings.EngineVibration.Curve;
         GearShiftPulseEnabled = settings.GearShiftPulse.Enabled;
         GearShiftPulseStrengthPercent = settings.GearShiftPulse.StrengthPercent;
@@ -1109,6 +1124,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         target.MechanicalFriction.StrengthPercent = source.MechanicalFriction.StrengthPercent;
         target.LoadResistance.StrengthPercent = source.LoadResistance.StrengthPercent;
         target.EngineVibration.StrengthPercent = source.EngineVibration.StrengthPercent;
+        target.EngineVibration.IdleStrengthPercent = source.EngineVibration.IdleStrengthPercent;
+        target.EngineVibration.LoadStrengthPercent = source.EngineVibration.LoadStrengthPercent;
+        target.EngineVibration.LuggingBoostPercent = source.EngineVibration.LuggingBoostPercent;
         target.GearShiftPulse.StrengthPercent = source.GearShiftPulse.StrengthPercent;
         target.EngineStartStopPulse.StrengthPercent = source.EngineStartStopPulse.StrengthPercent;
         target.SurfaceFeedback.StrengthPercent = source.SurfaceFeedback.StrengthPercent;
@@ -1161,7 +1179,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         profile.LoadResistance.MaxOutputPercent = 100;
         profile.LoadResistance.Curve = LoadResistanceCurve;
         profile.EngineVibration.Enabled = EngineVibrationEnabled;
-        profile.EngineVibration.StrengthPercent = Math.Clamp(EngineVibrationStrengthPercent, 0, 100);
+        profile.EngineVibration.IdleStrengthPercent = Math.Clamp(EngineIdleStrengthPercent, 0, 100);
+        profile.EngineVibration.LoadStrengthPercent = Math.Clamp(EngineLoadStrengthPercent, 0, 100);
+        profile.EngineVibration.LuggingBoostPercent = Math.Clamp(EngineLuggingBoostPercent, 0, 100);
+        profile.EngineVibration.StrengthPercent = Math.Clamp(Math.Max(profile.EngineVibration.IdleStrengthPercent, profile.EngineVibration.LoadStrengthPercent), 0, 100);
         profile.EngineVibration.MaxOutputPercent = 100;
         profile.EngineVibration.Curve = EngineVibrationCurve;
         profile.GearShiftPulse.Enabled = GearShiftPulseEnabled;

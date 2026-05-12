@@ -172,11 +172,16 @@ public sealed class GameplayFfbCalculatorTests
     public void Engine_rpm_vibration_uses_load_and_group_limiter()
     {
         var settings = new GameplayFfbSettings();
-        var lightLoad = _calculator.Calculate(State(Packet(speedKmh: 20, rpm: 900, engineLoad01: 0.1)), settings);
+        settings.EngineRpmVibration.IdleStrengthPercent = 4;
+        settings.EngineRpmVibration.LoadStrengthPercent = 20;
+        settings.EngineRpmVibration.LuggingBoostPercent = 6;
+        settings.EngineDrivetrainMaxPercent = 18;
+        var idle = _calculator.Calculate(State(Packet(speedKmh: 20, rpm: 900, rpm01: 0.2, engineLoad01: 0.0)), settings);
+        var loaded = _calculator.Calculate(State(Packet(speedKmh: 20, rpm: 1800, rpm01: 0.8, engineLoad01: 1.0)), settings);
         var lugging = _calculator.Calculate(State(Packet(speedKmh: 20, rpm: 650, rpm01: 0.12, engineLoad01: 0.95)), settings);
 
-        Assert.True(lightLoad.EngineRpmVibrationPercent > 0);
-        Assert.True(lugging.EngineRpmVibrationPercent >= lightLoad.EngineRpmVibrationPercent);
+        Assert.True(idle.EngineRpmVibrationPercent > 0);
+        Assert.True(loaded.EngineRpmVibrationPercent > idle.EngineRpmVibrationPercent);
         Assert.True(lugging.EngineRpmVibrationPercent <= settings.EngineDrivetrainMaxPercent);
         Assert.True(lugging.EngineLuggingActive);
         Assert.True(lugging.EngineUnderLoadActive);

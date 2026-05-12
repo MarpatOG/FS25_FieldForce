@@ -1103,8 +1103,16 @@ public sealed class GameplayFfbCalculator
             var frequencyRatio = features.HeavyEngine ? Math.Sqrt(rpmRatio) : rpmRatio;
             var hz = Quantize((int)Math.Round(profile.EngineRpmVibration.MinFrequencyHz + ((profile.EngineRpmVibration.MaxFrequencyHz - profile.EngineRpmVibration.MinFrequencyHz) * frequencyRatio)), 2);
             var rpmMagnitude = Math.Clamp(0.32 + (0.68 * ApplyCurve(rpmRatio, profile.EngineRpmVibration.Curve)), 0, 1);
-            var loadScale = Math.Clamp(1 + (features.EngineLoadRatio * 0.45) + (features.EngineLugging ? 0.35 : 0), 0.65, 1.8);
-            var percent = CalculateMaxCapped(profile.EngineRpmVibration, context.TelemetryFade) * rpmMagnitude * loadScale;
+            var idle = Math.Clamp(profile.EngineRpmVibration.IdleStrengthPercent, 0, 100);
+            var loaded = Math.Clamp(profile.EngineRpmVibration.LoadStrengthPercent, 0, 100);
+            var basePercent = Lerp(idle, loaded, ApplyCurve(features.EngineLoadRatio, profile.EngineRpmVibration.Curve));
+            if (features.EngineLugging)
+            {
+                basePercent += Math.Clamp(profile.EngineRpmVibration.LuggingBoostPercent, 0, 100);
+            }
+
+            var outputCapScale = Math.Clamp(profile.EngineRpmVibration.MaxOutputPercent, 0, 100) / 100.0;
+            var percent = basePercent * outputCapScale * context.TelemetryFade * rpmMagnitude;
             percent = Math.Min(percent, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100));
             return new(new ContinuousHaptics(0, 0, 0, 0, percent, hz, 0, 0), 1.0);
         }
