@@ -63,7 +63,7 @@ public sealed class ConfigStore
         File.WriteAllText(ConfigPath, JsonSerializer.Serialize(config, JsonOptions));
     }
 
-    private static AppConfig Normalize(AppConfig config)
+    internal static AppConfig Normalize(AppConfig config)
     {
         config.GameplayFfb ??= new GameplayFfbSettings();
         GameplayFfbEffectProfile.NormalizeEffectSettings(config.GameplayFfb);

@@ -101,6 +101,26 @@
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        <Style Selector="Button.badge">
+            <Setter Property="Background" Value="{StaticResource PanelAltBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="12,7"/>
+        </Style>
+        <Style Selector="Button.badge.good">
+            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+        </Style>
+        <Style Selector="Button.badge.warn">
+            <Setter Property="Background" Value="{StaticResource WarningSoftBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource WarningBrush}"/>
+        </Style>
+        <Style Selector="Button.badge TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
         <Style Selector="Border.effectLamp">
             <Setter Property="Width" Value="12"/>
             <Setter Property="Height" Value="12"/>
@@ -232,11 +252,14 @@
                             Classes.bad="{Binding IsTelemetryLost}">
                         <TextBlock Text="{Binding TelemetryReadyText}"/>
                     </Border>
-                    <Border Classes="badge"
+                    <Button Classes="badge"
                             Classes.good="{Binding IsFfbOperational}"
-                            Classes.warn="{Binding IsFfbBlocked}">
+                            Classes.warn="{Binding IsFfbBlocked}"
+                            MinHeight="44"
+                            AutomationProperties.Name="Toggle gameplay force feedback"
+                            Command="{Binding ToggleGameplayFfbCommand}">
                         <TextBlock Text="{Binding FfbReadyText}"/>
-                    </Border>
+                    </Button>
                     <Border Classes="badge"
                             Classes.good="{Binding IsFfbReady}"
                             Classes.warn="{Binding IsFfbInactive}">
@@ -317,56 +340,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Border Grid.Row="2" Classes="panel">
-                            <StackPanel Spacing="12">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                    <StackPanel>
-                                        <TextBlock Classes="section" Text="Effect Activation"/>
-                                        <TextBlock Classes="muted" Text="{Binding ActiveGameplayEffects}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" Classes="muted" Text="{Binding ActiveVehicleCategory}" VerticalAlignment="Center"/>
-                                </Grid>
-                                <UniformGrid Columns="7" Rows="1">
-                                    <StackPanel Spacing="7" Margin="0,0,10,0">
-                                        <Border Classes="effectLamp" Classes.active="{Binding SpeedSpringActive}"/>
-                                        <TextBlock Text="Speed spring" TextWrapping="Wrap"/>
-                                        <TextBlock Classes="muted" Text="{Binding SpringOutput}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <StackPanel Spacing="7" Margin="0,0,10,0">
-                                        <Border Classes="effectLamp" Classes.active="{Binding SpeedDamperActive}"/>
-                                        <TextBlock Text="Speed damper" TextWrapping="Wrap"/>
-                                        <TextBlock Classes="muted" Text="{Binding DamperOutput}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <StackPanel Spacing="7" Margin="0,0,10,0">
-                                        <Border Classes="effectLamp" Classes.active="{Binding MechanicalFrictionActive}"/>
-                                        <TextBlock Text="Friction" TextWrapping="Wrap"/>
-                                        <TextBlock Classes="muted" Text="{Binding FrictionOutput}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <StackPanel Spacing="7" Margin="0,0,10,0">
-                                        <Border Classes="effectLamp" Classes.active="{Binding RpmVibrationActive}"/>
-                                        <TextBlock Text="RPM vibration" TextWrapping="Wrap"/>
-                                        <TextBlock Classes="muted" Text="{Binding EngineVibrationOutput}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <StackPanel Spacing="7" Margin="0,0,10,0">
-                                        <Border Classes="effectLamp" Classes.active="{Binding SurfaceFeedbackActive}"/>
-                                        <TextBlock Text="Surface" TextWrapping="Wrap"/>
-                                        <TextBlock Classes="muted" Text="{Binding SurfaceFeedbackOutput}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <StackPanel Spacing="7" Margin="0,0,10,0">
-                                        <Border Classes="effectLamp" Classes.active="{Binding SlipFeedbackActive}"/>
-                                        <TextBlock Text="Slip" TextWrapping="Wrap"/>
-                                        <TextBlock Classes="muted" Text="{Binding SlipFeedbackOutput}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <StackPanel Spacing="7">
-                                        <Border Classes="effectLamp" Classes.active="{Binding BumpFeedbackActive}"/>
-                                        <TextBlock Text="Bump" TextWrapping="Wrap"/>
-                                        <TextBlock Classes="muted" Text="{Binding BumpFeedbackOutput}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                </UniformGrid>
-                            </StackPanel>
-                        </Border>
-
-                        <Expander Grid.Row="3" Header="Diagnostics">
+                        <Expander Grid.Row="2" Header="Diagnostics">
                             <Border Classes="panel">
                                 <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                     <TextBlock Classes="muted" Text="Backend"/>
@@ -616,7 +590,7 @@
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="section" Text="Gameplay Effects"/>
-                                <TextBlock Classes="muted" Text="Conservative Logitech MOMO defaults. Stop All pauses runtime output without changing this profile setting."/>
+                                <TextBlock Classes="muted" Text="Conservative Logitech MOMO defaults. Use the FFB button in the header to enable or disable runtime output."/>
                                 <TextBlock Classes="muted">
                                     <TextBlock.Text>
                                         <MultiBinding StringFormat="{}Runtime {0} / category {1}">
@@ -626,12 +600,12 @@
                                     </TextBlock.Text>
                                 </TextBlock>
                             </StackPanel>
-                            <CheckBox Grid.Column="1"
-                                      VerticalAlignment="Center"
-                                      MinHeight="44"
-                                      AutomationProperties.Name="Enable gameplay force feedback"
-                                      Content="FFB Enabled"
-                                      IsChecked="{Binding GameplayFfbEnabled, Mode=TwoWay}"/>
+                            <Button Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    MinHeight="44"
+                                    Content="Copy strengths to all tabs"
+                                    AutomationProperties.Name="Copy current effect strengths to all effect category tabs"
+                                    Command="{Binding CopyEffectStrengthsToAllCategoriesCommand}"/>
                         </Grid>
 
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">

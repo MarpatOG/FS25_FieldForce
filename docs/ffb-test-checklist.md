@@ -29,7 +29,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 ## MVP Gameplay Effects
 
 - Select and acquire the FFB wheel before starting FS25 telemetry verification.
-- Open `Effects` and confirm `FFB Enabled` is checked.
+- Confirm the header `FFB` status button shows `ready` after selecting the wheel.
 - Enter a vehicle and start driving slowly.
 - `Speed Spring`: centering is very weak at standstill, soft at low speed, and stronger around 20-30 km/h.
 - `Speed Damper`: wheel movement gets less twitchy as speed increases, without becoming stiff at standstill.
@@ -49,7 +49,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Drivetrain Pulse`: gear changes or acceleration/braking jerk show drivetrain pulse activity with lower strength than bump/collision.
 - Each effect can be enabled/disabled independently and each strength slider changes the live output value.
 - Stop the engine, leave the vehicle, or stop telemetry; gameplay outputs fade or stop safely.
-- `Stop All` and `Ctrl+Alt+Pause` stop test and gameplay effects. `Stop All` disables gameplay FFB until `FFB Enabled` is checked again.
+- `Stop All` and `Ctrl+Alt+Pause` stop test and gameplay effects. `Stop All` disables gameplay FFB until the header `FFB` status button is pressed again.
 
 ## FS25 Overlay
 

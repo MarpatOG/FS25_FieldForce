@@ -158,8 +158,8 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                 {
                     FfbEffectKind.Spring => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Spring, MomoTestConditionCoefficient, MomoTestConditionSaturation, MomoSpringDeadBand), "test spring"),
                     FfbEffectKind.Damper => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Damper, MomoTestConditionCoefficient, MomoTestConditionSaturation, deadBand: 0), "test damper"),
-                    FfbEffectKind.ConstantLeft => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionNegative, ConstantTestDuration), "test constant left"),
-                    FfbEffectKind.ConstantRight => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionPositive, ConstantTestDuration), "test constant right"),
+                    FfbEffectKind.ConstantLeft => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionForLogicalForce(-1), ConstantTestDuration), "test constant left"),
+                    FfbEffectKind.ConstantRight => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionForLogicalForce(1), ConstantTestDuration), "test constant right"),
                     FfbEffectKind.LowVibration => CreateEffectWithAcquireRetry(() => CreatePeriodicEffect(EffectGuid.Sine, MomoVibrationMagnitude, MomoVibrationHz, VibrationTestDuration), "test vibration"),
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
                 };
@@ -504,7 +504,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
         try
         {
-            var direction = output.BumpImpulsePercent < 0 ? DirectionNegative : DirectionPositive;
+            var direction = DirectionForLogicalForce(output.BumpImpulsePercent);
             _gameplayBumpEffect = CreateEffectWithAcquireRetry(() => CreateConstantEffect(
                 PercentToDirectInputMagnitude(Math.Abs(output.BumpImpulsePercent)),
                 direction,
@@ -647,6 +647,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private static int PercentToDirectInputMagnitude(int percent)
     {
         return Math.Clamp((int)Math.Round(DirectInputMax * (Math.Clamp(percent, 0, 100) / 100.0)), 0, DirectInputMax);
+    }
+
+    private static int DirectionForLogicalForce(int signedValue)
+    {
+        return signedValue < 0 ? DirectionPositive : DirectionNegative;
     }
 
     private static GameplayFfbOutput QuantizeOutput(GameplayFfbOutput output)

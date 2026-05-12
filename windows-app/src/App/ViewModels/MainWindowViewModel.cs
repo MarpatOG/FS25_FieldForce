@@ -11,6 +11,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private const int MaxRawTelemetryPreviewLength = 4000;
     private readonly ConfigStore _configStore;
+    private readonly EffectsProfileStore _effectsProfileStore;
     private readonly IFfbBackend _backend;
     private readonly TelemetryReceiverService _telemetryReceiver;
     private readonly GameplayFfbController _gameplayFfb;
@@ -431,6 +432,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public MainWindowViewModel(ConfigStore configStore, IFfbBackend? backend, TelemetryReceiverService? telemetryReceiver, AppLogService? log)
     {
         _configStore = configStore;
+        var configDirectory = Path.GetDirectoryName(_configStore.ConfigPath);
+        _effectsProfileStore = string.IsNullOrWhiteSpace(configDirectory)
+            ? new EffectsProfileStore()
+            : new EffectsProfileStore(Path.Combine(configDirectory, "effect-profiles"));
         _log = log ?? new AppLogService();
         _backend = backend ?? new DirectInputFfbBackend(_log);
         _telemetryReceiver = telemetryReceiver ?? new TelemetryReceiverService(_log);
@@ -444,6 +449,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _telemetryCaptureHotkey.Pressed += HandleTelemetryCaptureHotkey;
         _telemetryCaptureHotkey.Register();
         _config = _configStore.Load();
+        _config.GameplayFfb = _effectsProfileStore.Load(_config.GameplayFfb.DeviceHapticProfileName, _config.GameplayFfb);
         UseGlobalForceLimitOnly(_config.GameplayFfb);
         _loadingConfig = true;
         _globalForceLimitPercent = _config.GlobalForceLimitPercent;
@@ -545,16 +551,16 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             ? "ready"
             : "waiting for wheel";
     public string FfbReason => !GameplayFfbEnabled
-        ? "Gameplay force feedback is disabled in the Effects tab."
+        ? "Gameplay force feedback is disabled from the header FFB button."
         : _gameplayFfbPausedByStopAll
             ? GameplayFfbRuntimeStatus
             : CanRunEffects
                 ? GameplayFfbRuntimeStatus
                 : "A force feedback wheel must be selected before effects can run.";
     public string FfbNextAction => !GameplayFfbEnabled
-        ? "Enable FFB in Effects when you are ready."
+        ? "Use the FFB button in the header when you are ready."
         : _gameplayFfbPausedByStopAll
-            ? "Re-enable FFB in Effects or select the wheel again before driving."
+            ? "Press the FFB button in the header or select the wheel again before driving."
             : CanRunEffects
                 ? "Keep the force limits low until the wheel feels comfortable."
                 : "Scan and select your wheel on the Device tab.";
@@ -691,6 +697,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void NextEffectCategory() => MoveEffectCategory(1);
 
     [RelayCommand]
+    private void ToggleGameplayFfb()
+    {
+        if (!GameplayFfbEnabled || _gameplayFfbPausedByStopAll)
+        {
+            _gameplayFfbPausedByStopAll = false;
+            GameplayFfbEnabled = true;
+            GameplayFfbRuntimeStatus = CanRunEffects ? "FFB enabled" : "Device not acquired";
+            SaveGameplaySettingsFromUi();
+            RefreshDashboardStatusProperties();
+            return;
+        }
+
+        GameplayFfbEnabled = false;
+    }
+
+    [RelayCommand]
     private void StopAllEffects()
     {
         _gameplayFfbPausedByStopAll = true;
@@ -700,6 +722,25 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _effectStatusWriter.WriteZero(ActiveVehicleCategory);
         GameplayFfbRuntimeStatus = "Paused by Stop All";
         BackendStatus = "All effects stopped";
+    }
+
+    [RelayCommand]
+    private void CopyEffectStrengthsToAllCategories()
+    {
+        SaveGameplaySettingsToProfile(GetSelectedCategoryProfile(SelectedEffectCategory));
+        var source = GetSelectedCategoryProfile(SelectedEffectCategory);
+        foreach (var category in VehicleCategoryFfbProfile.Categories)
+        {
+            if (category == SelectedEffectCategory)
+            {
+                continue;
+            }
+
+            CopyEffectStrengths(source, GetSelectedCategoryProfile(category));
+        }
+
+        SaveGameplayProfile();
+        _log.Information("Effect strengths copied from {Category} to all categories", SelectedEffectCategory);
     }
 
     [RelayCommand]
@@ -818,7 +859,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SelectedDeviceStatus = $"{device.DisplayName} acquired";
             BackendStatus = "DirectInput FFB ready";
             _config.SelectedDeviceStableId = device.StableId;
+            _config.GameplayFfb = _effectsProfileStore.Load(device.DisplayName, _config.GameplayFfb);
             _config.GameplayFfb.DeviceHapticProfileName = device.DisplayName;
+            _loadingConfig = true;
+            GameplayFfbEnabled = _config.GameplayFfb.Enabled;
+            LoadGameplaySettingsIntoUi(GetSelectedCategoryProfile(SelectedEffectCategory));
+            _loadingConfig = false;
             _configStore.Save(_config);
         }
         else
@@ -1000,8 +1046,33 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _config.GameplayFfb.Enabled = GameplayFfbEnabled;
         SaveGameplaySettingsToProfile(GetSelectedCategoryProfile(SelectedEffectCategory));
         UseGlobalForceLimitOnly(_config.GameplayFfb);
-        _configStore.Save(_config);
+        SaveGameplayProfile();
         _log.Information("Gameplay FFB settings updated");
+    }
+
+    private void SaveGameplayProfile()
+    {
+        _effectsProfileStore.Save(_config.GameplayFfb.DeviceHapticProfileName, _config.GameplayFfb);
+        _configStore.Save(_config);
+    }
+
+    private static void CopyEffectStrengths(GameplayFfbEffectProfile source, GameplayFfbEffectProfile target)
+    {
+        target.SpeedSpring.StrengthPercent = source.SpeedSpring.StrengthPercent;
+        target.SpeedDamper.StrengthPercent = source.SpeedDamper.StrengthPercent;
+        target.MechanicalFriction.StrengthPercent = source.MechanicalFriction.StrengthPercent;
+        target.LoadResistance.StrengthPercent = source.LoadResistance.StrengthPercent;
+        target.EngineVibration.StrengthPercent = source.EngineVibration.StrengthPercent;
+        target.SurfaceFeedback.StrengthPercent = source.SurfaceFeedback.StrengthPercent;
+        target.SlipFeedback.StrengthPercent = source.SlipFeedback.StrengthPercent;
+        target.WetnessFeedback.StrengthPercent = source.WetnessFeedback.StrengthPercent;
+        target.MotionFeedback.StrengthPercent = source.MotionFeedback.StrengthPercent;
+        target.BumpFeedback.StrengthPercent = source.BumpFeedback.StrengthPercent;
+        target.SuspensionHitFeedback.StrengthPercent = source.SuspensionHitFeedback.StrengthPercent;
+        target.LandingFeedback.StrengthPercent = source.LandingFeedback.StrengthPercent;
+        target.CollisionFeedback.StrengthPercent = source.CollisionFeedback.StrengthPercent;
+        target.TerrainRumble.StrengthPercent = source.TerrainRumble.StrengthPercent;
+        target.DrivetrainPulse.StrengthPercent = source.DrivetrainPulse.StrengthPercent;
     }
 
     private GameplayFfbEffectProfile GetSelectedCategoryProfile(string category)

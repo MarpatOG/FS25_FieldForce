@@ -52,6 +52,50 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void Header_ffb_toggle_updates_persistent_wheel_profile()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { GameplayFfb = { Enabled = true }, TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.ToggleGameplayFfbCommand.Execute(null);
+
+        var profilePath = Path.Combine(directory, "effect-profiles", "Logitech MOMO Racing Wheel.json");
+        using var profileJson = JsonDocument.Parse(File.ReadAllText(profilePath));
+
+        Assert.False(viewModel.GameplayFfbEnabled);
+        Assert.False(profileJson.RootElement.GetProperty("GameplayFfb").GetProperty("Enabled").GetBoolean());
+    }
+
+    [Fact]
+    public void Header_ffb_toggle_reenables_after_stop_all_with_one_click()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { GameplayFfb = { Enabled = true }, TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.StopAllEffectsCommand.Execute(null);
+        Assert.Equal("off", viewModel.FfbStatus);
+
+        viewModel.ToggleGameplayFfbCommand.Execute(null);
+
+        Assert.True(viewModel.GameplayFfbEnabled);
+        Assert.Equal("waiting for wheel", viewModel.FfbStatus);
+    }
+
+    [Fact]
     public void Vehicle_category_display_names_are_player_readable()
     {
         Assert.Equal("Loader / telehandler", MainWindowViewModel.GetVehicleCategoryDisplayName(VehicleCategoryFfbProfile.LoaderTelehandler));
@@ -114,6 +158,33 @@ public sealed class MainWindowViewModelTests
         Assert.NotNull(saved);
         Assert.False(saved!.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].TerrainRumble.Enabled);
         Assert.True(saved.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].TerrainRumble.Enabled);
+    }
+
+    [Fact]
+    public void Copy_effect_strengths_to_all_categories_persists_to_wheel_profile_file()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.SelectedEffectCategory = VehicleCategoryFfbProfile.Truck;
+        viewModel.SpeedSpringStrengthPercent = 12;
+        viewModel.SurfaceFeedbackStrengthPercent = 44;
+        viewModel.CopyEffectStrengthsToAllCategoriesCommand.Execute(null);
+
+        var profilePath = Path.Combine(directory, "effect-profiles", "Logitech MOMO Racing Wheel.json");
+        using var profileJson = JsonDocument.Parse(File.ReadAllText(profilePath));
+        var profiles = profileJson.RootElement.GetProperty("GameplayFfb").GetProperty("VehicleCategoryEffectProfiles");
+        var tractor = profiles.GetProperty(VehicleCategoryFfbProfile.TractorWheeled);
+
+        Assert.Equal(12, tractor.GetProperty("SpeedSpring").GetProperty("StrengthPercent").GetInt32());
+        Assert.Equal(44, tractor.GetProperty("SurfaceFeedback").GetProperty("StrengthPercent").GetInt32());
     }
 
     [Fact]

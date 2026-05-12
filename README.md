@@ -128,7 +128,7 @@ The `Effects` tab controls gameplay FFB per vehicle category. Select a category 
 - `Motion`: yaw rate and pitch/slope telemetry feed current stability/load calculations; the UI motion strength toggle is not yet a separate gated output layer.
 - `Bump Feedback`: short signed constant-force pulses from bump impulse telemetry.
 
-`Emergency Stop` disables gameplay FFB until `FFB Enabled` is checked again in the `Effects` tab.
+`Emergency Stop` disables gameplay FFB until the header `FFB` status button is pressed again.
 
 Every gameplay FFB mechanic must be documented in `docs/gameplay-ffb-mechanics.md`. Keep that file in sync with code changes that affect telemetry inputs, calculations, DirectInput output mapping, defaults, or stop/safety behavior.
 
