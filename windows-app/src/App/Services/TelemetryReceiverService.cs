@@ -25,6 +25,7 @@ public sealed class TelemetryReceiverService : IDisposable
         "steering",
         "engine",
         "transmission",
+        "events",
         "wheels",
         "suspension",
         "surface",

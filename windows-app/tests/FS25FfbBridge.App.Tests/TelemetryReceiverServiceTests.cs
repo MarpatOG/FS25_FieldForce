@@ -37,6 +37,7 @@ public sealed class TelemetryReceiverServiceTests
           "steering": { "angle": 0.13, "rate": null },
           "engine": { "rpm": 850, "started": true },
           "transmission": { "gear": 2 },
+          "events": { "engineStartSeq": 0, "engineStopSeq": 0, "gearChangeSeq": 0, "gearChangeKind": "none", "gearChangeTimeMs": null },
           "wheels": [],
           "suspension": { "impulse": null, "verticalImpactImpulse": null, "landingImpulse": null, "leftImpulse": null, "rightImpulse": null },
           "surface": { "isOnField": false, "type": null, "attribute": null },
