@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using FS25FfbBridge.App.Models;
 using FS25FfbBridge.App.Services;
 
@@ -121,6 +122,42 @@ public sealed class TelemetryReceiverServiceTests
           "speedKmh": 12.4
         }
         """;
+
+    [Fact]
+    public void Telemetry_contract_accepts_v1_2_engine_drivetrain_fields()
+    {
+        var json = """
+            {
+              "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.2.0" },
+              "frame": { "sequence": 9, "dtMs": 8, "telemetryRateHz": 125, "timestampMs": 123488, "isDuplicate": false, "isInterpolated": false },
+              "game": { "state": "mission" },
+              "player": { "isInVehicle": true },
+              "vehicle": { "name": "Tractor", "type": "tractor", "category": "TractorWheeled", "massT": 6.2, "totalMassT": 8.8 },
+              "controls": { "throttle": 0.2, "brake": 0.0, "clutch": 0.0 },
+              "motion": { "speedMps": 1, "speedKmh": 3.6, "localAccelerationMps2": { "x": 0, "y": 0, "z": 0 } },
+              "steering": { "angle": 0.0, "rate": 0.0 },
+              "engine": { "isRunning": true, "started": true, "rpm": 900, "rpm01": 0.25, "minRpm": 500, "maxRpm": 2400, "load01": 0.6, "torque": 120, "maxTorque": 400, "motorType": "diesel" },
+              "transmission": { "gear": 2, "previousGear": 1, "targetGear": 3, "gearGroup": "A", "clutch01": 0.0, "brake01": 0.0, "throttle01": 0.2 },
+              "events": { "engineStartSeq": 1, "engineStopSeq": 0, "gearChangeSeq": 2, "gearChangeKind": "up", "gearChangeTimeMs": 300 },
+              "wheels": [],
+              "suspension": { "impulse": null, "verticalImpactImpulse": null, "landingImpulse": null, "leftImpulse": null, "rightImpulse": null },
+              "surface": { "isOnField": false, "type": null, "attribute": null },
+              "environment": { "groundWetness": null, "rainScale": null },
+              "attachments": [],
+              "collisions": { "collisionImpulse": null, "longitudinalJerkImpulse": null },
+              "diagnostics": { "payloadBytes": 1800, "buildTimeMs": 0.4, "warnings": [] }
+            }
+            """;
+
+        var packet = JsonSerializer.Deserialize<TelemetryPacketV1>(json);
+
+        packet!.ValidateContract();
+        Assert.True(packet.IsProtocolValid);
+        Assert.True(packet.EngineRunning);
+        Assert.Equal(0.25, packet.Rpm01);
+        Assert.Equal(0.6, packet.EngineLoad01);
+        Assert.Equal(2, packet.GearChangeSeq);
+    }
 
     [Fact]
     public async Task Receives_valid_udp_packet()

@@ -40,6 +40,7 @@ function FS25RealFfbTelemetry.new()
     self.lastVehicleMotion = {}
     self.lastImpactState = {}
     self.lastSteeringSample = nil
+    self.engineEventState = nil
     self.frameSequence = 0
     self.lastFrameMonotonicSeconds = nil
     self:loadOverlayUserSettings()
@@ -237,7 +238,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local packet = {
         protocol = {
             name = "FS25_REAL_FFB_TELEMETRY",
-            version = "1.1.0"
+            version = "1.2.0"
         },
         frame = {
             sequence = self.frameSequence,
@@ -259,6 +260,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
         steering = nil,
         engine = nil,
         transmission = nil,
+        events = nil,
         wheels = self:jsonArray({}),
         suspension = nil,
         surface = nil,
@@ -313,12 +315,39 @@ function FS25RealFfbTelemetry:collectTelemetry()
         angle = steeringAngle,
         rate = self:getSteeringRate(vehicle, steeringAngle)
     }
+    local rpm = self:getRpm(vehicle)
+    local minRpm = self:getMinRpm(vehicle)
+    local maxRpm = self:getMaxRpm(vehicle)
+    local engineRunning = self:getEngineStarted(vehicle)
+    local gear = self:getGear(vehicle)
+    local eventState = self:updateEngineEventState(vehicle, engineRunning, gear, nowSeconds)
     packet.engine = {
-        rpm = self:getRpm(vehicle),
-        started = self:getEngineStarted(vehicle)
+        isRunning = engineRunning,
+        started = engineRunning,
+        rpm = rpm,
+        rpm01 = self:normalizeRatio(rpm, minRpm, maxRpm),
+        minRpm = minRpm,
+        maxRpm = maxRpm,
+        load01 = self:getEngineLoad01(vehicle),
+        torque = self:getMotorTorque(vehicle),
+        maxTorque = self:getMotorMaxTorque(vehicle),
+        motorType = self:getMotorType(vehicle)
     }
     packet.transmission = {
-        gear = self:getGear(vehicle)
+        gear = gear,
+        previousGear = eventState.previousGear,
+        targetGear = self:getTargetGear(vehicle),
+        gearGroup = self:getGearGroup(vehicle),
+        clutch01 = packet.controls.clutch,
+        brake01 = packet.controls.brake,
+        throttle01 = packet.controls.throttle
+    }
+    packet.events = {
+        engineStartSeq = eventState.engineStartSeq,
+        engineStopSeq = eventState.engineStopSeq,
+        gearChangeSeq = eventState.gearChangeSeq,
+        gearChangeKind = eventState.gearChangeKind,
+        gearChangeTimeMs = eventState.gearChangeTimeMs
     }
     packet.wheels = self:jsonArray(wheel.wheels or {})
     packet.suspension = {
@@ -880,6 +909,75 @@ function FS25RealFfbTelemetry:getRpm(vehicle)
     return nil
 end
 
+function FS25RealFfbTelemetry:getMinRpm(vehicle)
+    local motor = vehicle ~= nil and vehicle.spec_motorized ~= nil and vehicle.spec_motorized.motor or nil
+    return self:getFirstNumber(
+        motor ~= nil and motor.minRpm or nil,
+        motor ~= nil and motor.idleRpm or nil,
+        vehicle ~= nil and vehicle.minRpm or nil,
+        500)
+end
+
+function FS25RealFfbTelemetry:getMaxRpm(vehicle)
+    local motor = vehicle ~= nil and vehicle.spec_motorized ~= nil and vehicle.spec_motorized.motor or nil
+    return self:getFirstNumber(
+        motor ~= nil and motor.maxRpm or nil,
+        motor ~= nil and motor.maxForwardSpeedRpm or nil,
+        vehicle ~= nil and vehicle.maxRpm or nil,
+        2400)
+end
+
+function FS25RealFfbTelemetry:normalizeRatio(value, minValue, maxValue)
+    if type(value) ~= "number" or type(minValue) ~= "number" or type(maxValue) ~= "number" or maxValue <= minValue then
+        return nil
+    end
+
+    return math.max(0, math.min(1, (value - minValue) / (maxValue - minValue)))
+end
+
+function FS25RealFfbTelemetry:getEngineLoad01(vehicle)
+    local motor = vehicle ~= nil and vehicle.spec_motorized ~= nil and vehicle.spec_motorized.motor or nil
+    local value = self:getFirstNumber(
+        motor ~= nil and motor.loadPercentage or nil,
+        motor ~= nil and motor.motorLoadPercentage or nil,
+        motor ~= nil and motor.lastMotorLoadPercentage or nil,
+        vehicle ~= nil and vehicle.motorLoadPercentage or nil)
+    if type(value) ~= "number" then
+        local throttle = self:getFirstNumber(vehicle ~= nil and vehicle.axisForward or nil, vehicle ~= nil and vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisForward or nil)
+        return type(throttle) == "number" and math.max(0, math.min(1, math.abs(throttle))) or nil
+    end
+
+    if value > 1.5 then
+        value = value / 100
+    end
+
+    return math.max(0, math.min(1, value))
+end
+
+function FS25RealFfbTelemetry:getMotorTorque(vehicle)
+    local motor = vehicle ~= nil and vehicle.spec_motorized ~= nil and vehicle.spec_motorized.motor or nil
+    return self:getFirstNumber(
+        motor ~= nil and motor.torque or nil,
+        motor ~= nil and motor.lastMotorTorque or nil,
+        motor ~= nil and motor.motorTorque or nil)
+end
+
+function FS25RealFfbTelemetry:getMotorMaxTorque(vehicle)
+    local motor = vehicle ~= nil and vehicle.spec_motorized ~= nil and vehicle.spec_motorized.motor or nil
+    return self:getFirstNumber(
+        motor ~= nil and motor.maxTorque or nil,
+        motor ~= nil and motor.peakTorque or nil)
+end
+
+function FS25RealFfbTelemetry:getMotorType(vehicle)
+    local motor = vehicle ~= nil and vehicle.spec_motorized ~= nil and vehicle.spec_motorized.motor or nil
+    return tostring(
+        motor ~= nil and (motor.motorType or motor.typeName or motor.type) or
+        vehicle ~= nil and vehicle.motorType or
+        vehicle ~= nil and vehicle.typeName or
+        "unknown")
+end
+
 function FS25RealFfbTelemetry:getEngineStarted(vehicle)
     if vehicle.getIsMotorStarted ~= nil then
         local ok, started = pcall(function()
@@ -895,6 +993,46 @@ function FS25RealFfbTelemetry:getEngineStarted(vehicle)
     end
 
     return nil
+end
+
+function FS25RealFfbTelemetry:updateEngineEventState(vehicle, engineRunning, gear, nowSeconds)
+    local key = self:getVehicleName(vehicle) .. ":" .. tostring(vehicle)
+    local previousState = self.engineEventState
+    if previousState == nil or previousState.key ~= key then
+        self.engineEventState = {
+            key = key,
+            running = engineRunning,
+            gear = gear,
+            engineStartSeq = 0,
+            engineStopSeq = 0,
+            gearChangeSeq = 0,
+            gearChangeKind = "none",
+            gearChangeTimeMs = nil,
+            lastGearChangeSeconds = nil,
+            previousGear = nil
+        }
+        return self.engineEventState
+    end
+
+    if engineRunning ~= nil and previousState.running ~= nil and engineRunning ~= previousState.running then
+        if engineRunning == true then
+            previousState.engineStartSeq = (previousState.engineStartSeq or 0) + 1
+        else
+            previousState.engineStopSeq = (previousState.engineStopSeq or 0) + 1
+        end
+    end
+
+    if gear ~= nil and previousState.gear ~= nil and gear ~= previousState.gear then
+        previousState.previousGear = previousState.gear
+        previousState.gearChangeSeq = (previousState.gearChangeSeq or 0) + 1
+        previousState.gearChangeKind = gear > previousState.gear and "up" or "down"
+        previousState.gearChangeTimeMs = previousState.lastGearChangeSeconds ~= nil and math.max(0, (nowSeconds - previousState.lastGearChangeSeconds) * 1000) or nil
+        previousState.lastGearChangeSeconds = nowSeconds
+    end
+
+    previousState.running = engineRunning
+    previousState.gear = gear
+    return previousState
 end
 
 function FS25RealFfbTelemetry:getGear(vehicle)
@@ -936,6 +1074,26 @@ function FS25RealFfbTelemetry:getGear(vehicle)
         motor ~= nil and motor.selectedGear or nil,
         motor ~= nil and motor.currentGear or nil,
         motor ~= nil and motor.lastGear or nil)
+end
+
+function FS25RealFfbTelemetry:getTargetGear(vehicle)
+    local motorized = vehicle ~= nil and vehicle.spec_motorized or nil
+    local motor = motorized ~= nil and motorized.motor or nil
+    return self:getFirstNumber(
+        motorized ~= nil and motorized.targetGear or nil,
+        motor ~= nil and motor.targetGear or nil,
+        vehicle ~= nil and vehicle.targetGear or nil)
+end
+
+function FS25RealFfbTelemetry:getGearGroup(vehicle)
+    local motorized = vehicle ~= nil and vehicle.spec_motorized or nil
+    local motor = motorized ~= nil and motorized.motor or nil
+    local value = motorized ~= nil and (motorized.gearGroup or motorized.selectedGearGroup) or nil
+    if value == nil and motor ~= nil then
+        value = motor.gearGroup or motor.selectedGearGroup
+    end
+
+    return value ~= nil and tostring(value) or nil
 end
 
 function FS25RealFfbTelemetry:getMass(vehicle)

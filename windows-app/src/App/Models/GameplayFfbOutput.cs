@@ -4,8 +4,8 @@ public sealed record GameplayFfbOutput(
     int SpringPercent,
     int DamperPercent,
     int FrictionPercent,
-    int EngineVibrationPercent,
-    int EngineVibrationHz,
+    int EngineRpmVibrationPercent,
+    int EngineRpmVibrationHz,
     int SurfaceVibrationPercent,
     int SurfaceVibrationHz,
     int TerrainRumblePercent,
@@ -27,9 +27,26 @@ public sealed record GameplayFfbOutput(
     bool ContactReliefControlsActive = false,
     bool AntiOscillationActive = false,
     bool WetnessFeedbackActive = false,
-    bool SteeringSlipReliefActive = false)
+    bool SteeringSlipReliefActive = false,
+    int EngineStartPulsePercent = 0,
+    int EngineStartPulseDurationMs = 0,
+    int EngineStartPulseHz = 0,
+    int EngineStopPulsePercent = 0,
+    int EngineStopPulseDurationMs = 0,
+    int EngineStopPulseHz = 0,
+    int GearShiftPulsePercent = 0,
+    int GearShiftPulseDurationMs = 0,
+    bool EngineDrivetrainActive = false,
+    bool EngineLuggingActive = false,
+    bool EngineUnderLoadActive = false,
+    bool GearShiftPulseActive = false,
+    bool EngineStartStopPulseActive = false)
 {
     public static GameplayFfbOutput Zero { get; } = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, false);
+
+    public int EngineVibrationPercent => EngineRpmVibrationPercent;
+
+    public int EngineVibrationHz => EngineRpmVibrationHz;
 
     public string ActiveEffectsText
     {
@@ -51,7 +68,7 @@ public sealed record GameplayFfbOutput(
                 active.Add("Friction");
             }
 
-            if (EngineVibrationPercent > 0)
+            if (EngineRpmVibrationPercent > 0)
             {
                 active.Add("Engine");
             }

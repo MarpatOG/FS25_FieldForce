@@ -5,7 +5,8 @@ namespace FS25FfbBridge.App.Models;
 public sealed class TelemetryPacketV1
 {
     public const string ExpectedProtocolName = "FS25_REAL_FFB_TELEMETRY";
-    public const string ExpectedProtocolVersion = "1.1.0";
+    public const string ExpectedProtocolVersion = "1.2.0";
+    public const string LegacyProtocolVersion = "1.1.0";
 
     [JsonPropertyName("protocol")]
     public TelemetryProtocolV1? Protocol { get; set; }
@@ -37,6 +38,9 @@ public sealed class TelemetryPacketV1
     [JsonPropertyName("transmission")]
     public TelemetryTransmissionV1? Transmission { get; set; }
 
+    [JsonPropertyName("events")]
+    public TelemetryEventsV1? Events { get; set; }
+
     [JsonPropertyName("wheels")]
     public List<TelemetryWheelV1> Wheels { get; set; } = [];
 
@@ -61,7 +65,8 @@ public sealed class TelemetryPacketV1
     [JsonIgnore]
     public bool IsProtocolValid =>
         string.Equals(Protocol?.Name, ExpectedProtocolName, StringComparison.Ordinal) &&
-        string.Equals(Protocol?.Version, ExpectedProtocolVersion, StringComparison.Ordinal);
+        (string.Equals(Protocol?.Version, ExpectedProtocolVersion, StringComparison.Ordinal) ||
+         string.Equals(Protocol?.Version, LegacyProtocolVersion, StringComparison.Ordinal));
 
     [JsonIgnore]
     public bool IsPlayerInVehicle => Player?.IsInVehicle == true && Vehicle is not null;
@@ -98,6 +103,30 @@ public sealed class TelemetryPacketV1
 
     [JsonIgnore]
     public bool? EngineStarted => Engine?.Started;
+
+    [JsonIgnore]
+    public bool? EngineRunning => Engine?.IsRunning ?? Engine?.Started;
+
+    [JsonIgnore]
+    public double? Rpm01 => Engine?.Rpm01;
+
+    [JsonIgnore]
+    public double? MinRpm => Engine?.MinRpm;
+
+    [JsonIgnore]
+    public double? MaxRpm => Engine?.MaxRpm;
+
+    [JsonIgnore]
+    public double? EngineLoad01 => Engine?.Load01;
+
+    [JsonIgnore]
+    public double? MotorTorque => Engine?.Torque;
+
+    [JsonIgnore]
+    public double? MotorMaxTorque => Engine?.MaxTorque;
+
+    [JsonIgnore]
+    public string? MotorType => Engine?.MotorType;
 
     [JsonIgnore]
     public double? MassT => Vehicle?.MassT;
@@ -197,6 +226,39 @@ public sealed class TelemetryPacketV1
 
     [JsonIgnore]
     public int? Gear => Transmission?.Gear;
+
+    [JsonIgnore]
+    public int? PreviousGear => Transmission?.PreviousGear;
+
+    [JsonIgnore]
+    public int? TargetGear => Transmission?.TargetGear;
+
+    [JsonIgnore]
+    public string? GearGroup => Transmission?.GearGroup;
+
+    [JsonIgnore]
+    public double? TransmissionClutch01 => Transmission?.Clutch01 ?? Controls?.Clutch;
+
+    [JsonIgnore]
+    public double? TransmissionBrake01 => Transmission?.Brake01 ?? Controls?.Brake;
+
+    [JsonIgnore]
+    public double? TransmissionThrottle01 => Transmission?.Throttle01 ?? Controls?.Throttle;
+
+    [JsonIgnore]
+    public long? EngineStartSeq => Events?.EngineStartSeq;
+
+    [JsonIgnore]
+    public long? EngineStopSeq => Events?.EngineStopSeq;
+
+    [JsonIgnore]
+    public long? GearChangeSeq => Events?.GearChangeSeq;
+
+    [JsonIgnore]
+    public string? GearChangeKind => Events?.GearChangeKind;
+
+    [JsonIgnore]
+    public double? GearChangeTimeMs => Events?.GearChangeTimeMs;
 
     [JsonIgnore]
     public string? GameState => Game?.State;
@@ -363,8 +425,32 @@ public sealed class TelemetrySteeringV1
 
 public sealed class TelemetryEngineV1
 {
+    [JsonPropertyName("isRunning")]
+    public bool? IsRunning { get; set; }
+
     [JsonPropertyName("rpm")]
     public double? Rpm { get; set; }
+
+    [JsonPropertyName("rpm01")]
+    public double? Rpm01 { get; set; }
+
+    [JsonPropertyName("minRpm")]
+    public double? MinRpm { get; set; }
+
+    [JsonPropertyName("maxRpm")]
+    public double? MaxRpm { get; set; }
+
+    [JsonPropertyName("load01")]
+    public double? Load01 { get; set; }
+
+    [JsonPropertyName("torque")]
+    public double? Torque { get; set; }
+
+    [JsonPropertyName("maxTorque")]
+    public double? MaxTorque { get; set; }
+
+    [JsonPropertyName("motorType")]
+    public string? MotorType { get; set; }
 
     [JsonPropertyName("started")]
     public bool? Started { get; set; }
@@ -374,6 +460,42 @@ public sealed class TelemetryTransmissionV1
 {
     [JsonPropertyName("gear")]
     public int? Gear { get; set; }
+
+    [JsonPropertyName("previousGear")]
+    public int? PreviousGear { get; set; }
+
+    [JsonPropertyName("targetGear")]
+    public int? TargetGear { get; set; }
+
+    [JsonPropertyName("gearGroup")]
+    public string? GearGroup { get; set; }
+
+    [JsonPropertyName("clutch01")]
+    public double? Clutch01 { get; set; }
+
+    [JsonPropertyName("brake01")]
+    public double? Brake01 { get; set; }
+
+    [JsonPropertyName("throttle01")]
+    public double? Throttle01 { get; set; }
+}
+
+public sealed class TelemetryEventsV1
+{
+    [JsonPropertyName("engineStartSeq")]
+    public long? EngineStartSeq { get; set; }
+
+    [JsonPropertyName("engineStopSeq")]
+    public long? EngineStopSeq { get; set; }
+
+    [JsonPropertyName("gearChangeSeq")]
+    public long? GearChangeSeq { get; set; }
+
+    [JsonPropertyName("gearChangeKind")]
+    public string? GearChangeKind { get; set; }
+
+    [JsonPropertyName("gearChangeTimeMs")]
+    public double? GearChangeTimeMs { get; set; }
 }
 
 public sealed class TelemetryWheelV1

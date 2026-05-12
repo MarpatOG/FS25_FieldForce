@@ -36,8 +36,8 @@ public sealed class AppConfigTests
         Assert.Equal(55, config.GameplayFfb.LoadResistance.StrengthPercent);
         Assert.Equal(65, config.GameplayFfb.LoadResistance.MaxOutputPercent);
         Assert.True(config.GameplayFfb.LoadResistance.AffectsFriction);
-        Assert.Equal(31, config.GameplayFfb.EngineVibration.StrengthPercent);
-        Assert.Equal(65, config.GameplayFfb.EngineVibration.MaxOutputPercent);
+        Assert.Equal(15, config.GameplayFfb.EngineVibration.StrengthPercent);
+        Assert.Equal(100, config.GameplayFfb.EngineVibration.MaxOutputPercent);
         Assert.Equal(12, config.GameplayFfb.EngineVibration.MinFrequencyHz);
         Assert.Equal(30, config.GameplayFfb.EngineVibration.MaxFrequencyHz);
         Assert.Equal(35, config.GameplayFfb.SurfaceFeedback.StrengthPercent);

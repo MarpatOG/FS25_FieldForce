@@ -81,7 +81,11 @@ public sealed record TelemetryFeatures(
     double RightSuspensionImpulse,
     bool IsArticulatedVehicle,
     double RpmRatio,
-    double DrivetrainConfidence);
+    double DrivetrainConfidence,
+    double EngineLoadRatio = 0,
+    bool EngineLugging = false,
+    bool EngineUnderLoad = false,
+    bool HeavyEngine = false);
 
 public sealed record DeviceHapticProfile(
     string Name,

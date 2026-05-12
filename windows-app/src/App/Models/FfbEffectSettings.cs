@@ -39,6 +39,19 @@ public sealed class EngineVibrationSettings : FfbEffectSettings
     public int MaxFrequencyHz { get; set; } = 34;
 }
 
+public sealed class GearShiftPulseSettings : FfbEffectSettings
+{
+    public int DurationMs { get; set; } = 55;
+    public int CooldownMs { get; set; } = 300;
+}
+
+public sealed class EngineStartStopPulseSettings : FfbEffectSettings
+{
+    public int DurationMs { get; set; } = 120;
+    public int StartFrequencyHz { get; set; } = 18;
+    public int StopFrequencyHz { get; set; } = 12;
+}
+
 public sealed class SurfaceFeedbackSettings : FfbEffectSettings
 {
     public double MinSpeedKmh { get; set; } = 0.2;
@@ -206,17 +219,46 @@ public class GameplayFfbEffectProfile
         FrictionScale = 1.00
     };
 
-    public EngineVibrationSettings EngineVibration { get; set; } = new()
+    public EngineVibrationSettings EngineRpmVibration { get; set; } = new()
     {
         Enabled = true,
-        StrengthPercent = 31,
-        MaxOutputPercent = DefaultMaxOutputPercent,
+        StrengthPercent = 15,
+        MaxOutputPercent = 100,
         Curve = FfbCurveKind.Smooth,
         MinRpm = 500,
         MaxRpm = 2400,
         MinFrequencyHz = 12,
         MaxFrequencyHz = 30
     };
+
+    public EngineVibrationSettings EngineVibration
+    {
+        get => EngineRpmVibration;
+        set => EngineRpmVibration = value ?? new EngineVibrationSettings();
+    }
+
+    public GearShiftPulseSettings GearShiftPulse { get; set; } = new()
+    {
+        Enabled = true,
+        StrengthPercent = 35,
+        MaxOutputPercent = 100,
+        Curve = FfbCurveKind.Smooth,
+        DurationMs = 55,
+        CooldownMs = 300
+    };
+
+    public EngineStartStopPulseSettings EngineStartStopPulse { get; set; } = new()
+    {
+        Enabled = true,
+        StrengthPercent = 30,
+        MaxOutputPercent = 100,
+        Curve = FfbCurveKind.Smooth,
+        DurationMs = 120,
+        StartFrequencyHz = 18,
+        StopFrequencyHz = 12
+    };
+
+    public int EngineDrivetrainMaxPercent { get; set; } = 12;
 
     public SurfaceFeedbackSettings SurfaceFeedback { get; set; } = new()
     {
@@ -367,17 +409,37 @@ public class GameplayFfbEffectProfile
                 DamperScale = settings.LoadResistance.DamperScale,
                 FrictionScale = settings.LoadResistance.FrictionScale
             },
-            EngineVibration = new EngineVibrationSettings
+            EngineRpmVibration = new EngineVibrationSettings
             {
-                Enabled = settings.EngineVibration.Enabled,
-                StrengthPercent = settings.EngineVibration.StrengthPercent,
-                MaxOutputPercent = settings.EngineVibration.MaxOutputPercent,
-                Curve = settings.EngineVibration.Curve,
-                MinRpm = settings.EngineVibration.MinRpm,
-                MaxRpm = settings.EngineVibration.MaxRpm,
-                MinFrequencyHz = settings.EngineVibration.MinFrequencyHz,
-                MaxFrequencyHz = settings.EngineVibration.MaxFrequencyHz
+                Enabled = settings.EngineRpmVibration.Enabled,
+                StrengthPercent = settings.EngineRpmVibration.StrengthPercent,
+                MaxOutputPercent = settings.EngineRpmVibration.MaxOutputPercent,
+                Curve = settings.EngineRpmVibration.Curve,
+                MinRpm = settings.EngineRpmVibration.MinRpm,
+                MaxRpm = settings.EngineRpmVibration.MaxRpm,
+                MinFrequencyHz = settings.EngineRpmVibration.MinFrequencyHz,
+                MaxFrequencyHz = settings.EngineRpmVibration.MaxFrequencyHz
             },
+            GearShiftPulse = new GearShiftPulseSettings
+            {
+                Enabled = settings.GearShiftPulse.Enabled,
+                StrengthPercent = settings.GearShiftPulse.StrengthPercent,
+                MaxOutputPercent = settings.GearShiftPulse.MaxOutputPercent,
+                Curve = settings.GearShiftPulse.Curve,
+                DurationMs = settings.GearShiftPulse.DurationMs,
+                CooldownMs = settings.GearShiftPulse.CooldownMs
+            },
+            EngineStartStopPulse = new EngineStartStopPulseSettings
+            {
+                Enabled = settings.EngineStartStopPulse.Enabled,
+                StrengthPercent = settings.EngineStartStopPulse.StrengthPercent,
+                MaxOutputPercent = settings.EngineStartStopPulse.MaxOutputPercent,
+                Curve = settings.EngineStartStopPulse.Curve,
+                DurationMs = settings.EngineStartStopPulse.DurationMs,
+                StartFrequencyHz = settings.EngineStartStopPulse.StartFrequencyHz,
+                StopFrequencyHz = settings.EngineStartStopPulse.StopFrequencyHz
+            },
+            EngineDrivetrainMaxPercent = settings.EngineDrivetrainMaxPercent,
             SurfaceFeedback = new SurfaceFeedbackSettings
             {
                 Enabled = settings.SurfaceFeedback.Enabled,
@@ -469,7 +531,11 @@ public class GameplayFfbEffectProfile
         settings.SpeedDamper ??= new SpeedConditionSettings();
         settings.MechanicalFriction ??= new MechanicalFrictionSettings();
         settings.LoadResistance ??= new LoadResistanceSettings();
-        settings.EngineVibration ??= new EngineVibrationSettings();
+        settings.EngineRpmVibration ??= settings.EngineVibration ?? new EngineVibrationSettings();
+        settings.GearShiftPulse ??= new GearShiftPulseSettings();
+        settings.EngineStartStopPulse ??= new EngineStartStopPulseSettings();
+        settings.GearShiftPulse.CooldownMs = Math.Clamp(settings.GearShiftPulse.CooldownMs, 100, 700);
+        settings.EngineDrivetrainMaxPercent = Math.Clamp(settings.EngineDrivetrainMaxPercent, 0, 100);
         settings.SurfaceFeedback ??= new SurfaceFeedbackSettings();
         settings.SlipFeedback ??= new SlipFeedbackSettings();
         settings.WetnessFeedback ??= new WetnessFeedbackSettings();
@@ -529,7 +595,9 @@ public class GameplayFfbEffectProfile
         ApplyOverallOutputCap(settings.SpeedDamper, overallCap);
         ApplyOverallOutputCap(settings.MechanicalFriction, overallCap);
         ApplyOverallOutputCap(settings.LoadResistance, overallCap);
-        ApplyOverallOutputCap(settings.EngineVibration, overallCap);
+        ApplyOverallOutputCap(settings.EngineRpmVibration, overallCap);
+        ApplyOverallOutputCap(settings.GearShiftPulse, overallCap);
+        ApplyOverallOutputCap(settings.EngineStartStopPulse, overallCap);
         ApplyOverallOutputCap(settings.SurfaceFeedback, overallCap);
         ApplyOverallOutputCap(settings.SlipFeedback, overallCap);
         ApplyOverallOutputCap(settings.WetnessFeedback, overallCap);

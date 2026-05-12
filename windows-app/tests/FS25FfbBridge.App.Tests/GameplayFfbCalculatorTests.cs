@@ -169,6 +169,49 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Engine_rpm_vibration_uses_load_and_group_limiter()
+    {
+        var settings = new GameplayFfbSettings();
+        var lightLoad = _calculator.Calculate(State(Packet(speedKmh: 20, rpm: 900, engineLoad01: 0.1)), settings);
+        var lugging = _calculator.Calculate(State(Packet(speedKmh: 20, rpm: 650, rpm01: 0.12, engineLoad01: 0.95)), settings);
+
+        Assert.True(lightLoad.EngineRpmVibrationPercent > 0);
+        Assert.True(lugging.EngineRpmVibrationPercent >= lightLoad.EngineRpmVibrationPercent);
+        Assert.True(lugging.EngineRpmVibrationPercent <= settings.EngineDrivetrainMaxPercent);
+        Assert.True(lugging.EngineLuggingActive);
+        Assert.True(lugging.EngineUnderLoadActive);
+    }
+
+    [Fact]
+    public void Engine_start_seq_fires_once_after_initial_packet()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+        var first = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: false, engineStartSeq: 0)), settings);
+        var start = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: true, engineStartSeq: 1)), settings);
+        var repeated = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: true, engineStartSeq: 1)), settings);
+
+        Assert.False(first.EngineStartStopPulseActive);
+        Assert.True(start.EngineStartStopPulseActive);
+        Assert.True(start.EngineStartPulsePercent > 0);
+        Assert.False(repeated.EngineStartStopPulseActive);
+    }
+
+    [Fact]
+    public void Gear_change_seq_uses_new_gear_shift_settings()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+        _ = calculator.Calculate(State(Packet(speedKmh: 8, gear: 1, gearChangeSeq: 0, engineLoad01: 0.2)), settings);
+        var output = calculator.Calculate(State(Packet(speedKmh: 8, gear: 2, gearChangeSeq: 1, engineLoad01: 0.8)), settings);
+
+        Assert.True(output.GearShiftPulseActive);
+        Assert.Equal(FfbPulseKind.GearShift, output.EventPulseKind);
+        Assert.True(output.GearShiftPulsePercent > 0);
+        Assert.True(output.GearShiftPulsePercent <= settings.EngineDrivetrainMaxPercent);
+    }
+
+    [Fact]
     public void Field_surface_enables_surface_feedback_and_modifies_condition_effects()
     {
         var settings = new GameplayFfbSettings();
@@ -971,6 +1014,18 @@ public sealed class GameplayFfbCalculatorTests
         double? brake = null,
         double? clutch = null,
         int? gear = null,
+        double? rpm01 = null,
+        double? minRpm = null,
+        double? maxRpm = null,
+        double? engineLoad01 = null,
+        double? motorTorque = null,
+        double? motorMaxTorque = null,
+        string? motorType = null,
+        long? engineStartSeq = null,
+        long? engineStopSeq = null,
+        long? gearChangeSeq = null,
+        string? gearChangeKind = null,
+        double? gearChangeTimeMs = null,
         bool? isArticulated = null,
         string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled)
     {
@@ -1002,8 +1057,28 @@ public sealed class GameplayFfbCalculatorTests
                 LocalAccelerationMps2 = new TelemetryVector3V1 { X = localAccelerationX, Y = localAccelerationY, Z = localAccelerationZ }
             },
             Steering = new TelemetrySteeringV1 { Angle = steeringAngle ?? 0, Rate = steeringRate },
-            Engine = new TelemetryEngineV1 { Rpm = rpm, Started = engineStarted },
-            Transmission = new TelemetryTransmissionV1 { Gear = gear },
+            Engine = new TelemetryEngineV1
+            {
+                IsRunning = engineStarted,
+                Rpm = rpm,
+                Started = engineStarted,
+                Rpm01 = rpm01,
+                MinRpm = minRpm,
+                MaxRpm = maxRpm,
+                Load01 = engineLoad01,
+                Torque = motorTorque,
+                MaxTorque = motorMaxTorque,
+                MotorType = motorType
+            },
+            Transmission = new TelemetryTransmissionV1 { Gear = gear, Throttle01 = throttle, Brake01 = brake, Clutch01 = clutch },
+            Events = new TelemetryEventsV1
+            {
+                EngineStartSeq = engineStartSeq,
+                EngineStopSeq = engineStopSeq,
+                GearChangeSeq = gearChangeSeq,
+                GearChangeKind = gearChangeKind,
+                GearChangeTimeMs = gearChangeTimeMs
+            },
             Wheels = CreateWheels(maxWheelSlip, groundContactRatio, steeringGroundContactRatio),
             Suspension = new TelemetrySuspensionV1
             {

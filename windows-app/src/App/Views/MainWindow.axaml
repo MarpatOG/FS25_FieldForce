@@ -867,7 +867,7 @@
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="section" Text="Engine &amp; Drivetrain"/>
                                 <Grid ColumnDefinitions="132,86,*,50,112,130"
-                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                       RowSpacing="10"
                                       ColumnSpacing="12">
                                     <TextBlock Classes="muted" Text="Effect"/>
@@ -885,25 +885,35 @@
                                     <TextBlock Grid.Row="1" Grid.Column="5" Classes="output" Text="{Binding EngineVibrationOutput}" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="2" Text="Gear shift pulse" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="2" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable drivetrain pulse" IsChecked="{Binding DrivetrainPulseEnabled, Mode=TwoWay}"/>
-                                    <Slider Grid.Row="2" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Drivetrain pulse strength" IsSnapToTickEnabled="True" Value="{Binding DrivetrainPulseStrengthPercent, Mode=TwoWay}"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding DrivetrainPulseStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Row="2" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding DrivetrainPulseCurve, Mode=TwoWay}"/>
+                                    <CheckBox Grid.Row="2" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable gear shift pulse" IsChecked="{Binding GearShiftPulseEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="2" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Gear shift pulse strength" IsSnapToTickEnabled="True" Value="{Binding GearShiftPulseStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding GearShiftPulseStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Row="2" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding GearShiftPulseCurve, Mode=TwoWay}"/>
                                     <TextBlock Grid.Row="2" Grid.Column="5" Classes="output" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="3" Text="Clutch/brake jerk" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="3" Grid.Column="1" MinHeight="44" IsEnabled="False" IsChecked="{Binding DrivetrainPulseEnabled}"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="2" Classes="muted" Text="Uses drivetrain pulse" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="3" Classes="muted" Text="" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="4" Classes="muted" Text="" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="3" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable clutch brake jerk" IsChecked="{Binding DrivetrainPulseEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="3" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Clutch brake jerk strength" IsSnapToTickEnabled="True" Value="{Binding DrivetrainPulseStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding DrivetrainPulseStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Row="3" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding DrivetrainPulseCurve, Mode=TwoWay}"/>
                                     <TextBlock Grid.Row="3" Grid.Column="5" Classes="output" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="4" Text="Engine start/stop" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="4" Grid.Column="1" MinHeight="44" IsEnabled="False" IsChecked="{Binding DrivetrainPulseEnabled}"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="2" Classes="muted" Text="Uses drivetrain pulse" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="3" Classes="muted" Text="" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="4" Classes="muted" Text="" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable engine start stop pulse" IsChecked="{Binding EngineStartStopPulseEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="4" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Engine start stop pulse strength" IsSnapToTickEnabled="True" Value="{Binding EngineStartStopPulseStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding EngineStartStopPulseStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Row="4" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding EngineStartStopPulseCurve, Mode=TwoWay}"/>
                                     <TextBlock Grid.Row="4" Grid.Column="5" Classes="output" Text="{Binding BumpFeedbackOutput}" VerticalAlignment="Center"/>
+
+                                    <TextBlock Grid.Row="5" Text="Group limits" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Classes="muted" Text="-" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="5" Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                                        <Slider Width="120" Minimum="100" Maximum="700" TickFrequency="50" MinHeight="44" AutomationProperties.Name="Gear shift cooldown" IsSnapToTickEnabled="True" Value="{Binding GearShiftPulseCooldownMs, Mode=TwoWay}"/>
+                                        <Slider Width="120" Minimum="0" Maximum="100" TickFrequency="1" MinHeight="44" AutomationProperties.Name="Engine drivetrain max" IsSnapToTickEnabled="True" Value="{Binding EngineDrivetrainMaxPercent, Mode=TwoWay}"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding EngineDrivetrainMaxPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="4" Text="{Binding GearShiftPulseCooldownMs, StringFormat={}{0} ms}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="5" Classes="output muted" Text="Limiter / cooldown" VerticalAlignment="Center"/>
                                 </Grid>
                             </StackPanel>
                         </StackPanel>

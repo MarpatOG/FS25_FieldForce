@@ -218,6 +218,30 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private FfbCurveKind _engineVibrationCurve;
 
     [ObservableProperty]
+    private bool _gearShiftPulseEnabled;
+
+    [ObservableProperty]
+    private int _gearShiftPulseStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _gearShiftPulseCurve;
+
+    [ObservableProperty]
+    private int _gearShiftPulseCooldownMs;
+
+    [ObservableProperty]
+    private bool _engineStartStopPulseEnabled;
+
+    [ObservableProperty]
+    private int _engineStartStopPulseStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _engineStartStopPulseCurve;
+
+    [ObservableProperty]
+    private int _engineDrivetrainMaxPercent;
+
+    [ObservableProperty]
     private bool _surfaceFeedbackEnabled;
 
     [ObservableProperty]
@@ -949,6 +973,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnEngineVibrationEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnGearShiftPulseEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnGearShiftPulseStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnGearShiftPulseCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnGearShiftPulseCooldownMsChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineStartStopPulseEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineStartStopPulseStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineStartStopPulseCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineDrivetrainMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
@@ -1003,6 +1035,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         EngineVibrationEnabled = settings.EngineVibration.Enabled;
         EngineVibrationStrengthPercent = settings.EngineVibration.StrengthPercent;
         EngineVibrationCurve = settings.EngineVibration.Curve;
+        GearShiftPulseEnabled = settings.GearShiftPulse.Enabled;
+        GearShiftPulseStrengthPercent = settings.GearShiftPulse.StrengthPercent;
+        GearShiftPulseCurve = settings.GearShiftPulse.Curve;
+        GearShiftPulseCooldownMs = settings.GearShiftPulse.CooldownMs;
+        EngineStartStopPulseEnabled = settings.EngineStartStopPulse.Enabled;
+        EngineStartStopPulseStrengthPercent = settings.EngineStartStopPulse.StrengthPercent;
+        EngineStartStopPulseCurve = settings.EngineStartStopPulse.Curve;
+        EngineDrivetrainMaxPercent = settings.EngineDrivetrainMaxPercent;
         SurfaceFeedbackEnabled = settings.SurfaceFeedback.Enabled;
         SurfaceFeedbackStrengthPercent = settings.SurfaceFeedback.StrengthPercent;
         SurfaceFeedbackCurve = settings.SurfaceFeedback.Curve;
@@ -1063,6 +1103,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         target.MechanicalFriction.StrengthPercent = source.MechanicalFriction.StrengthPercent;
         target.LoadResistance.StrengthPercent = source.LoadResistance.StrengthPercent;
         target.EngineVibration.StrengthPercent = source.EngineVibration.StrengthPercent;
+        target.GearShiftPulse.StrengthPercent = source.GearShiftPulse.StrengthPercent;
+        target.EngineStartStopPulse.StrengthPercent = source.EngineStartStopPulse.StrengthPercent;
         target.SurfaceFeedback.StrengthPercent = source.SurfaceFeedback.StrengthPercent;
         target.SlipFeedback.StrengthPercent = source.SlipFeedback.StrengthPercent;
         target.WetnessFeedback.StrengthPercent = source.WetnessFeedback.StrengthPercent;
@@ -1116,6 +1158,16 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         profile.EngineVibration.StrengthPercent = Math.Clamp(EngineVibrationStrengthPercent, 0, 100);
         profile.EngineVibration.MaxOutputPercent = 100;
         profile.EngineVibration.Curve = EngineVibrationCurve;
+        profile.GearShiftPulse.Enabled = GearShiftPulseEnabled;
+        profile.GearShiftPulse.StrengthPercent = Math.Clamp(GearShiftPulseStrengthPercent, 0, 100);
+        profile.GearShiftPulse.MaxOutputPercent = 100;
+        profile.GearShiftPulse.Curve = GearShiftPulseCurve;
+        profile.GearShiftPulse.CooldownMs = Math.Clamp(GearShiftPulseCooldownMs, 100, 700);
+        profile.EngineStartStopPulse.Enabled = EngineStartStopPulseEnabled;
+        profile.EngineStartStopPulse.StrengthPercent = Math.Clamp(EngineStartStopPulseStrengthPercent, 0, 100);
+        profile.EngineStartStopPulse.MaxOutputPercent = 100;
+        profile.EngineStartStopPulse.Curve = EngineStartStopPulseCurve;
+        profile.EngineDrivetrainMaxPercent = Math.Clamp(EngineDrivetrainMaxPercent, 0, 100);
         profile.SurfaceFeedback.Enabled = SurfaceFeedbackEnabled;
         profile.SurfaceFeedback.StrengthPercent = Math.Clamp(SurfaceFeedbackStrengthPercent, 0, 100);
         profile.SurfaceFeedback.MaxOutputPercent = 100;
@@ -1174,6 +1226,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         profile.MechanicalFriction.MaxOutputPercent = 100;
         profile.LoadResistance.MaxOutputPercent = 100;
         profile.EngineVibration.MaxOutputPercent = 100;
+        profile.GearShiftPulse.MaxOutputPercent = 100;
+        profile.EngineStartStopPulse.MaxOutputPercent = 100;
         profile.SurfaceFeedback.MaxOutputPercent = 100;
         profile.SlipFeedback.MaxOutputPercent = 100;
         profile.WetnessFeedback.MaxOutputPercent = 100;
@@ -1201,6 +1255,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             MechanicalFriction = _config.GameplayFfb.MechanicalFriction,
             LoadResistance = _config.GameplayFfb.LoadResistance,
             EngineVibration = _config.GameplayFfb.EngineVibration,
+            GearShiftPulse = _config.GameplayFfb.GearShiftPulse,
+            EngineStartStopPulse = _config.GameplayFfb.EngineStartStopPulse,
+            EngineDrivetrainMaxPercent = _config.GameplayFfb.EngineDrivetrainMaxPercent,
             SurfaceFeedback = _config.GameplayFfb.SurfaceFeedback,
             SlipFeedback = _config.GameplayFfb.SlipFeedback,
             WetnessFeedback = _config.GameplayFfb.WetnessFeedback,
