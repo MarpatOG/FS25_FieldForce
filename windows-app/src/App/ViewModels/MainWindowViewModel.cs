@@ -407,6 +407,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _engineStartStopActive;
 
     [ObservableProperty]
+    private bool _engineUnderLoadActive;
+
+    [ObservableProperty]
+    private bool _engineLuggingActive;
+
+    [ObservableProperty]
     private string _gameplayFfbRuntimeStatus = "FFB enabled";
 
     [ObservableProperty]
@@ -1324,6 +1330,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             GearShiftPulseActive = output.EventPulseKind == FfbPulseKind.GearShift;
             ClutchBrakeJerkActive = output.EventPulseKind == FfbPulseKind.DrivetrainJerk;
             EngineStartStopActive = output.EventPulseKind == FfbPulseKind.EngineStartStop;
+            EngineUnderLoadActive = output.EngineUnderLoadActive;
+            EngineLuggingActive = output.EngineLuggingActive;
             SpringOutput = $"{output.SpringPercent}%";
             DamperOutput = $"{output.DamperPercent}%";
             FrictionOutput = $"{output.FrictionPercent}%";

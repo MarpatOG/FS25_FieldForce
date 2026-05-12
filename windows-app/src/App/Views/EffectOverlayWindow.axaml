@@ -4,11 +4,11 @@
         x:Class="FS25FfbBridge.App.Views.EffectOverlayWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="360"
-        Height="360"
+        Height="380"
         MinWidth="360"
-        MinHeight="360"
+        MinHeight="380"
         MaxWidth="360"
-        MaxHeight="360"
+        MaxHeight="380"
         CanResize="False"
         ShowInTaskbar="False"
         SystemDecorations="None"
@@ -174,11 +174,17 @@
                     <Border Classes="lamp" Classes.active="{Binding GearShiftPulseActive}" ToolTip.Tip="Gear shift pulse">
                         <TextBlock Classes="lampCode" Text="GS"/>
                     </Border>
-                    <Border Classes="lamp unimplemented" ToolTip.Tip="Clutch/brake jerk">
+                    <Border Classes="lamp" Classes.active="{Binding ClutchBrakeJerkActive}" ToolTip.Tip="Clutch/brake jerk">
                         <TextBlock Classes="lampCode" Text="CJ"/>
                     </Border>
                     <Border Classes="lamp" Classes.active="{Binding EngineStartStopActive}" ToolTip.Tip="Engine start/stop">
                         <TextBlock Classes="lampCode" Text="ES"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding EngineUnderLoadActive}" ToolTip.Tip="Engine under load">
+                        <TextBlock Classes="lampCode" Text="EL"/>
+                    </Border>
+                    <Border Classes="lamp" Classes.active="{Binding EngineLuggingActive}" ToolTip.Tip="Engine lugging">
+                        <TextBlock Classes="lampCode" Text="LG"/>
                     </Border>
                 </StackPanel>
             </StackPanel>
