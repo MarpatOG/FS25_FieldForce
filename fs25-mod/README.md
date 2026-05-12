@@ -80,7 +80,7 @@ Edit `config/TelemetryConfig.lua`:
 - `updateRateHz`: default `125` for UDP telemetry
 - `fileFallbackRateHz`: default `30` for diagnostic/compatibility file fallback writes
 - `debug`: default `false`
-- `overlay.enabled`: default `true`; default for the in-game telemetry debug overlay before a saved menu override exists
+- `overlay.enabled`: default `false`; default for the in-game telemetry debug overlay before a saved menu override exists
 - `overlay.x`, `overlay.y`: screen-space overlay position, where `0,0` is bottom-left
 - `overlay.fontSize`, `overlay.lineHeight`: text sizing
 - `overlay.maxRawLength`: max raw JSON characters shown in the overlay
