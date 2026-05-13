@@ -9,11 +9,13 @@ public sealed class GameplayFfbCalculator
     private const double MinPulsePercentToEmit = 2.5;
     private const double MinEventPercentForSuppression = 5.0;
     private const double ImpactPulseGain = 3.0;
+    private const int EngineStartVibrationDurationMs = 3000;
     private DrivetrainSample? _lastDrivetrainSample;
     private long? _lastEngineStartSeq;
     private long? _lastEngineStopSeq;
     private long? _lastGearChangeSeq;
     private SteeringModel? _lastSteeringModel;
+    private EngineStartStopVibrationState? _engineStartStopVibration;
 
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings)
     {
@@ -65,13 +67,16 @@ public sealed class GameplayFfbCalculator
         steering = SafetyFilters.Apply(steering);
         steering = SmoothSteering(steering, context);
 
+        var engineDrivetrainPulses = CalculateEngineDrivetrainPulses(packet, features, profile, context);
+        var engineStartStopVibration = CalculateEngineStartStopVibrationContinuous(profile, context);
         var haptics = HapticMixer.CombineContinuous(
             SurfaceTractionLayer.CalculateContinuous(features, profile, context),
             EngineDrivetrainLayer.CalculateContinuous(packet, features, profile, context),
+            engineStartStopVibration.Contribution,
             SuspensionTerrainLayer.CalculateContinuous(features, profile, context));
         var pulses = HapticMixer.CombinePulses(
             SuspensionTerrainLayer.CalculatePulses(packet, features, profile, context),
-            CalculateEngineDrivetrainPulses(packet, features, profile, context));
+            engineDrivetrainPulses);
 
         var capped = DeviceCaps.Apply(steering, haptics, pulses, context.DeviceProfile);
         var bump = SelectFramePulse(capped.Pulses);
@@ -104,19 +109,19 @@ public sealed class GameplayFfbCalculator
             CalculateAntiOscillationActive(features, profile),
             CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, fade) > 0,
             CalculateSteeringSlipReliefActive(features, profile),
-            bump?.Kind == FfbPulseKind.EngineStartStop && bump.Percent > 0 ? ClampPercent(bump.Percent) : 0,
-            bump?.Kind == FfbPulseKind.EngineStartStop && bump.Percent > 0 ? bump.DurationMs : 0,
-            bump?.Kind == FfbPulseKind.EngineStartStop && bump.Percent > 0 ? EngineDrivetrainLayer.StartPulseHz(profile) : 0,
-            bump?.Kind == FfbPulseKind.EngineStartStop && bump.Percent < 0 ? ClampPercent(Math.Abs(bump.Percent)) : 0,
-            bump?.Kind == FfbPulseKind.EngineStartStop && bump.Percent < 0 ? bump.DurationMs : 0,
-            bump?.Kind == FfbPulseKind.EngineStartStop && bump.Percent < 0 ? EngineDrivetrainLayer.StopPulseHz(profile) : 0,
+            engineStartStopVibration.Direction > 0 ? ClampPercent(engineStartStopVibration.Contribution.Value.EnginePercent) : 0,
+            engineStartStopVibration.Direction > 0 ? EngineStartVibrationDurationMs : 0,
+            engineStartStopVibration.Direction > 0 ? engineStartStopVibration.Contribution.Value.EngineHz : 0,
+            engineStartStopVibration.Direction < 0 ? ClampPercent(engineStartStopVibration.Contribution.Value.EnginePercent) : 0,
+            engineStartStopVibration.Direction < 0 ? Math.Clamp(profile.EngineStartStopPulse.StopDurationMs, 40, 500) : 0,
+            engineStartStopVibration.Direction < 0 ? engineStartStopVibration.Contribution.Value.EngineHz : 0,
             bump?.Kind == FfbPulseKind.GearShift ? ClampPercent(Math.Abs(bump.Percent)) : 0,
             bump?.Kind == FfbPulseKind.GearShift ? bump.DurationMs : 0,
-            capped.Haptics.EnginePercent > 0 || bump?.Kind is FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop,
+            capped.Haptics.EnginePercent > 0 || engineStartStopVibration.Direction != 0 || bump?.Kind is FfbPulseKind.GearShift,
             features.EngineLugging,
             features.EngineUnderLoad,
             bump?.Kind == FfbPulseKind.GearShift,
-            bump?.Kind == FfbPulseKind.EngineStartStop);
+            engineStartStopVibration.Direction != 0);
 
         return output with
         {
@@ -1283,12 +1288,12 @@ public sealed class GameplayFfbCalculator
         var pulses = new List<EventPulse>();
         if (profile.EngineStartStopPulse.Enabled && IsNewSeq(current.EngineStartSeq, ref _lastEngineStartSeq))
         {
-            pulses.Add(CreateEngineStartStopPulse(profile, context, direction: 1));
+            StartEngineStartStopVibration(profile, context, direction: 1);
         }
 
         if (profile.EngineStartStopPulse.Enabled && IsNewSeq(current.EngineStopSeq, ref _lastEngineStopSeq))
         {
-            pulses.Add(CreateEngineStartStopPulse(profile, context, direction: -1));
+            StartEngineStartStopVibration(profile, context, direction: -1);
         }
 
         var gearChangedBySeq = profile.GearShiftPulse.Enabled && IsNewSeq(current.GearChangeSeq, ref _lastGearChangeSeq);
@@ -1346,20 +1351,47 @@ public sealed class GameplayFfbCalculator
         return isNew;
     }
 
-    private static EventPulse CreateEngineStartStopPulse(GameplayFfbEffectProfile profile, FfbFrameContext context, double direction)
+    private void StartEngineStartStopVibration(GameplayFfbEffectProfile profile, FfbFrameContext context, int direction)
     {
         var settings = profile.EngineStartStopPulse;
         var percent = Math.Min(CalculateMaxCapped(settings, context.TelemetryFade) * 0.85, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100));
         var durationMs = direction > 0
-            ? Math.Clamp(settings.StartDurationMs, 40, 5000)
+            ? EngineStartVibrationDurationMs
             : Math.Clamp(settings.StopDurationMs, 40, 500);
-        return new EventPulse(
-            FfbPulseKind.EngineStartStop,
-            percent * Math.Sign(direction == 0 ? 1 : direction),
-            durationMs,
-            220,
-            direction,
+        var hz = direction > 0
+            ? EngineDrivetrainLayer.StartPulseHz(profile)
+            : EngineDrivetrainLayer.StopPulseHz(profile);
+        _engineStartStopVibration = percent > 0
+            ? new EngineStartStopVibrationState(direction, durationMs, durationMs, percent, hz)
+            : null;
+    }
+
+    private EngineStartStopVibrationFrame CalculateEngineStartStopVibrationContinuous(GameplayFfbEffectProfile profile, FfbFrameContext context)
+    {
+        if (_engineStartStopVibration is null || context.TelemetryFade <= 0)
+        {
+            return EngineStartStopVibrationFrame.Inactive;
+        }
+
+        var state = _engineStartStopVibration;
+        var elapsedMs = Math.Max(1, context.DeltaTime.TotalMilliseconds);
+        var remainingRatio = Math.Clamp(state.RemainingMs / Math.Max(1.0, state.DurationMs), 0, 1);
+        var fadeOut = state.Direction > 0
+            ? Math.Clamp(remainingRatio * 1.25, 0, 1)
+            : remainingRatio;
+        var percent = Math.Min(state.Percent * fadeOut, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100));
+
+        var nextRemaining = state.RemainingMs - elapsedMs;
+        _engineStartStopVibration = nextRemaining > 0
+            ? state with { RemainingMs = nextRemaining }
+            : null;
+
+        var contribution = new LayerContribution<ContinuousHaptics>(
+            new ContinuousHaptics(0, 0, 0, 0, percent, state.Hz, 0, 0),
             percent > 0 ? 1.0 : 0.0);
+        return percent > 0
+            ? new EngineStartStopVibrationFrame(contribution, state.Direction)
+            : EngineStartStopVibrationFrame.Inactive;
     }
 
     private static EventPulse CreateGearShiftPulse(GameplayFfbEffectProfile profile, TelemetryFeatures features, FfbFrameContext context)
@@ -1381,9 +1413,19 @@ public sealed class GameplayFfbCalculator
         _lastEngineStartSeq = null;
         _lastEngineStopSeq = null;
         _lastGearChangeSeq = null;
+        _engineStartStopVibration = null;
     }
 
     private sealed record DrivetrainSample(string? VehicleName, bool? EngineStarted, double? Throttle, double? Brake, double? Clutch, int? Gear, long? EngineStartSeq, long? EngineStopSeq, long? GearChangeSeq);
+
+    private sealed record EngineStartStopVibrationState(int Direction, double DurationMs, double RemainingMs, double Percent, int Hz);
+
+    private sealed record EngineStartStopVibrationFrame(LayerContribution<ContinuousHaptics> Contribution, int Direction)
+    {
+        public static EngineStartStopVibrationFrame Inactive { get; } = new(
+            new LayerContribution<ContinuousHaptics>(new ContinuousHaptics(0, 0, 0, 0, 0, 0, 0, 0), 0),
+            0);
+    }
 
     private static double? CalculateFeatureWetness(TelemetryPacketV1 packet, string surfaceType)
     {

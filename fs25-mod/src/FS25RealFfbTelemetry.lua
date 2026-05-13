@@ -41,6 +41,8 @@ function FS25RealFfbTelemetry.new()
     self.lastImpactState = {}
     self.lastSteeringSample = nil
     self.engineEventState = nil
+    self.engineStartEventSeqByKey = {}
+    self.engineStopEventSeqByKey = {}
     self.frameSequence = 0
     self.lastFrameMonotonicSeconds = nil
     self:loadOverlayUserSettings()
@@ -51,6 +53,7 @@ function FS25RealFfbTelemetry:loadMap()
     FS25RealFfbTelemetry.instance = self
     self:loadOverlayUserSettings()
     self:installMenuHook()
+    self:installMotorHook()
     print(string.format("[FS25 Real FFB] Telemetry mod loaded. Target udp://%s:%d @ %d Hz", self.host, self.port, self.updateRateHz))
     self:initTransport()
 end
@@ -72,6 +75,8 @@ function FS25RealFfbTelemetry:update(dt)
     if not self.udpEnabled and not self.fileEnabled then
         return
     end
+
+    self:installMotorHook()
 
     self.elapsedMs = self.elapsedMs + (dt or 0)
     if self.elapsedMs < self.intervalMs then
@@ -995,16 +1000,24 @@ function FS25RealFfbTelemetry:getEngineStarted(vehicle)
     return nil
 end
 
+function FS25RealFfbTelemetry:getVehicleEventKey(vehicle)
+    return self:getVehicleName(vehicle) .. ":" .. tostring(vehicle)
+end
+
 function FS25RealFfbTelemetry:updateEngineEventState(vehicle, engineRunning, gear, nowSeconds)
-    local key = self:getVehicleName(vehicle) .. ":" .. tostring(vehicle)
+    local key = self:getVehicleEventKey(vehicle)
     local previousState = self.engineEventState
+    local engineStartEventSeq = self.engineStartEventSeqByKey[key] or 0
+    local engineStopEventSeq = self.engineStopEventSeqByKey[key] or 0
     if previousState == nil or previousState.key ~= key then
         self.engineEventState = {
             key = key,
             running = engineRunning,
             gear = gear,
-            engineStartSeq = 0,
-            engineStopSeq = 0,
+            engineStartSeq = engineStartEventSeq,
+            lastEngineStartEventSeq = engineStartEventSeq,
+            engineStopSeq = engineStopEventSeq,
+            lastEngineStopEventSeq = engineStopEventSeq,
             gearChangeSeq = 0,
             gearChangeKind = "none",
             gearChangeTimeMs = nil,
@@ -1014,12 +1027,14 @@ function FS25RealFfbTelemetry:updateEngineEventState(vehicle, engineRunning, gea
         return self.engineEventState
     end
 
-    if engineRunning ~= nil and previousState.running ~= nil and engineRunning ~= previousState.running then
-        if engineRunning == true then
-            previousState.engineStartSeq = (previousState.engineStartSeq or 0) + 1
-        else
-            previousState.engineStopSeq = (previousState.engineStopSeq or 0) + 1
-        end
+    if engineStartEventSeq ~= (previousState.lastEngineStartEventSeq or 0) then
+        previousState.engineStartSeq = engineStartEventSeq
+        previousState.lastEngineStartEventSeq = engineStartEventSeq
+    end
+
+    if engineStopEventSeq ~= (previousState.lastEngineStopEventSeq or 0) then
+        previousState.engineStopSeq = engineStopEventSeq
+        previousState.lastEngineStopEventSeq = engineStopEventSeq
     end
 
     if gear ~= nil and previousState.gear ~= nil and gear ~= previousState.gear then
@@ -2500,6 +2515,52 @@ function FS25RealFfbTelemetry:installMenuHook()
 
     InGameMenu.onMenuOpened = Utils.appendedFunction(InGameMenu.onMenuOpened, FS25RealFfbTelemetry.initUiSettings)
     FS25RealFfbTelemetry.menuHookInstalled = true
+end
+
+function FS25RealFfbTelemetry:installMotorHook()
+    if FS25RealFfbTelemetry.motorHookInstalled == true then
+        return
+    end
+
+    if Motorized == nil or Motorized.onStartMotor == nil or Motorized.onStopMotor == nil or Utils == nil or type(Utils.appendedFunction) ~= "function" then
+        return
+    end
+
+    Motorized.onStartMotor = Utils.appendedFunction(Motorized.onStartMotor, FS25RealFfbTelemetry.onStartMotor)
+    Motorized.onStopMotor = Utils.appendedFunction(Motorized.onStopMotor, FS25RealFfbTelemetry.onStopMotor)
+    FS25RealFfbTelemetry.motorHookInstalled = true
+end
+
+function FS25RealFfbTelemetry.onStartMotor(vehicle)
+    local instance = FS25RealFfbTelemetry.instance
+    if instance == nil or vehicle == nil then
+        return
+    end
+
+    local ok, err = pcall(function()
+        local key = instance:getVehicleEventKey(vehicle)
+        instance.engineStartEventSeqByKey[key] = (instance.engineStartEventSeqByKey[key] or 0) + 1
+    end)
+
+    if not ok then
+        print("[FS25 Real FFB] Could not process onStartMotor event: " .. tostring(err))
+    end
+end
+
+function FS25RealFfbTelemetry.onStopMotor(vehicle)
+    local instance = FS25RealFfbTelemetry.instance
+    if instance == nil or vehicle == nil then
+        return
+    end
+
+    local ok, err = pcall(function()
+        local key = instance:getVehicleEventKey(vehicle)
+        instance.engineStopEventSeqByKey[key] = (instance.engineStopEventSeqByKey[key] or 0) + 1
+    end)
+
+    if not ok then
+        print("[FS25 Real FFB] Could not process onStopMotor event: " .. tostring(err))
+    end
 end
 
 function FS25RealFfbTelemetry.initUiSettings()

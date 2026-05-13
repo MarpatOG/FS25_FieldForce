@@ -200,8 +200,10 @@ public sealed class GameplayFfbCalculatorTests
         Assert.True(start.EngineStartStopPulseActive);
         Assert.True(start.EngineStartPulsePercent > 0);
         Assert.Equal(3000, start.EngineStartPulseDurationMs);
-        Assert.Equal(3000, start.BumpDurationMs);
-        Assert.False(repeated.EngineStartStopPulseActive);
+        Assert.Equal(0, start.BumpDurationMs);
+        Assert.Equal(0, start.BumpImpulsePercent);
+        Assert.True(repeated.EngineStartStopPulseActive);
+        Assert.True(repeated.EngineStartPulsePercent > 0);
     }
 
     [Fact]
@@ -215,7 +217,8 @@ public sealed class GameplayFfbCalculatorTests
         Assert.True(stop.EngineStartStopPulseActive);
         Assert.True(stop.EngineStopPulsePercent > 0);
         Assert.Equal(settings.EngineStartStopPulse.StopDurationMs, stop.EngineStopPulseDurationMs);
-        Assert.Equal(settings.EngineStartStopPulse.StopDurationMs, stop.BumpDurationMs);
+        Assert.Equal(0, stop.BumpDurationMs);
+        Assert.Equal(0, stop.BumpImpulsePercent);
     }
 
     [Fact]
@@ -241,8 +244,9 @@ public sealed class GameplayFfbCalculatorTests
         var output = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: true, gear: 2, engineStartSeq: 1, gearChangeSeq: 1)), settings);
 
         Assert.True(output.EngineStartStopPulseActive);
-        Assert.Equal(FfbPulseKind.EngineStartStop, output.EventPulseKind);
+        Assert.Equal(FfbPulseKind.GearShift, output.EventPulseKind);
         Assert.True(output.EngineStartPulsePercent > 0);
+        Assert.True(output.GearShiftPulseActive);
     }
 
 
