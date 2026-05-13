@@ -88,16 +88,16 @@ Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulato
 
 Do not use `Compress-Archive` here: it can store Windows backslash paths in the zip, and FS25 then fails to load `config/TelemetryConfig.lua` and `src/FS25RealFfbTelemetry.lua`.
 
-If Windows redirects Documents to OneDrive, FS25 may use this path instead:
-
-```text
-%USERPROFILE%\OneDrive\Документы\My Games\FarmingSimulator2025\mods
-```
-
-Current local OneDrive mods directory:
+Latest local OneDrive install target for the FS25 mod zip:
 
 ```text
 C:\Users\Marpa\OneDrive\Документы\My Games\FarmingSimulator2025\mods
+```
+
+Copy the latest package there as:
+
+```text
+C:\Users\Marpa\OneDrive\Документы\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry.zip
 ```
 
 Check the active `log.txt` under `My Games/FarmingSimulator2025` when in doubt, and replace the zip in the same profile directory that FS25 is logging to.

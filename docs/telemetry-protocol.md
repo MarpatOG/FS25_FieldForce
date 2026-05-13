@@ -1,4 +1,4 @@
-# Telemetry Protocol v1.0
+# Telemetry Protocol v1.2
 
 The FS25 telemetry mod sends UDP JSON over localhost when Lua socket support is available. If socket support is unavailable, it writes the same v1 packet to the file fallback path.
 
@@ -11,10 +11,10 @@ The FS25 telemetry mod sends UDP JSON over localhost when Lua socket support is 
 - File fallback target rate: `30 Hz`
 - File fallback: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
 
-The Windows receiver accepts only packets with:
+The Windows receiver accepts the current `1.2.0` packet and the legacy `1.1.0` packet:
 
 ```json
-{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" } }
+{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.2.0" } }
 ```
 
 Flat legacy JSON is rejected and does not replace the last valid packet.
@@ -25,7 +25,7 @@ The top-level wire object contains only these blocks:
 
 ```text
 protocol, frame, game, player, vehicle, controls, motion, steering,
-engine, transmission, wheels, suspension, surface, environment,
+engine, transmission, events, wheels, suspension, surface, environment,
 attachments, collisions, diagnostics
 ```
 
@@ -33,7 +33,7 @@ Example:
 
 ```json
 {
-  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" },
+  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.2.0" },
   "frame": {
     "sequence": 1,
     "dtMs": 8,
@@ -65,8 +65,17 @@ Example:
     "localAccelerationMps2": { "x": 0.3, "y": 1.8, "z": -0.6 }
   },
   "steering": { "angle": 0.13, "rate": 0.8 },
-  "engine": { "rpm": 850, "started": true },
+  "engine": {
+    "isRunning": false,
+    "started": false,
+    "state": "starting",
+    "isStarting": true,
+    "startDurationMs": 1200,
+    "startRemainingMs": 980,
+    "rpm": 850
+  },
   "transmission": { "gear": 3 },
+  "events": { "engineStartSeq": 4, "engineStopSeq": 1, "gearChangeSeq": 8, "gearChangeKind": "up", "gearChangeTimeMs": 650 },
   "wheels": [
     { "index": 0, "side": "left", "isSteering": true, "slip": 0.24, "hasGroundContact": true, "suspensionImpulse": 0.18 }
   ],
@@ -90,7 +99,7 @@ Example:
 When no driveable vehicle is active:
 
 - `vehicle=null`
-- `controls`, `motion`, `steering`, `engine`, `transmission`, `suspension`, `surface`, and `collisions` are `null`
+- `controls`, `motion`, `steering`, `engine`, `transmission`, `events`, `suspension`, `surface`, and `collisions` are `null`
 - `wheels=[]`
 - `attachments=[]`
 
@@ -106,6 +115,12 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 - `yawRateRadPerSec`: radians per second.
 - `steering.angle`: normalized/raw steering angle from FS25 source data.
 - `steering.rate`: steering angle delta per second.
+- `engine.state`: `"off"`, `"ignition"`, `"starting"`, `"running"`, or `"unknown"` from `Motorized:getMotorState()`.
+- `engine.isStarting`: true while the FS25 motor state is `MotorState.STARTING`.
+- `engine.startDurationMs`: optional `spec_motorized.motorStartDuration`.
+- `engine.startRemainingMs`: optional remaining time until FS25 promotes `STARTING` to `ON`.
+- `events.engineStartSeq`: increments when starter cranking begins (`OFF/IGNITION -> STARTING`), not when the engine has already reached `ON`.
+- `events.engineStopSeq`: increments on stop events.
 
 ## Derived Features
 

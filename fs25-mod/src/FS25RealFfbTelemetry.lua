@@ -319,12 +319,21 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local rpm = self:getRpm(vehicle)
     local minRpm = self:getMinRpm(vehicle)
     local maxRpm = self:getMaxRpm(vehicle)
+    local motorState = self:getMotorState(vehicle)
+    local engineState = self:getEngineStateText(motorState)
+    local engineIsStarting = self:isMotorState(motorState, "STARTING")
+    local startDurationMs = self:getMotorStartDurationMs(vehicle)
+    local startRemainingMs = self:getMotorStartRemainingMs(vehicle, motorState)
     local engineRunning = self:getEngineStarted(vehicle)
     local gear = self:getGear(vehicle)
-    local eventState = self:updateEngineEventState(vehicle, engineRunning, gear, nowSeconds)
+    local eventState = self:updateEngineEventState(vehicle, engineRunning, motorState, gear, nowSeconds, startDurationMs)
     packet.engine = {
         isRunning = engineRunning,
         started = engineRunning,
+        state = engineState,
+        isStarting = engineIsStarting,
+        startDurationMs = startDurationMs,
+        startRemainingMs = startRemainingMs,
         rpm = rpm,
         rpm01 = self:normalizeRatio(rpm, minRpm, maxRpm),
         minRpm = minRpm,
@@ -996,6 +1005,63 @@ function FS25RealFfbTelemetry:getEngineStarted(vehicle)
     return nil
 end
 
+function FS25RealFfbTelemetry:getMotorState(vehicle)
+    if vehicle ~= nil and vehicle.getMotorState ~= nil then
+        local ok, state = pcall(function()
+            return vehicle:getMotorState()
+        end)
+        if ok then
+            return state
+        end
+    end
+
+    if vehicle ~= nil and vehicle.spec_motorized ~= nil then
+        return vehicle.spec_motorized.motorState
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:isMotorState(state, name)
+    if state == nil or MotorState == nil then
+        return false
+    end
+
+    return state == MotorState[name]
+end
+
+function FS25RealFfbTelemetry:getEngineStateText(motorState)
+    if self:isMotorState(motorState, "OFF") then
+        return "off"
+    elseif self:isMotorState(motorState, "IGNITION") then
+        return "ignition"
+    elseif self:isMotorState(motorState, "STARTING") then
+        return "starting"
+    elseif self:isMotorState(motorState, "ON") then
+        return "running"
+    end
+
+    return "unknown"
+end
+
+function FS25RealFfbTelemetry:getMotorStartDurationMs(vehicle)
+    local spec = vehicle ~= nil and vehicle.spec_motorized or nil
+    return self:getFirstNumber(spec ~= nil and spec.motorStartDuration or nil)
+end
+
+function FS25RealFfbTelemetry:getMotorStartRemainingMs(vehicle, motorState)
+    if not self:isMotorState(motorState, "STARTING") then
+        return nil
+    end
+
+    local spec = vehicle ~= nil and vehicle.spec_motorized or nil
+    if spec == nil or type(spec.motorStartTime) ~= "number" or g_currentMission == nil or type(g_currentMission.time) ~= "number" then
+        return nil
+    end
+
+    return math.max(0, spec.motorStartTime - g_currentMission.time)
+end
+
 function FS25RealFfbTelemetry:getVehicleEventKey(vehicle)
     return self:getVehicleName(vehicle) .. ":" .. tostring(vehicle)
 end
@@ -1013,7 +1079,21 @@ function FS25RealFfbTelemetry:getVehicleEnginePulse(vehicle, name)
     return pulse
 end
 
-function FS25RealFfbTelemetry:updateEngineEventState(vehicle, engineRunning, gear, nowSeconds)
+function FS25RealFfbTelemetry:markEngineStartCrank(vehicle, nowSeconds, durationMs)
+    if vehicle == nil then
+        return nil
+    end
+
+    vehicle.fs25RealFfb = vehicle.fs25RealFfb or {}
+    vehicle.fs25RealFfb.engineStartPulse = {
+        active = true,
+        startedAt = nowSeconds,
+        durationMs = durationMs or 650
+    }
+    return vehicle.fs25RealFfb.engineStartPulse
+end
+
+function FS25RealFfbTelemetry:updateEngineEventState(vehicle, engineRunning, motorState, gear, nowSeconds, startDurationMs)
     local key = self:getVehicleEventKey(vehicle)
     local previousState = self.engineEventState
     local engineStartPulse = self:getVehicleEnginePulse(vehicle, "engineStartPulse")
@@ -1024,6 +1104,7 @@ function FS25RealFfbTelemetry:updateEngineEventState(vehicle, engineRunning, gea
         self.engineEventState = {
             key = key,
             running = engineRunning,
+            motorState = motorState,
             gear = gear,
             engineStartSeq = 0,
             lastEngineStartPulseStartedAt = engineStartPulseStartedAt,
@@ -1038,7 +1119,18 @@ function FS25RealFfbTelemetry:updateEngineEventState(vehicle, engineRunning, gea
         return self.engineEventState
     end
 
-    if engineStartPulseStartedAt ~= nil and engineStartPulseStartedAt ~= previousState.lastEngineStartPulseStartedAt then
+    local startingTransition = self:isMotorState(motorState, "STARTING") and not self:isMotorState(previousState.motorState, "STARTING")
+    if startingTransition then
+        if engineStartPulse == nil then
+            engineStartPulse = self:markEngineStartCrank(vehicle, nowSeconds, startDurationMs)
+            engineStartPulseStartedAt = engineStartPulse ~= nil and engineStartPulse.startedAt or nowSeconds
+        end
+
+        if engineStartPulseStartedAt ~= previousState.lastEngineStartPulseStartedAt then
+            previousState.engineStartSeq = (previousState.engineStartSeq or 0) + 1
+        end
+        previousState.lastEngineStartPulseStartedAt = engineStartPulseStartedAt
+    elseif engineStartPulseStartedAt ~= nil and engineStartPulseStartedAt ~= previousState.lastEngineStartPulseStartedAt then
         previousState.engineStartSeq = (previousState.engineStartSeq or 0) + 1
         previousState.lastEngineStartPulseStartedAt = engineStartPulseStartedAt
     end
@@ -1057,6 +1149,7 @@ function FS25RealFfbTelemetry:updateEngineEventState(vehicle, engineRunning, gea
     end
 
     previousState.running = engineRunning
+    previousState.motorState = motorState
     previousState.gear = gear
     return previousState
 end
@@ -2576,7 +2669,7 @@ function FS25RealFfbTelemetry:onStartMotor()
     self.fs25RealFfb.engineStartPulse = {
         active = true,
         startedAt = g_currentMission ~= nil and g_currentMission.time or 0,
-        durationMs = 650
+        durationMs = self.spec_motorized ~= nil and self.spec_motorized.motorStartDuration or 650
     }
 end
 

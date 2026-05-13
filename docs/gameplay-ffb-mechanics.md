@@ -11,7 +11,7 @@ Entry points:
 
 ## Telemetry Input
 
-The Lua mod sends nested `FS25_REAL_FFB_TELEMETRY` v1.0 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows.
+The Lua mod sends nested `FS25_REAL_FFB_TELEMETRY` v1.2 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows.
 
 Core blocks:
 
@@ -32,6 +32,9 @@ Important source details:
 - `vehicle.isArticulated` marks articulated-frame vehicles whose frame/pivot motion should not be treated as a left/right suspension hit.
 - `wheels[]` carries per-wheel slip, steering flag, side, contact, and suspension impulse.
 - `suspension.verticalImpactImpulse`, `suspension.landingImpulse`, and `collisions.collisionImpulse` remain telemetry inputs; they are not effect percentages.
+- `engine.state` reports `off`, `ignition`, `starting`, `running`, or `unknown`; `engine.isStarting` is true during `MotorState.STARTING`.
+- `engine.startDurationMs` and `engine.startRemainingMs` describe the FS25 starter/cranking interval when available.
+- `events.engineStartSeq` increments when starter cranking begins (`OFF/IGNITION -> STARTING`). `events.engineStopSeq` keeps the existing stop semantics.
 - Missing optional FS25 API values are sent as `null`.
 
 When `vehicle=null`, vehicle-dependent blocks are `null`, `wheels=[]`, and `attachments=[]`. The calculator outputs zero FFB.
@@ -92,6 +95,7 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 - Speed spring, speed damper, mechanical friction, load resistance, motion feedback, contact relief, and speed stability combine into DirectInput condition effects.
 - Engine vibration, surface feedback, slip feedback, and suspension terrain rumble produce continuous haptics.
 - Collision, landing, left/right suspension hit, bump, gear shift, drivetrain jerk, and engine start/stop share one finite pulse bus. Articulated vehicles suppress left/right suspension-hit selection so pivot/pendulum movement falls back to the softer bump/rumble path.
+- Engine start vibration is driven primarily by `events.engineStartSeq`, so it starts during starter cranking instead of waiting for `engine.started=true`. `engine.startDurationMs` can shorten the start vibration duration within the configured start-pulse cap. RPM-rise detection remains a legacy fallback only when `engineStartSeq` is absent.
 - Event priority is `Collision > Landing > Left/RightSuspensionHit > Bump > GearShift > DrivetrainJerk/EngineStartStop`.
 
 DirectInput outputs:

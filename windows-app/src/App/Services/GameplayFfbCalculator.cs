@@ -9,13 +9,17 @@ public sealed class GameplayFfbCalculator
     private const double MinPulsePercentToEmit = 2.5;
     private const double MinEventPercentForSuppression = 5.0;
     private const double ImpactPulseGain = 3.0;
-    private const int EngineStartVibrationDurationMs = 3000;
+    private const double EngineStartRpmZeroThresholdMs = 5000;
+    private const double EngineStartRpmTriggerThreshold = 10;
     private DrivetrainSample? _lastDrivetrainSample;
     private long? _lastEngineStartSeq;
     private long? _lastEngineStopSeq;
     private long? _lastGearChangeSeq;
     private SteeringModel? _lastSteeringModel;
     private EngineStartStopVibrationState? _engineStartStopVibration;
+    private string? _rpmStartVehicleName;
+    private double _rpmStartZeroMs;
+    private bool _rpmStartArmed;
 
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings)
     {
@@ -110,7 +114,7 @@ public sealed class GameplayFfbCalculator
             CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, fade) > 0,
             CalculateSteeringSlipReliefActive(features, profile),
             engineStartStopVibration.Direction > 0 ? ClampPercent(engineStartStopVibration.Contribution.Value.EnginePercent) : 0,
-            engineStartStopVibration.Direction > 0 ? EngineStartVibrationDurationMs : 0,
+            engineStartStopVibration.Direction > 0 ? engineStartStopVibration.DurationMs : 0,
             engineStartStopVibration.Direction > 0 ? engineStartStopVibration.Contribution.Value.EngineHz : 0,
             engineStartStopVibration.Direction < 0 ? ClampPercent(engineStartStopVibration.Contribution.Value.EnginePercent) : 0,
             engineStartStopVibration.Direction < 0 ? Math.Clamp(profile.EngineStartStopPulse.StopDurationMs, 40, 500) : 0,
@@ -1282,13 +1286,21 @@ public sealed class GameplayFfbCalculator
             _lastEngineStartSeq = current.EngineStartSeq;
             _lastEngineStopSeq = current.EngineStopSeq;
             _lastGearChangeSeq = current.GearChangeSeq;
+            ResetRpmStartDetection(packet.VehicleName);
             return [];
         }
 
         var pulses = new List<EventPulse>();
-        if (profile.EngineStartStopPulse.Enabled && IsNewSeq(current.EngineStartSeq, ref _lastEngineStartSeq))
+        var engineStartedBySeq = IsNewSeq(current.EngineStartSeq, ref _lastEngineStartSeq);
+        if (engineStartedBySeq)
         {
-            StartEngineStartStopVibration(profile, context, direction: 1);
+            ResetRpmStartDetection(packet.VehicleName);
+        }
+
+        var engineStartedByRpm = current.EngineStartSeq is null && DetectEngineStartByRpm(packet, context);
+        if (profile.EngineStartStopPulse.Enabled && (engineStartedBySeq || engineStartedByRpm))
+        {
+            StartEngineStartStopVibration(profile, context, direction: 1, packet.EngineStartDurationMs);
         }
 
         if (profile.EngineStartStopPulse.Enabled && IsNewSeq(current.EngineStopSeq, ref _lastEngineStopSeq))
@@ -1351,12 +1363,62 @@ public sealed class GameplayFfbCalculator
         return isNew;
     }
 
-    private void StartEngineStartStopVibration(GameplayFfbEffectProfile profile, FfbFrameContext context, int direction)
+    private bool DetectEngineStartByRpm(TelemetryPacketV1 packet, FfbFrameContext context)
+    {
+        var vehicleName = packet.VehicleName ?? "";
+        if (!string.Equals(_rpmStartVehicleName, vehicleName, StringComparison.Ordinal))
+        {
+            _rpmStartVehicleName = vehicleName;
+            _rpmStartZeroMs = 0;
+            _rpmStartArmed = false;
+        }
+
+        if (!IsValidFinite(packet.Rpm))
+        {
+            return false;
+        }
+
+        var rpm = packet.Rpm!.Value;
+        if (rpm <= 0)
+        {
+            _rpmStartZeroMs += Math.Max(1, context.DeltaTime.TotalMilliseconds);
+            if (_rpmStartZeroMs >= EngineStartRpmZeroThresholdMs)
+            {
+                _rpmStartArmed = true;
+            }
+
+            return false;
+        }
+
+        if (rpm > EngineStartRpmTriggerThreshold)
+        {
+            var shouldTrigger = _rpmStartArmed;
+            _rpmStartZeroMs = 0;
+            _rpmStartArmed = false;
+            return shouldTrigger;
+        }
+
+        if (!_rpmStartArmed)
+        {
+            _rpmStartZeroMs = 0;
+        }
+
+        return false;
+    }
+
+    private void ResetRpmStartDetection(string? vehicleName)
+    {
+        _rpmStartVehicleName = vehicleName ?? "";
+        _rpmStartZeroMs = 0;
+        _rpmStartArmed = false;
+    }
+
+    private void StartEngineStartStopVibration(GameplayFfbEffectProfile profile, FfbFrameContext context, int direction, double? telemetryStartDurationMs = null)
     {
         var settings = profile.EngineStartStopPulse;
         var percent = Math.Min(CalculateMaxCapped(settings, context.TelemetryFade) * 0.85, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100));
         var durationMs = direction > 0
-            ? EngineStartVibrationDurationMs
+            ? ResolveEngineStartDurationMs(settings, telemetryStartDurationMs)
             : Math.Clamp(settings.StopDurationMs, 40, 500);
         var hz = direction > 0
             ? EngineDrivetrainLayer.StartPulseHz(profile)
@@ -1364,6 +1426,17 @@ public sealed class GameplayFfbCalculator
         _engineStartStopVibration = percent > 0
             ? new EngineStartStopVibrationState(direction, durationMs, durationMs, percent, hz)
             : null;
+    }
+
+    private static int ResolveEngineStartDurationMs(EngineStartStopPulseSettings settings, double? telemetryStartDurationMs)
+    {
+        var configuredStartDurationMs = Math.Clamp(settings.StartDurationMs, 40, 5000);
+        if (IsValidFinite(telemetryStartDurationMs))
+        {
+            return (int)Math.Round(Math.Clamp(telemetryStartDurationMs!.Value, 650, Math.Max(650, configuredStartDurationMs)));
+        }
+
+        return configuredStartDurationMs;
     }
 
     private EngineStartStopVibrationFrame CalculateEngineStartStopVibrationContinuous(GameplayFfbEffectProfile profile, FfbFrameContext context)
@@ -1390,7 +1463,7 @@ public sealed class GameplayFfbCalculator
             new ContinuousHaptics(0, 0, 0, 0, percent, state.Hz, 0, 0),
             percent > 0 ? 1.0 : 0.0);
         return percent > 0
-            ? new EngineStartStopVibrationFrame(contribution, state.Direction)
+            ? new EngineStartStopVibrationFrame(contribution, state.Direction, (int)Math.Round(state.DurationMs))
             : EngineStartStopVibrationFrame.Inactive;
     }
 
@@ -1414,16 +1487,20 @@ public sealed class GameplayFfbCalculator
         _lastEngineStopSeq = null;
         _lastGearChangeSeq = null;
         _engineStartStopVibration = null;
+        _rpmStartVehicleName = null;
+        _rpmStartZeroMs = 0;
+        _rpmStartArmed = false;
     }
 
     private sealed record DrivetrainSample(string? VehicleName, bool? EngineStarted, double? Throttle, double? Brake, double? Clutch, int? Gear, long? EngineStartSeq, long? EngineStopSeq, long? GearChangeSeq);
 
     private sealed record EngineStartStopVibrationState(int Direction, double DurationMs, double RemainingMs, double Percent, int Hz);
 
-    private sealed record EngineStartStopVibrationFrame(LayerContribution<ContinuousHaptics> Contribution, int Direction)
+    private sealed record EngineStartStopVibrationFrame(LayerContribution<ContinuousHaptics> Contribution, int Direction, int DurationMs)
     {
         public static EngineStartStopVibrationFrame Inactive { get; } = new(
             new LayerContribution<ContinuousHaptics>(new ContinuousHaptics(0, 0, 0, 0, 0, 0, 0, 0), 0),
+            0,
             0);
     }
 

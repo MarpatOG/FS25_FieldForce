@@ -137,7 +137,7 @@ public sealed class TelemetryReceiverServiceTests
               "controls": { "throttle": 0.2, "brake": 0.0, "clutch": 0.0 },
               "motion": { "speedMps": 1, "speedKmh": 3.6, "localAccelerationMps2": { "x": 0, "y": 0, "z": 0 } },
               "steering": { "angle": 0.0, "rate": 0.0 },
-              "engine": { "isRunning": true, "started": true, "rpm": 900, "rpm01": 0.25, "minRpm": 500, "maxRpm": 2400, "load01": 0.6, "torque": 120, "maxTorque": 400, "motorType": "diesel" },
+              "engine": { "isRunning": false, "started": false, "state": "starting", "isStarting": true, "startDurationMs": 1200, "startRemainingMs": 800, "rpm": 900, "rpm01": 0.25, "minRpm": 500, "maxRpm": 2400, "load01": 0.6, "torque": 120, "maxTorque": 400, "motorType": "diesel" },
               "transmission": { "gear": 2, "previousGear": 1, "targetGear": 3, "gearGroup": "A", "clutch01": 0.0, "brake01": 0.0, "throttle01": 0.2 },
               "events": { "engineStartSeq": 1, "engineStopSeq": 0, "gearChangeSeq": 2, "gearChangeKind": "up", "gearChangeTimeMs": 300 },
               "wheels": [],
@@ -154,7 +154,11 @@ public sealed class TelemetryReceiverServiceTests
 
         packet!.ValidateContract();
         Assert.True(packet.IsProtocolValid);
-        Assert.True(packet.EngineRunning);
+        Assert.False(packet.EngineRunning);
+        Assert.Equal("starting", packet.EngineState);
+        Assert.True(packet.EngineIsStarting);
+        Assert.Equal(1200, packet.EngineStartDurationMs);
+        Assert.Equal(800, packet.EngineStartRemainingMs);
         Assert.Equal(0.25, packet.Rpm01);
         Assert.Equal(0.6, packet.EngineLoad01);
         Assert.Equal(2, packet.GearChangeSeq);

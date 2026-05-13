@@ -199,11 +199,25 @@ public sealed class GameplayFfbCalculatorTests
         Assert.False(first.EngineStartStopPulseActive);
         Assert.True(start.EngineStartStopPulseActive);
         Assert.True(start.EngineStartPulsePercent > 0);
-        Assert.Equal(3000, start.EngineStartPulseDurationMs);
+        Assert.Equal(settings.EngineStartStopPulse.StartDurationMs, start.EngineStartPulseDurationMs);
         Assert.Equal(0, start.BumpDurationMs);
         Assert.Equal(0, start.BumpImpulsePercent);
         Assert.True(repeated.EngineStartStopPulseActive);
         Assert.True(repeated.EngineStartPulsePercent > 0);
+        Assert.True(repeated.EngineStartPulsePercent <= start.EngineStartPulsePercent);
+    }
+
+    [Fact]
+    public void Engine_start_seq_prefers_telemetry_start_duration()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        _ = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: false, engineStartSeq: 0)), settings);
+        var start = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: true, engineStartSeq: 1, engineStartDurationMs: 1200)), settings);
+
+        Assert.True(start.EngineStartStopPulseActive);
+        Assert.Equal(1200, start.EngineStartPulseDurationMs);
     }
 
     [Fact]
@@ -219,6 +233,42 @@ public sealed class GameplayFfbCalculatorTests
         Assert.Equal(settings.EngineStartStopPulse.StopDurationMs, stop.EngineStopPulseDurationMs);
         Assert.Equal(0, stop.BumpDurationMs);
         Assert.Equal(0, stop.BumpImpulsePercent);
+    }
+
+    [Fact]
+    public void Engine_start_fires_after_rpm_zero_for_more_than_five_seconds()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        for (var i = 0; i < 626; i++)
+        {
+            _ = calculator.Calculate(State(Packet(speedKmh: 0, rpm: 0, engineStarted: false)), settings);
+        }
+
+        var start = calculator.Calculate(State(Packet(speedKmh: 0, rpm: 11, engineStarted: true)), settings);
+
+        Assert.True(start.EngineStartStopPulseActive);
+        Assert.True(start.EngineStartPulsePercent > 0);
+        Assert.Equal(3000, start.EngineStartPulseDurationMs);
+        Assert.Equal(0, start.BumpImpulsePercent);
+    }
+
+    [Fact]
+    public void Engine_start_requires_more_than_five_seconds_at_zero_rpm()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        for (var i = 0; i < 625; i++)
+        {
+            _ = calculator.Calculate(State(Packet(speedKmh: 0, rpm: 0, engineStarted: false)), settings);
+        }
+
+        var output = calculator.Calculate(State(Packet(speedKmh: 0, rpm: 11, engineStarted: true)), settings);
+
+        Assert.False(output.EngineStartStopPulseActive);
+        Assert.Equal(0, output.EngineStartPulsePercent);
     }
 
     [Fact]
@@ -247,6 +297,24 @@ public sealed class GameplayFfbCalculatorTests
         Assert.Equal(FfbPulseKind.GearShift, output.EventPulseKind);
         Assert.True(output.EngineStartPulsePercent > 0);
         Assert.True(output.GearShiftPulseActive);
+    }
+
+    [Fact]
+    public void Engine_start_seq_disarms_rpm_fallback()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        for (var i = 0; i < 626; i++)
+        {
+            _ = calculator.Calculate(State(Packet(speedKmh: 0, rpm: 0, engineStarted: false, engineStartSeq: 0)), settings);
+        }
+
+        var seqStart = calculator.Calculate(State(Packet(speedKmh: 0, rpm: 11, engineStarted: true, engineStartSeq: 1)), settings);
+        var repeated = calculator.Calculate(State(Packet(speedKmh: 0, rpm: 11, engineStarted: true, engineStartSeq: 1)), settings);
+
+        Assert.True(seqStart.EngineStartStopPulseActive);
+        Assert.True(repeated.EngineStartPulsePercent <= seqStart.EngineStartPulsePercent);
     }
 
 
@@ -1065,6 +1133,10 @@ public sealed class GameplayFfbCalculatorTests
         long? gearChangeSeq = null,
         string? gearChangeKind = null,
         double? gearChangeTimeMs = null,
+        string? engineState = null,
+        bool? engineIsStarting = null,
+        double? engineStartDurationMs = null,
+        double? engineStartRemainingMs = null,
         bool? isArticulated = null,
         string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled)
     {
@@ -1099,6 +1171,10 @@ public sealed class GameplayFfbCalculatorTests
             Engine = new TelemetryEngineV1
             {
                 IsRunning = engineStarted,
+                State = engineState,
+                IsStarting = engineIsStarting,
+                StartDurationMs = engineStartDurationMs,
+                StartRemainingMs = engineStartRemainingMs,
                 Rpm = rpm,
                 Started = engineStarted,
                 Rpm01 = rpm01,

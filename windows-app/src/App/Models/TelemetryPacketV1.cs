@@ -108,6 +108,18 @@ public sealed class TelemetryPacketV1
     public bool? EngineRunning => Engine?.IsRunning ?? Engine?.Started;
 
     [JsonIgnore]
+    public string? EngineState => Engine?.State;
+
+    [JsonIgnore]
+    public bool? EngineIsStarting => Engine?.IsStarting;
+
+    [JsonIgnore]
+    public double? EngineStartDurationMs => Engine?.StartDurationMs;
+
+    [JsonIgnore]
+    public double? EngineStartRemainingMs => Engine?.StartRemainingMs;
+
+    [JsonIgnore]
     public double? Rpm01 => Engine?.Rpm01;
 
     [JsonIgnore]
@@ -427,6 +439,18 @@ public sealed class TelemetryEngineV1
 {
     [JsonPropertyName("isRunning")]
     public bool? IsRunning { get; set; }
+
+    [JsonPropertyName("state")]
+    public string? State { get; set; }
+
+    [JsonPropertyName("isStarting")]
+    public bool? IsStarting { get; set; }
+
+    [JsonPropertyName("startDurationMs")]
+    public double? StartDurationMs { get; set; }
+
+    [JsonPropertyName("startRemainingMs")]
+    public double? StartRemainingMs { get; set; }
 
     [JsonPropertyName("rpm")]
     public double? Rpm { get; set; }
