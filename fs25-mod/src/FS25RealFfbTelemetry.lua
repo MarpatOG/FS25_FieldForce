@@ -2518,17 +2518,23 @@ function FS25RealFfbTelemetry:installMenuHook()
 end
 
 function FS25RealFfbTelemetry:installMotorHook()
-    if FS25RealFfbTelemetry.motorHookInstalled == true then
+    if FS25RealFfbTelemetry.startMotorHookInstalled == true and FS25RealFfbTelemetry.stopMotorHookInstalled == true then
         return
     end
 
-    if Motorized == nil or Motorized.onStartMotor == nil or Motorized.onStopMotor == nil or Utils == nil or type(Utils.appendedFunction) ~= "function" then
+    if Motorized == nil or Utils == nil or type(Utils.appendedFunction) ~= "function" then
         return
     end
 
-    Motorized.onStartMotor = Utils.appendedFunction(Motorized.onStartMotor, FS25RealFfbTelemetry.onStartMotor)
-    Motorized.onStopMotor = Utils.appendedFunction(Motorized.onStopMotor, FS25RealFfbTelemetry.onStopMotor)
-    FS25RealFfbTelemetry.motorHookInstalled = true
+    if FS25RealFfbTelemetry.startMotorHookInstalled ~= true and Motorized.startMotor ~= nil then
+        Motorized.startMotor = Utils.appendedFunction(Motorized.startMotor, FS25RealFfbTelemetry.onStartMotor)
+        FS25RealFfbTelemetry.startMotorHookInstalled = true
+    end
+
+    if FS25RealFfbTelemetry.stopMotorHookInstalled ~= true and Motorized.stopMotor ~= nil then
+        Motorized.stopMotor = Utils.appendedFunction(Motorized.stopMotor, FS25RealFfbTelemetry.onStopMotor)
+        FS25RealFfbTelemetry.stopMotorHookInstalled = true
+    end
 end
 
 function FS25RealFfbTelemetry.onStartMotor(vehicle)
