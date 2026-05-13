@@ -327,6 +327,8 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local engineRunning = self:getEngineStarted(vehicle)
     local gear = self:getGear(vehicle)
     local eventState = self:updateEngineEventState(vehicle, engineRunning, motorState, gear, nowSeconds, startDurationMs)
+    local motorType = self:getMotorType(vehicle)
+    local energySources = self:getEngineEnergySources(vehicle, motorType)
     packet.engine = {
         isRunning = engineRunning,
         started = engineRunning,
@@ -341,7 +343,9 @@ function FS25RealFfbTelemetry:collectTelemetry()
         load01 = self:getEngineLoad01(vehicle),
         torque = self:getMotorTorque(vehicle),
         maxTorque = self:getMotorMaxTorque(vehicle),
-        motorType = self:getMotorType(vehicle)
+        motorType = motorType,
+        powertrainType = self:getPowertrainType(energySources),
+        energySources = self:jsonArray(energySources)
     }
     packet.transmission = {
         gear = gear,
@@ -986,6 +990,159 @@ function FS25RealFfbTelemetry:getMotorType(vehicle)
         vehicle ~= nil and vehicle.motorType or
         vehicle ~= nil and vehicle.typeName or
         "unknown")
+end
+
+function FS25RealFfbTelemetry:getEngineEnergySources(vehicle, motorType)
+    local sources = {}
+    local seen = {}
+
+    self:addEnergySourcesFromMotorizedSpec(vehicle ~= nil and vehicle.spec_motorized or nil, sources, seen)
+    self:addEnergySourcesFromFillUnits(vehicle, sources, seen)
+    self:addEnergySourcesFromText(motorType, sources, seen)
+    self:addEnergySourcesFromText(vehicle ~= nil and vehicle.typeName or nil, sources, seen)
+    self:addEnergySourcesFromText(vehicle ~= nil and vehicle.configFileName or nil, sources, seen)
+    self:addEnergySourcesFromText(vehicle ~= nil and vehicle.xmlFilename or nil, sources, seen)
+
+    return sources
+end
+
+function FS25RealFfbTelemetry:addEnergySourcesFromMotorizedSpec(spec, sources, seen)
+    if spec == nil then
+        return
+    end
+
+    if type(spec.consumersByFillTypeName) == "table" then
+        for fillTypeName, _ in pairs(spec.consumersByFillTypeName) do
+            self:addEnergySourceFromFillTypeName(fillTypeName, sources, seen)
+        end
+    end
+
+    if type(spec.consumers) == "table" then
+        for _, consumer in pairs(spec.consumers) do
+            self:addEnergySourceFromConsumer(consumer, sources, seen)
+        end
+    end
+
+    if type(spec.consumerConfigurations) == "table" then
+        for _, configuration in pairs(spec.consumerConfigurations) do
+            if type(configuration) == "table" then
+                for _, consumer in pairs(configuration) do
+                    self:addEnergySourceFromConsumer(consumer, sources, seen)
+                end
+            end
+        end
+    end
+end
+
+function FS25RealFfbTelemetry:addEnergySourcesFromFillUnits(vehicle, sources, seen)
+    local fillUnits = vehicle ~= nil and vehicle.spec_fillUnit ~= nil and vehicle.spec_fillUnit.fillUnits or nil
+    if type(fillUnits) ~= "table" then
+        return
+    end
+
+    for _, fillUnit in pairs(fillUnits) do
+        if type(fillUnit) == "table" and type(fillUnit.supportedFillTypes) == "table" then
+            for fillType, enabled in pairs(fillUnit.supportedFillTypes) do
+                if enabled then
+                    self:addEnergySourceFromFillType(fillType, sources, seen)
+                end
+            end
+        end
+    end
+end
+
+function FS25RealFfbTelemetry:addEnergySourceFromConsumer(consumer, sources, seen)
+    if type(consumer) ~= "table" then
+        return
+    end
+
+    self:addEnergySourceFromFillType(consumer.fillType, sources, seen)
+    self:addEnergySourceFromFillTypeName(consumer.fillTypeName or consumer.fillTypeTitle, sources, seen)
+end
+
+function FS25RealFfbTelemetry:addEnergySourceFromFillType(fillType, sources, seen)
+    if fillType == nil then
+        return
+    end
+
+    if FillType ~= nil then
+        if fillType == FillType.DIESEL then
+            self:addEnergySource("diesel", sources, seen)
+            return
+        elseif fillType == FillType.ELECTRICCHARGE then
+            self:addEnergySource("electricCharge", sources, seen)
+            return
+        elseif fillType == FillType.METHANE then
+            self:addEnergySource("methane", sources, seen)
+            return
+        end
+    end
+
+    self:addEnergySourceFromFillTypeName(tostring(fillType), sources, seen)
+end
+
+function FS25RealFfbTelemetry:addEnergySourceFromFillTypeName(fillTypeName, sources, seen)
+    if fillTypeName == nil then
+        return
+    end
+
+    local text = string.lower(tostring(fillTypeName))
+    if string.find(text, "electric", 1, true) or string.find(text, "charge", 1, true) or string.find(text, "battery", 1, true) then
+        self:addEnergySource("electricCharge", sources, seen)
+    elseif string.find(text, "diesel", 1, true) or string.find(text, "fuel", 1, true) then
+        self:addEnergySource("diesel", sources, seen)
+    elseif string.find(text, "methane", 1, true) or string.find(text, "gas", 1, true) then
+        self:addEnergySource("methane", sources, seen)
+    end
+end
+
+function FS25RealFfbTelemetry:addEnergySourcesFromText(value, sources, seen)
+    if value == nil then
+        return
+    end
+
+    local text = string.lower(tostring(value))
+    if string.find(text, "hybrid", 1, true) then
+        self:addEnergySource("electricCharge", sources, seen)
+        self:addEnergySource("diesel", sources, seen)
+        return
+    end
+
+    self:addEnergySourceFromFillTypeName(text, sources, seen)
+end
+
+function FS25RealFfbTelemetry:addEnergySource(source, sources, seen)
+    if source == nil or seen[source] == true then
+        return
+    end
+
+    table.insert(sources, source)
+    seen[source] = true
+end
+
+function FS25RealFfbTelemetry:getPowertrainType(energySources)
+    local hasElectric = false
+    local hasCombustion = false
+
+    if type(energySources) == "table" then
+        for _, source in ipairs(energySources) do
+            if source == "electricCharge" then
+                hasElectric = true
+            elseif source == "diesel" or source == "methane" then
+                hasCombustion = true
+            end
+        end
+    end
+
+    if hasElectric and hasCombustion then
+        return "hybrid"
+    elseif hasElectric then
+        return "electric"
+    elseif hasCombustion then
+        return "combustion"
+    end
+
+    return "unknown"
 end
 
 function FS25RealFfbTelemetry:getEngineStarted(vehicle)

@@ -72,7 +72,10 @@ Example:
     "isStarting": true,
     "startDurationMs": 1200,
     "startRemainingMs": 980,
-    "rpm": 850
+    "rpm": 850,
+    "motorType": "diesel",
+    "powertrainType": "combustion",
+    "energySources": ["diesel"]
   },
   "transmission": { "gear": 3 },
   "events": { "engineStartSeq": 4, "engineStopSeq": 1, "gearChangeSeq": 8, "gearChangeKind": "up", "gearChangeTimeMs": 650 },
@@ -119,6 +122,9 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 - `engine.isStarting`: true while the FS25 motor state is `MotorState.STARTING`.
 - `engine.startDurationMs`: optional `spec_motorized.motorStartDuration`.
 - `engine.startRemainingMs`: optional remaining time until FS25 promotes `STARTING` to `ON`.
+- `engine.motorType`: raw motor/type string from FS25 or the vehicle, kept for diagnostics and legacy heuristics.
+- `engine.powertrainType`: normalized `"combustion"`, `"electric"`, `"hybrid"`, or `"unknown"` value derived from FS25 motorized consumer/fill-unit sources when available.
+- `engine.energySources`: optional array of detected energy sources such as `"diesel"`, `"electricCharge"`, or `"methane"`.
 - `events.engineStartSeq`: increments when starter cranking begins (`OFF/IGNITION -> STARTING`), not when the engine has already reached `ON`.
 - `events.engineStopSeq`: increments on stop events.
 

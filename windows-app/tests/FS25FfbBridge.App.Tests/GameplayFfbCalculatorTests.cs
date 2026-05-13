@@ -188,6 +188,39 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Electric_powertrain_suppresses_engine_rpm_vibration()
+    {
+        var settings = new GameplayFfbSettings();
+        var combustion = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 20, rpm: 1800, rpm01: 0.8, engineLoad01: 1.0, powertrainType: "combustion")), settings);
+        var electric = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 20, rpm: 1800, rpm01: 0.8, engineLoad01: 1.0, powertrainType: "electric")), settings);
+
+        Assert.True(combustion.EngineRpmVibrationPercent > 0);
+        Assert.Equal(0, electric.EngineRpmVibrationPercent);
+        Assert.Equal(0, electric.EngineRpmVibrationHz);
+    }
+
+    [Fact]
+    public void Hybrid_powertrain_reduces_but_keeps_engine_rpm_vibration()
+    {
+        var settings = new GameplayFfbSettings();
+        var combustion = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 20, rpm: 1800, rpm01: 0.8, engineLoad01: 1.0, powertrainType: "combustion")), settings);
+        var hybrid = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 20, rpm: 1800, rpm01: 0.8, engineLoad01: 1.0, powertrainType: "hybrid")), settings);
+
+        Assert.InRange(hybrid.EngineRpmVibrationPercent, 1, combustion.EngineRpmVibrationPercent - 1);
+    }
+
+    [Fact]
+    public void Unknown_powertrain_preserves_legacy_engine_rpm_vibration()
+    {
+        var settings = new GameplayFfbSettings();
+        var legacy = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 20, rpm: 1800, rpm01: 0.8, engineLoad01: 1.0)), settings);
+        var unknown = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 20, rpm: 1800, rpm01: 0.8, engineLoad01: 1.0, powertrainType: "unknown")), settings);
+
+        Assert.Equal(legacy.EngineRpmVibrationPercent, unknown.EngineRpmVibrationPercent);
+        Assert.Equal(legacy.EngineRpmVibrationHz, unknown.EngineRpmVibrationHz);
+    }
+
+    [Fact]
     public void Engine_start_seq_fires_once_after_initial_packet()
     {
         var calculator = new GameplayFfbCalculator();
@@ -893,6 +926,55 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Electric_powertrain_suppresses_throttle_delta_drivetrain_jerk()
+    {
+        var settings = new GameplayFfbSettings();
+        var calculator = new GameplayFfbCalculator();
+        calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.1, gear: 2, powertrainType: "electric")), settings);
+        var output = calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.8, gear: 2, powertrainType: "electric")), settings);
+
+        Assert.NotEqual(FfbPulseKind.DrivetrainJerk, output.EventPulseKind);
+        Assert.Equal(0, output.BumpImpulsePercent);
+    }
+
+    [Fact]
+    public void Electric_and_hybrid_powertrains_reduce_real_gear_shift_pulses()
+    {
+        var settings = new GameplayFfbSettings();
+        var combustionCalculator = new GameplayFfbCalculator();
+        var electricCalculator = new GameplayFfbCalculator();
+        var hybridCalculator = new GameplayFfbCalculator();
+
+        _ = combustionCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 2, gearChangeSeq: 1, engineLoad01: 1.0, powertrainType: "combustion")), settings);
+        var combustion = combustionCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 3, gearChangeSeq: 2, engineLoad01: 1.0, powertrainType: "combustion")), settings);
+        _ = electricCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 2, gearChangeSeq: 1, engineLoad01: 1.0, powertrainType: "electric")), settings);
+        var electric = electricCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 3, gearChangeSeq: 2, engineLoad01: 1.0, powertrainType: "electric")), settings);
+        _ = hybridCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 2, gearChangeSeq: 1, engineLoad01: 1.0, powertrainType: "hybrid")), settings);
+        var hybrid = hybridCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 3, gearChangeSeq: 2, engineLoad01: 1.0, powertrainType: "hybrid")), settings);
+
+        Assert.True(combustion.GearShiftPulsePercent > 0);
+        Assert.InRange(electric.GearShiftPulsePercent, 1, combustion.GearShiftPulsePercent - 1);
+        Assert.InRange(hybrid.GearShiftPulsePercent, electric.GearShiftPulsePercent + 1, combustion.GearShiftPulsePercent - 1);
+    }
+
+    [Fact]
+    public void Hybrid_powertrain_reduces_but_keeps_throttle_delta_drivetrain_jerk()
+    {
+        var settings = new GameplayFfbSettings();
+        var combustionCalculator = new GameplayFfbCalculator();
+        var hybridCalculator = new GameplayFfbCalculator();
+
+        _ = combustionCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.1, gear: 2, powertrainType: "combustion")), settings);
+        var combustion = combustionCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.8, gear: 2, powertrainType: "combustion")), settings);
+        _ = hybridCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.1, gear: 2, powertrainType: "hybrid")), settings);
+        var hybrid = hybridCalculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.8, gear: 2, powertrainType: "hybrid")), settings);
+
+        Assert.Equal(FfbPulseKind.DrivetrainJerk, combustion.EventPulseKind);
+        Assert.Equal(FfbPulseKind.DrivetrainJerk, hybrid.EventPulseKind);
+        Assert.InRange(Math.Abs(hybrid.BumpImpulsePercent), 1, Math.Abs(combustion.BumpImpulsePercent) - 1);
+    }
+
+    [Fact]
     public void Longitudinal_jerk_produces_drivetrain_pulse_not_bump()
     {
         var settings = new GameplayFfbSettings();
@@ -1233,6 +1315,8 @@ public sealed class GameplayFfbCalculatorTests
         double? motorTorque = null,
         double? motorMaxTorque = null,
         string? motorType = null,
+        string? powertrainType = null,
+        List<string>? energySources = null,
         long? engineStartSeq = null,
         long? engineStopSeq = null,
         long? gearChangeSeq = null,
@@ -1289,7 +1373,9 @@ public sealed class GameplayFfbCalculatorTests
                 Load01 = engineLoad01,
                 Torque = motorTorque,
                 MaxTorque = motorMaxTorque,
-                MotorType = motorType
+                MotorType = motorType,
+                PowertrainType = powertrainType,
+                EnergySources = energySources ?? []
             },
             Transmission = new TelemetryTransmissionV1 { Gear = gear, Throttle01 = throttle, Brake01 = brake, Clutch01 = clutch },
             Events = new TelemetryEventsV1

@@ -11,6 +11,14 @@ public sealed class GameplayFfbCalculator
     private const double ImpactPulseGain = 3.0;
     private const double EngineStartRpmZeroThresholdMs = 1000;
     private const double EngineStartRpmTriggerThreshold = 10;
+    private const double ElectricContinuousEngineScale = 0.0;
+    private const double ElectricStartStopScale = 0.0;
+    private const double ElectricGearShiftScale = 0.20;
+    private const double ElectricDrivetrainJerkScale = 0.0;
+    private const double HybridContinuousEngineScale = 0.45;
+    private const double HybridStartStopScale = 0.45;
+    private const double HybridGearShiftScale = 0.55;
+    private const double HybridDrivetrainJerkScale = 0.55;
     private DrivetrainSample? _lastDrivetrainSample;
     private long? _lastEngineStartSeq;
     private long? _lastEngineStopSeq;
@@ -489,6 +497,7 @@ public sealed class GameplayFfbCalculator
                 : (double?)null;
             var loadRatio = Math.Clamp(FirstValid(packet.EngineLoad01, torqueLoad, packet.TransmissionThrottle01, packet.Throttle) ?? 0, 0, 1);
             var heavyEngine = IsHeavyEngine(packet);
+            var powertrainType = NormalizePowertrainType(packet.PowertrainType);
             var lugging = packet.EngineRunning == true && loadRatio >= 0.65 && rpmRatio <= (heavyEngine ? 0.36 : 0.30);
 
             return new TelemetryFeatures(
@@ -520,7 +529,19 @@ public sealed class GameplayFfbCalculator
                 loadRatio,
                 lugging,
                 packet.EngineRunning == true && loadRatio >= 0.25,
+                powertrainType,
                 heavyEngine);
+        }
+
+        private static string NormalizePowertrainType(string? powertrainType)
+        {
+            return powertrainType?.Trim().ToLowerInvariant() switch
+            {
+                "combustion" => "combustion",
+                "electric" => "electric",
+                "hybrid" => "hybrid",
+                _ => "unknown"
+            };
         }
 
         private static bool IsHeavyEngine(TelemetryPacketV1 packet)
@@ -1118,7 +1139,8 @@ public sealed class GameplayFfbCalculator
     {
         public static LayerContribution<ContinuousHaptics> CalculateContinuous(TelemetryPacketV1 packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
-            if (!profile.EngineRpmVibration.Enabled || packet.EngineRunning != true || context.TelemetryFade <= 0)
+            var powertrainScale = CalculateContinuousEngineScale(features.PowertrainType);
+            if (!profile.EngineRpmVibration.Enabled || packet.EngineRunning != true || context.TelemetryFade <= 0 || powertrainScale <= 0)
             {
                 return new(new ContinuousHaptics(0, 0, 0, 0, 0, 0, 0, 0), packet.Rpm is null && packet.Rpm01 is null ? 0 : 1);
             }
@@ -1137,7 +1159,7 @@ public sealed class GameplayFfbCalculator
 
             var outputCapScale = Math.Clamp(profile.EngineRpmVibration.MaxOutputPercent, 0, 100) / 100.0;
             var percent = basePercent * outputCapScale * context.TelemetryFade * rpmMagnitude;
-            percent = Math.Min(percent, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100));
+            percent = Math.Min(percent, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100)) * powertrainScale;
             return new(new ContinuousHaptics(0, 0, 0, 0, percent, hz, 0, 0), 1.0);
         }
 
@@ -1326,12 +1348,12 @@ public sealed class GameplayFfbCalculator
                                  (DetectEngineStartByRunningTransition(previous, current, packet) || DetectEngineStartByRpm(packet, context));
         if (profile.EngineStartStopPulse.Enabled && (engineStartedByStarter || engineStartedByRpm))
         {
-            StartEngineStartStopVibration(profile, context, direction: 1, packet.EngineStartDurationMs);
+            StartEngineStartStopVibration(profile, context, direction: 1, packet.EngineStartDurationMs, CalculateStartStopScale(features.PowertrainType));
         }
 
         if (profile.EngineStartStopPulse.Enabled && IsNewSeq(current.EngineStopSeq, ref _lastEngineStopSeq))
         {
-            StartEngineStartStopVibration(profile, context, direction: -1);
+            StartEngineStartStopVibration(profile, context, direction: -1, powertrainScale: CalculateStartStopScale(features.PowertrainType));
         }
 
         var gearChangedBySeq = profile.GearShiftPulse.Enabled && IsNewSeq(current.GearChangeSeq, ref _lastGearChangeSeq);
@@ -1342,10 +1364,15 @@ public sealed class GameplayFfbCalculator
                                     previous.Gear != current.Gear;
         if (gearChangedBySeq || gearChangedByFallback)
         {
-            pulses.Add(CreateGearShiftPulse(profile, features, context));
+            var gearShiftPulse = CreateGearShiftPulse(profile, features, context, CalculateGearShiftScale(features.PowertrainType));
+            if (gearShiftPulse.Confidence > 0)
+            {
+                pulses.Add(gearShiftPulse);
+            }
         }
 
-        if (profile.DrivetrainPulse.Enabled && features.DrivetrainConfidence >= 1.0)
+        var drivetrainJerkScale = CalculateDrivetrainJerkScale(features.PowertrainType);
+        if (profile.DrivetrainPulse.Enabled && features.DrivetrainConfidence >= 1.0 && drivetrainJerkScale > 0)
         {
             var throttleDelta = Math.Abs((current.Throttle ?? 0) - (previous.Throttle ?? 0));
             var brakeDelta = Math.Abs((current.Brake ?? 0) - (previous.Brake ?? 0));
@@ -1366,7 +1393,7 @@ public sealed class GameplayFfbCalculator
                 var direction = (current.Brake ?? 0) > (previous.Brake ?? 0) ? -1 : 1;
                 pulses.Add(new EventPulse(
                     FfbPulseKind.DrivetrainJerk,
-                    CalculateMaxCapped(profile.DrivetrainPulse, context.TelemetryFade) * ApplyCurve(pulseRatio, profile.DrivetrainPulse.Curve),
+                    CalculateMaxCapped(profile.DrivetrainPulse, context.TelemetryFade) * ApplyCurve(pulseRatio, profile.DrivetrainPulse.Curve) * drivetrainJerkScale,
                     Math.Clamp(profile.DrivetrainPulse.DurationMs, 20, 160),
                     Math.Clamp(profile.DrivetrainPulse.CooldownMs, 20, 500),
                     direction,
@@ -1458,10 +1485,10 @@ public sealed class GameplayFfbCalculator
         _rpmStartArmed = false;
     }
 
-    private void StartEngineStartStopVibration(GameplayFfbEffectProfile profile, FfbFrameContext context, int direction, double? telemetryStartDurationMs = null)
+    private void StartEngineStartStopVibration(GameplayFfbEffectProfile profile, FfbFrameContext context, int direction, double? telemetryStartDurationMs = null, double powertrainScale = 1.0)
     {
         var settings = profile.EngineStartStopPulse;
-        var percent = Math.Min(CalculateMaxCapped(settings, context.TelemetryFade) * 0.85, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100));
+        var percent = Math.Min(CalculateMaxCapped(settings, context.TelemetryFade) * 0.85, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100)) * Math.Clamp(powertrainScale, 0, 1);
         var durationMs = direction > 0
             ? ResolveEngineStartDurationMs(settings, telemetryStartDurationMs)
             : Math.Clamp(settings.StopDurationMs, 40, 500);
@@ -1512,11 +1539,11 @@ public sealed class GameplayFfbCalculator
             : EngineStartStopVibrationFrame.Inactive;
     }
 
-    private static EventPulse CreateGearShiftPulse(GameplayFfbEffectProfile profile, TelemetryFeatures features, FfbFrameContext context)
+    private static EventPulse CreateGearShiftPulse(GameplayFfbEffectProfile profile, TelemetryFeatures features, FfbFrameContext context, double powertrainScale = 1.0)
     {
         var settings = profile.GearShiftPulse;
         var loadScale = Math.Clamp(0.70 + (features.EngineLoadRatio * 0.55), 0.65, 1.25);
-        var percent = Math.Min(CalculateMaxCapped(settings, context.TelemetryFade) * loadScale, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100));
+        var percent = Math.Min(CalculateMaxCapped(settings, context.TelemetryFade) * loadScale, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100)) * Math.Clamp(powertrainScale, 0, 1);
         return new EventPulse(
             FfbPulseKind.GearShift,
             percent,
@@ -1524,6 +1551,46 @@ public sealed class GameplayFfbCalculator
             Math.Clamp(settings.CooldownMs, 100, 700),
             1,
             percent > 0 ? 1.0 : 0.0);
+    }
+
+    private static double CalculateContinuousEngineScale(string powertrainType)
+    {
+        return powertrainType switch
+        {
+            "electric" => ElectricContinuousEngineScale,
+            "hybrid" => HybridContinuousEngineScale,
+            _ => 1.0
+        };
+    }
+
+    private static double CalculateStartStopScale(string powertrainType)
+    {
+        return powertrainType switch
+        {
+            "electric" => ElectricStartStopScale,
+            "hybrid" => HybridStartStopScale,
+            _ => 1.0
+        };
+    }
+
+    private static double CalculateGearShiftScale(string powertrainType)
+    {
+        return powertrainType switch
+        {
+            "electric" => ElectricGearShiftScale,
+            "hybrid" => HybridGearShiftScale,
+            _ => 1.0
+        };
+    }
+
+    private static double CalculateDrivetrainJerkScale(string powertrainType)
+    {
+        return powertrainType switch
+        {
+            "electric" => ElectricDrivetrainJerkScale,
+            "hybrid" => HybridDrivetrainJerkScale,
+            _ => 1.0
+        };
     }
 
     private void ResetEngineEventState()

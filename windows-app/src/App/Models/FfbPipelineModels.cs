@@ -85,6 +85,7 @@ public sealed record TelemetryFeatures(
     double EngineLoadRatio = 0,
     bool EngineLugging = false,
     bool EngineUnderLoad = false,
+    string PowertrainType = "unknown",
     bool HeavyEngine = false);
 
 public sealed record DeviceHapticProfile(

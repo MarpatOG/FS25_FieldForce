@@ -33,6 +33,7 @@ FS25 does not expose suspension as a separate high-level specialization. Most us
 - `[used]` `vehicle:getIsMotorStarted()` / `spec_motorized.isMotorStarted`: used as `engine.started`.
 - `[used]` `vehicle:getMotorState()` / `spec_motorized.motorState`: used as `engine.state`, `engine.isStarting`, and the primary early `engineStartSeq` trigger when state enters `MotorState.STARTING`.
 - `[used]` `spec_motorized.motorStartDuration` and `spec_motorized.motorStartTime`: sent as `engine.startDurationMs` and `engine.startRemainingMs` when available.
+- `[used]` `spec_motorized.consumersByFillTypeName`, `spec_motorized.consumers`, `spec_motorized.consumerConfigurations`, and fill-unit supported fill types: used to derive `engine.energySources` and normalized `engine.powertrainType`.
 - `[used]` `getGear`, `getSelectedGear`, `getCurrentGear`, and fallback fields `gear`, `currentGear`, `selectedGear`: used for transmission telemetry and gear-shift FFB pulses.
 - `[unused]` `Motorized:getMotorRpmReal()`: available, but not used.
 - `[unused]` `Motorized:getMotorRpmPercentage()`: available, but the bridge normalizes RPM from profile settings instead of game `min/max`.

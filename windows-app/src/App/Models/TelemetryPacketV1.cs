@@ -141,6 +141,12 @@ public sealed class TelemetryPacketV1
     public string? MotorType => Engine?.MotorType;
 
     [JsonIgnore]
+    public string? PowertrainType => Engine?.PowertrainType;
+
+    [JsonIgnore]
+    public IReadOnlyList<string> EnergySources => Engine?.EnergySources ?? [];
+
+    [JsonIgnore]
     public double? MassT => Vehicle?.MassT;
 
     [JsonIgnore]
@@ -475,6 +481,12 @@ public sealed class TelemetryEngineV1
 
     [JsonPropertyName("motorType")]
     public string? MotorType { get; set; }
+
+    [JsonPropertyName("powertrainType")]
+    public string? PowertrainType { get; set; }
+
+    [JsonPropertyName("energySources")]
+    public List<string> EnergySources { get; set; } = [];
 
     [JsonPropertyName("started")]
     public bool? Started { get; set; }
