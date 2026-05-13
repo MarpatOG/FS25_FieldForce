@@ -9,7 +9,7 @@ public sealed class GameplayFfbCalculator
     private const double MinPulsePercentToEmit = 2.5;
     private const double MinEventPercentForSuppression = 5.0;
     private const double ImpactPulseGain = 3.0;
-    private const double EngineStartRpmZeroThresholdMs = 5000;
+    private const double EngineStartRpmZeroThresholdMs = 1000;
     private const double EngineStartRpmTriggerThreshold = 10;
     private DrivetrainSample? _lastDrivetrainSample;
     private long? _lastEngineStartSeq;
@@ -20,6 +20,8 @@ public sealed class GameplayFfbCalculator
     private string? _rpmStartVehicleName;
     private double _rpmStartZeroMs;
     private bool _rpmStartArmed;
+    private bool _suppressRpmStartUntilEngineOff;
+    private DateTimeOffset? _lastCalculateAt;
 
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings)
     {
@@ -33,6 +35,7 @@ public sealed class GameplayFfbCalculator
             _lastDrivetrainSample = null;
             ResetEngineEventState();
             _lastSteeringModel = null;
+            _lastCalculateAt = null;
             return GameplayFfbOutput.Zero;
         }
 
@@ -43,13 +46,14 @@ public sealed class GameplayFfbCalculator
             _lastDrivetrainSample = null;
             ResetEngineEventState();
             _lastSteeringModel = null;
+            _lastCalculateAt = null;
             return GameplayFfbOutput.Zero;
         }
 
         var activeCategory = NormalizeVehicleCategory(packet.VehicleCategory);
         var profile = ResolveVehicleCategoryProfile(settings, activeCategory);
         var context = new FfbFrameContext(
-            TimeSpan.FromSeconds(1.0 / 125.0),
+            CalculateContextDeltaTime(packet),
             state.LastPacketAge,
             fade,
             activeCategory,
@@ -400,6 +404,17 @@ public sealed class GameplayFfbCalculator
     private static bool IsValidFinite(double? value)
     {
         return value is not null && !double.IsNaN(value.Value) && !double.IsInfinity(value.Value);
+    }
+
+    private TimeSpan CalculateContextDeltaTime(TelemetryPacketV1 packet)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var wallClockMs = _lastCalculateAt is null ? 0 : (now - _lastCalculateAt.Value).TotalMilliseconds;
+        _lastCalculateAt = now;
+
+        var frameDtMs = IsValidFinite(packet.Frame?.DtMs) ? packet.Frame!.DtMs!.Value : 1000.0 / 125.0;
+        var deltaMs = Math.Max(frameDtMs, wallClockMs);
+        return TimeSpan.FromMilliseconds(Math.Clamp(deltaMs, 1, 1000));
     }
 
     private static double? FirstValid(params double?[] values)
@@ -1278,7 +1293,7 @@ public sealed class GameplayFfbCalculator
             return [];
         }
 
-        var current = new DrivetrainSample(packet.VehicleName, packet.EngineRunning, packet.TransmissionThrottle01, packet.TransmissionBrake01, packet.TransmissionClutch01, packet.Gear, packet.EngineStartSeq, packet.EngineStopSeq, packet.GearChangeSeq);
+        var current = new DrivetrainSample(packet.VehicleName, packet.EngineRunning, IsEngineStarting(packet), packet.TransmissionThrottle01, packet.TransmissionBrake01, packet.TransmissionClutch01, packet.Gear, packet.EngineStartSeq, packet.EngineStopSeq, packet.GearChangeSeq);
         var previous = _lastDrivetrainSample;
         _lastDrivetrainSample = current;
         if (previous is null || !string.Equals(previous.VehicleName, current.VehicleName, StringComparison.Ordinal))
@@ -1291,14 +1306,25 @@ public sealed class GameplayFfbCalculator
         }
 
         var pulses = new List<EventPulse>();
-        var engineStartedBySeq = IsNewSeq(current.EngineStartSeq, ref _lastEngineStartSeq);
-        if (engineStartedBySeq)
+        if (current.EngineStarted == false && current.EngineIsStarting != true)
         {
+            _suppressRpmStartUntilEngineOff = false;
+        }
+
+        var engineStartedBySeq = IsNewSeq(current.EngineStartSeq, ref _lastEngineStartSeq);
+        var engineStartedByStartingState = DetectEngineStartByStartingState(previous, current);
+        var engineStartedByStarter = engineStartedBySeq || engineStartedByStartingState;
+        if (engineStartedByStarter)
+        {
+            _suppressRpmStartUntilEngineOff = true;
             ResetRpmStartDetection(packet.VehicleName);
         }
 
-        var engineStartedByRpm = current.EngineStartSeq is null && DetectEngineStartByRpm(packet, context);
-        if (profile.EngineStartStopPulse.Enabled && (engineStartedBySeq || engineStartedByRpm))
+        var engineStartedByRpm = !engineStartedByStarter &&
+                                 !_suppressRpmStartUntilEngineOff &&
+                                 current.EngineStartSeq is null &&
+                                 (DetectEngineStartByRunningTransition(previous, current, packet) || DetectEngineStartByRpm(packet, context));
+        if (profile.EngineStartStopPulse.Enabled && (engineStartedByStarter || engineStartedByRpm))
         {
             StartEngineStartStopVibration(profile, context, direction: 1, packet.EngineStartDurationMs);
         }
@@ -1363,6 +1389,12 @@ public sealed class GameplayFfbCalculator
         return isNew;
     }
 
+    private static bool IsEngineStarting(TelemetryPacketV1 packet)
+    {
+        return packet.EngineIsStarting == true ||
+               string.Equals(packet.EngineState, "starting", StringComparison.OrdinalIgnoreCase);
+    }
+
     private bool DetectEngineStartByRpm(TelemetryPacketV1 packet, FfbFrameContext context)
     {
         var vehicleName = packet.VehicleName ?? "";
@@ -1404,6 +1436,19 @@ public sealed class GameplayFfbCalculator
         }
 
         return false;
+    }
+
+    private static bool DetectEngineStartByRunningTransition(DrivetrainSample previous, DrivetrainSample current, TelemetryPacketV1 packet)
+    {
+        return previous.EngineStarted == false &&
+               current.EngineStarted == true &&
+               IsValidFinite(packet.Rpm) &&
+               packet.Rpm!.Value > EngineStartRpmTriggerThreshold;
+    }
+
+    private static bool DetectEngineStartByStartingState(DrivetrainSample previous, DrivetrainSample current)
+    {
+        return previous.EngineIsStarting != true && current.EngineIsStarting == true;
     }
 
     private void ResetRpmStartDetection(string? vehicleName)
@@ -1490,9 +1535,10 @@ public sealed class GameplayFfbCalculator
         _rpmStartVehicleName = null;
         _rpmStartZeroMs = 0;
         _rpmStartArmed = false;
+        _suppressRpmStartUntilEngineOff = false;
     }
 
-    private sealed record DrivetrainSample(string? VehicleName, bool? EngineStarted, double? Throttle, double? Brake, double? Clutch, int? Gear, long? EngineStartSeq, long? EngineStopSeq, long? GearChangeSeq);
+    private sealed record DrivetrainSample(string? VehicleName, bool? EngineStarted, bool EngineIsStarting, double? Throttle, double? Brake, double? Clutch, int? Gear, long? EngineStartSeq, long? EngineStopSeq, long? GearChangeSeq);
 
     private sealed record EngineStartStopVibrationState(int Direction, double DurationMs, double RemainingMs, double Percent, int Hz);
 
