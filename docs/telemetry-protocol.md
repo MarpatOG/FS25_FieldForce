@@ -1,15 +1,15 @@
 # Telemetry Protocol v1.2
 
-The FS25 telemetry mod sends UDP JSON over localhost when Lua socket support is available. If socket support is unavailable, it writes the same v1 packet to the file fallback path.
+The FS25 telemetry mod writes JSON packets to a file transport by default. UDP remains available as a hidden diagnostic transport.
 
 ## Transport
 
-- Protocol: UDP JSON
-- Default host: `127.0.0.1`
-- Default port: `34325`
-- Default UDP target rate: `125 Hz`
-- File fallback target rate: `30 Hz`
-- File fallback: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
+- Protocol: file JSON by default
+- Default file target rate: `60 Hz`
+- Allowed target rates: `1`, `10`, `30`, `60 Hz`
+- File path: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
+- Hidden UDP host: `127.0.0.1`
+- Hidden UDP port: `34325`
 
 The Windows receiver accepts the current `1.2.0` packet and the legacy `1.1.0` packet:
 
@@ -153,7 +153,7 @@ $bytes = [Text.Encoding]::UTF8.GetBytes($json)
 $udp.Dispose()
 ```
 
-## Manual File Fallback Test
+## Manual File Test
 
 ```powershell
 $path = "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\modSettings\FS25_RealFfbTelemetry\telemetry.json"

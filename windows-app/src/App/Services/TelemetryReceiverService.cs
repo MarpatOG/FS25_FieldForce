@@ -55,6 +55,8 @@ public sealed class TelemetryReceiverService : IDisposable
     private TelemetryStatus _status = TelemetryStatus.Waiting;
     private int _lostTimeoutMs;
     private int _uiRefreshMs;
+    private int _filePollMs;
+    private string _transportMode = "file";
     private bool _udpBindFailed;
     private bool _loggedConnected;
 
@@ -75,14 +77,17 @@ public sealed class TelemetryReceiverService : IDisposable
         int lostTimeoutMs,
         string? filePath = null,
         bool includeDefaultFilePath = true,
-        int ffbUpdateRateHz = 125,
-        int uiRefreshMs = 100)
+        int ffbUpdateRateHz = 60,
+        int uiRefreshMs = 100,
+        string? transportMode = null)
     {
         Stop();
 
         _lostTimeoutMs = Math.Max(250, lostTimeoutMs);
         FfbUpdateRateHz = Math.Clamp(ffbUpdateRateHz, 1, 1000);
         _uiRefreshMs = Math.Clamp(uiRefreshMs, 20, 1000);
+        _filePollMs = Math.Clamp(1000 / Math.Max(FfbUpdateRateHz * 2, 1), 8, 100);
+        _transportMode = NormalizeTransportMode(transportMode);
         _cts = new CancellationTokenSource();
         _packetTimes.Clear();
         _lastPacket = null;
@@ -102,34 +107,42 @@ public sealed class TelemetryReceiverService : IDisposable
         _fileCandidates = GetTelemetryFileCandidates(filePath, includeDefaultFilePath);
         _activeFilePath = null;
         _lastFileWriteTimeUtc = DateTime.MinValue;
-        _fileStatus = $"Waiting: {FormatFileCandidates(_fileCandidates)}";
-        Endpoint = $"{udpEndpoint} | {FormatFileCandidates(_fileCandidates)}";
+        _fileStatus = UsesFileTransport ? $"Waiting: {FormatFileCandidates(_fileCandidates)}" : "Disabled: UDP transport";
+        _udpStatus = UsesUdpTransport ? "Not started" : "Disabled: file transport";
+        Endpoint = FormatEndpoint(udpEndpoint, _fileCandidates);
         _statusTimer = new System.Threading.Timer(_ => PublishState(), null, TimeSpan.Zero, TimeSpan.FromMilliseconds(_uiRefreshMs));
 
-        try
+        if (UsesUdpTransport)
         {
-            _udpClient = new UdpClient(new IPEndPoint(address, port));
-            _udpStatus = $"Listening: {udpEndpoint}";
-            _ = Task.Run(() => ReceiveLoopAsync(_cts.Token));
-        }
-        catch (SocketException ex)
-        {
-            _udpStatus = $"Bind failed: {udpEndpoint}";
-            _lastTransportError = $"UDP bind failed on {udpEndpoint}: {ex.SocketErrorCode}";
-            _udpBindFailed = true;
-            _log.Error(ex, "Telemetry UDP bind failed on {Endpoint}", udpEndpoint);
-            PublishState();
-        }
-        catch (Exception ex)
-        {
-            _udpStatus = $"Bind failed: {udpEndpoint}";
-            _lastTransportError = $"UDP bind failed on {udpEndpoint}: {ex.Message}";
-            _udpBindFailed = true;
-            _log.Error(ex, "Telemetry UDP bind failed on {Endpoint}", udpEndpoint);
-            PublishState();
+            try
+            {
+                _udpClient = new UdpClient(new IPEndPoint(address, port));
+                _udpStatus = $"Listening: {udpEndpoint}";
+                _ = Task.Run(() => ReceiveLoopAsync(_cts.Token));
+            }
+            catch (SocketException ex)
+            {
+                _udpStatus = $"Bind failed: {udpEndpoint}";
+                _lastTransportError = $"UDP bind failed on {udpEndpoint}: {ex.SocketErrorCode}";
+                _udpBindFailed = true;
+                _log.Error(ex, "Telemetry UDP bind failed on {Endpoint}", udpEndpoint);
+                PublishState();
+            }
+            catch (Exception ex)
+            {
+                _udpStatus = $"Bind failed: {udpEndpoint}";
+                _lastTransportError = $"UDP bind failed on {udpEndpoint}: {ex.Message}";
+                _udpBindFailed = true;
+                _log.Error(ex, "Telemetry UDP bind failed on {Endpoint}", udpEndpoint);
+                PublishState();
+            }
         }
 
-        _ = Task.Run(() => FileLoopAsync(_cts.Token));
+        if (UsesFileTransport)
+        {
+            _ = Task.Run(() => FileLoopAsync(_cts.Token));
+        }
+
         _log.Information("Telemetry receiver started on {Endpoint}", Endpoint);
     }
 
@@ -234,7 +247,7 @@ public sealed class TelemetryReceiverService : IDisposable
                 _log.Error(ex, "Telemetry file receive error");
             }
 
-            await Task.Delay(100, cancellationToken);
+            await Task.Delay(_filePollMs, cancellationToken);
         }
     }
 
@@ -289,10 +302,7 @@ public sealed class TelemetryReceiverService : IDisposable
 
                 _lastRawPacket = raw;
                 _lastPacketAt = DateTimeOffset.UtcNow;
-                if (isUdp)
-                {
-                    _packetTimes.Enqueue(_lastPacketAt.Value);
-                }
+                _packetTimes.Enqueue(_lastPacketAt.Value);
 
                 TrimPacketTimes();
                 _lastPacket = packet;
@@ -412,6 +422,11 @@ public sealed class TelemetryReceiverService : IDisposable
 
     private bool CanAcceptFilePacket()
     {
+        if (_transportMode == "file")
+        {
+            return true;
+        }
+
         if (_udpBindFailed)
         {
             return true;
@@ -433,6 +448,30 @@ public sealed class TelemetryReceiverService : IDisposable
     private static IPAddress ParseAddress(string host)
     {
         return IPAddress.TryParse(host, out var address) ? address : IPAddress.Loopback;
+    }
+
+    private bool UsesFileTransport => _transportMode is "file" or "file+udp";
+
+    private bool UsesUdpTransport => _transportMode is "udp" or "file+udp";
+
+    private static string NormalizeTransportMode(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "udp" => "udp",
+            "file+udp" => "file+udp",
+            _ => "file"
+        };
+    }
+
+    private string FormatEndpoint(string udpEndpoint, IReadOnlyList<string> fileCandidates)
+    {
+        return _transportMode switch
+        {
+            "udp" => udpEndpoint,
+            "file+udp" => $"{FormatFileCandidates(fileCandidates)} | {udpEndpoint}",
+            _ => FormatFileCandidates(fileCandidates)
+        };
     }
 
     private string? FindExistingTelemetryFile()

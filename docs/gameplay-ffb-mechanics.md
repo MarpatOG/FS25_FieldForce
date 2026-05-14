@@ -96,6 +96,7 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 - Engine vibration, surface feedback, slip feedback, and suspension terrain rumble produce continuous haptics.
 - Collision, landing, left/right suspension hit, bump, gear shift, drivetrain jerk, and engine start/stop share one finite pulse bus. Articulated vehicles suppress left/right suspension-hit selection so pivot/pendulum movement falls back to the softer bump/rumble path.
 - Engine start vibration is driven primarily by `events.engineStartSeq`, so it starts during starter cranking instead of waiting for `engine.started=true`. `engine.startDurationMs` can shorten the start vibration duration within the configured start-pulse cap. RPM-rise detection remains a legacy fallback only when `engineStartSeq` is absent.
+- Brake-only standstill input is not treated as engine load or drivetrain jerk. This prevents `EL`/`LG` and clutch/brake jerk feedback from activating when the vehicle is stopped and the driver only presses the brake pedal.
 - Event priority is `Collision > Landing > Left/RightSuspensionHit > Bump > GearShift > DrivetrainJerk/EngineStartStop`.
 
 DirectInput outputs:

@@ -16,7 +16,8 @@ public sealed class AppConfigTests
         Assert.Equal(270, config.RotationDegrees);
         Assert.Equal(40, config.GlobalForceLimitPercent);
         Assert.Equal(35, config.DeviceForceLimitPercent);
-        Assert.Equal(125, config.TelemetryFfbUpdateRateHz);
+        Assert.Equal("file", config.TelemetryTransportMode);
+        Assert.Equal(60, config.TelemetryFfbUpdateRateHz);
         Assert.Equal(100, config.TelemetryUiRefreshMs);
         Assert.True(config.GameplayFfb.Enabled);
         Assert.True(config.GameplayFfb.SpeedSpring.Enabled);

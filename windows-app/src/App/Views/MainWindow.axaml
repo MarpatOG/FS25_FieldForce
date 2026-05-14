@@ -472,7 +472,7 @@
                                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TelemetryEndpoint}" TextWrapping="Wrap"/>
                                 <TextBlock Grid.Row="2" Classes="muted" Text="UDP"/>
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UdpStatus}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="3" Classes="muted" Text="File fallback"/>
+                                <TextBlock Grid.Row="3" Classes="muted" Text="File"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FileStatus}" TextWrapping="Wrap"/>
                                 <TextBlock Grid.Row="4" Classes="muted" Text="Last source"/>
                                 <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastPacketSource}" TextWrapping="Wrap"/>

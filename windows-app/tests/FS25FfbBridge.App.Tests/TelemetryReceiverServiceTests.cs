@@ -174,7 +174,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var stateTask = WaitForStateAsync(receiver, state =>
             state.Status == TelemetryStatus.Connected &&
             state.LastPacketSource.StartsWith("udp://", StringComparison.OrdinalIgnoreCase));
@@ -196,7 +196,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var stateTask = WaitForStateAsync(receiver, state =>
             state.Status == TelemetryStatus.Connected &&
             state.LastPacket?.SurfaceType == "field");
@@ -235,6 +235,7 @@ public sealed class TelemetryReceiverServiceTests
         var state = await stateTask;
         Assert.Equal("Tractor", state.LastPacket?.VehicleName);
         Assert.StartsWith("Watching: file://", state.FileStatus);
+        Assert.True(state.PacketRate >= 1);
     }
 
     [Fact]
@@ -245,7 +246,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var stateTask = WaitForStateAsync(receiver, state =>
             state.Status == TelemetryStatus.Connected &&
             state.LastPacket?.Vehicle is null);
@@ -271,7 +272,7 @@ public sealed class TelemetryReceiverServiceTests
             "\"payloadBytes\": 50000, \"buildTimeMs\": 2.5, \"warnings\": [\"payload_bytes 50000 exceeds hard warning budget 49152\", \"packet_build_time_ms 2.500 exceeds 2 ms\"]",
             StringComparison.Ordinal);
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var stateTask = WaitForStateAsync(receiver, state =>
             state.Status == TelemetryStatus.Connected &&
             state.LastPacket?.Diagnostics?.Warnings.Count == 2);
@@ -291,7 +292,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var stateTask = WaitForStateAsync(receiver, state => state.LastParseError is not null);
 
         await SendUdpAsync(port, LegacyFlatPacket);
@@ -309,7 +310,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var stateTask = WaitForStateAsync(receiver, state => state.LastParseError is not null);
 
         await SendUdpAsync(port, ValidPacket.Replace("FS25_REAL_FFB_TELEMETRY", "OTHER_PROTOCOL", StringComparison.Ordinal));
@@ -327,7 +328,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var stateTask = WaitForStateAsync(receiver, state => state.LastParseError is not null);
 
         await SendUdpAsync(port, ValidPacket.Replace("\"1.1.0\"", "\"0.6.1\"", StringComparison.Ordinal));
@@ -345,7 +346,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var validStateTask = WaitForStateAsync(receiver, state => state.LastPacket?.VehicleName == "Tractor");
         await SendUdpAsync(port, ValidPacket);
         await validStateTask;
@@ -368,7 +369,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 250, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 250, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var connectedTask = WaitForStateAsync(receiver, state => state.Status == TelemetryStatus.Connected);
         await SendUdpAsync(port, ValidPacket);
         await connectedTask;
@@ -387,11 +388,32 @@ public sealed class TelemetryReceiverServiceTests
         using var receiver = new TelemetryReceiverService(log);
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
 
         var state = await WaitForStateAsync(receiver, state => state.UdpStatus.StartsWith("Bind failed:", StringComparison.Ordinal));
         Assert.Equal(TelemetryStatus.Waiting, state.Status);
         Assert.Contains("UDP bind failed", state.LastTransportError, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Default_file_transport_does_not_bind_udp()
+    {
+        var port = GetFreeUdpPort();
+        using var blocker = new UdpClient(new IPEndPoint(IPAddress.Loopback, port));
+        using var log = new AppLogService();
+        using var receiver = new TelemetryReceiverService(log);
+        var filePath = GetTempTelemetryPath();
+
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        var stateTask = WaitForStateAsync(receiver, state =>
+            state.Status == TelemetryStatus.Connected &&
+            state.LastPacketSource.StartsWith("file://", StringComparison.OrdinalIgnoreCase));
+
+        await File.WriteAllTextAsync(filePath, ValidPacket);
+
+        var state = await stateTask;
+        Assert.Equal("Disabled: file transport", state.UdpStatus);
+        Assert.Null(state.LastTransportError);
     }
 
     [Fact]
@@ -411,7 +433,7 @@ public sealed class TelemetryReceiverServiceTests
             Interlocked.Increment(ref ffbEvents);
             latestFfbState = state;
         };
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, uiRefreshMs: 100);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, uiRefreshMs: 100, transportMode: "udp");
 
         for (var i = 0; i < 125; i++)
         {
@@ -434,7 +456,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var ffbTask = WaitForFfbStateAsync(receiver, state =>
             state.Status == TelemetryStatus.Connected &&
             state.LastPacketSource.StartsWith("udp://", StringComparison.OrdinalIgnoreCase));
@@ -453,7 +475,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, uiRefreshMs: 50);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, uiRefreshMs: 50, transportMode: "file+udp");
         var udpTask = WaitForStateAsync(receiver, state =>
             state.LastPacketSource.StartsWith("udp://", StringComparison.OrdinalIgnoreCase));
         await SendUdpAsync(port, PacketWithVehicleName("Udp Tractor"));
@@ -476,7 +498,7 @@ public sealed class TelemetryReceiverServiceTests
         using var receiver = new TelemetryReceiverService(log);
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false);
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "file+udp");
         var stateTask = WaitForStateAsync(receiver, state =>
             state.Status == TelemetryStatus.Connected &&
             state.LastPacketSource.StartsWith("file://", StringComparison.OrdinalIgnoreCase));
@@ -496,7 +518,7 @@ public sealed class TelemetryReceiverServiceTests
         var port = GetFreeUdpPort();
         var filePath = GetTempTelemetryPath();
 
-        receiver.Start("127.0.0.1", port, 250, filePath, includeDefaultFilePath: false, uiRefreshMs: 50);
+        receiver.Start("127.0.0.1", port, 250, filePath, includeDefaultFilePath: false, uiRefreshMs: 50, transportMode: "udp");
         var connectedTask = WaitForFfbStateAsync(receiver, state => state.Status == TelemetryStatus.Connected);
         await SendUdpAsync(port, ValidPacket);
         await connectedTask;

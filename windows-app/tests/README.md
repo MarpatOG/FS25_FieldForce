@@ -8,4 +8,4 @@ Run from the repository root:
 dotnet test windows-app/tests/FS25FfbBridge.App.Tests/FS25FfbBridge.App.Tests.csproj
 ```
 
-Current coverage focuses on telemetry receiver transport behavior: UDP receive, file fallback receive, invalid JSON handling, lost timeout, and UDP bind failure diagnostics.
+Current coverage focuses on telemetry receiver transport behavior: file receive, hidden UDP receive, invalid JSON handling, lost timeout, and UDP bind failure diagnostics.

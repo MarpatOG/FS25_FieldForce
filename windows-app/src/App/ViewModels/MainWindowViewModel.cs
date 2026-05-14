@@ -517,7 +517,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             _config.TelemetryLostTimeoutMs,
             _config.TelemetryFilePath,
             ffbUpdateRateHz: _config.TelemetryFfbUpdateRateHz,
-            uiRefreshMs: _config.TelemetryUiRefreshMs);
+            uiRefreshMs: _config.TelemetryUiRefreshMs,
+            transportMode: _config.TelemetryTransportMode);
         _gameplayFfb = new GameplayFfbController(
             _telemetryReceiver,
             _backend,

@@ -14,9 +14,10 @@ public sealed class AppConfig
     public string PanicHotkey { get; set; } = "Ctrl+Alt+Pause";
     public string TelemetryHost { get; set; } = "127.0.0.1";
     public int TelemetryPort { get; set; } = 34325;
+    public string TelemetryTransportMode { get; set; } = "file";
     public int TelemetryLostTimeoutMs { get; set; } = 1000;
     public int TelemetryStaleWarningMs { get; set; } = 300;
-    public int TelemetryFfbUpdateRateHz { get; set; } = 125;
+    public int TelemetryFfbUpdateRateHz { get; set; } = 60;
     public int TelemetryUiRefreshMs { get; set; } = 100;
     public string? TelemetryFilePath { get; set; }
     public bool EffectOverlayEnabled { get; set; } = true;

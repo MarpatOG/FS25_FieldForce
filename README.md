@@ -7,8 +7,8 @@ Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a
 ## Current Status
 
 - Windows app: DirectInput FFB test baseline physically confirmed on Logitech MOMO Racing Wheel.
-- FS25 Lua telemetry mod: implemented for Milestone 2 as a defensive UDP sender.
-- Telemetry receiver: implemented in the Windows app with UDP and file fallback.
+- FS25 Lua telemetry mod: sends file-based telemetry by default, with hidden UDP diagnostic modes.
+- Telemetry receiver: implemented in the Windows app with file, UDP, and file+UDP transport modes.
 - Gameplay-driven FFB effects: Speed Spring, Speed Damper, Mechanical Friction, Load Resistance, RPM Vibration, Surface Feedback, Slip Feedback, Wetness, Motion, and Bump Feedback are implemented with conservative Logitech MOMO defaults.
 - FS25 overlay: displays a compact vertical diagnostic panel with transmitted telemetry fields and can be toggled from the in-game General Settings page.
 - Windows app overlay: displays live effect activation lamps from the actual gameplay FFB output.
@@ -46,8 +46,8 @@ dotnet run --project windows-app/src/App/FS25FfbBridge.App.csproj
 6. The app should change to `Connected` and show vehicle/speed/RPM fields as available.
 7. With an acquired FFB wheel and gameplay FFB enabled, the bridge applies the enabled MVP effects from telemetry. It fades or stops them when telemetry is lost or the player leaves the vehicle.
 
-The `Telemetry` tab shows UDP status, file fallback status, last packet source, packet age, parser status, and transport errors separately.
-If FS25 logs that Lua socket is unavailable, the mod logs the `require("socket")` failure details and falls back to:
+The `Telemetry` tab shows UDP status, file status, last packet source, packet age, parser status, and transport errors separately.
+By default, the mod writes telemetry JSON at 60 Hz to:
 
 ```text
 Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json

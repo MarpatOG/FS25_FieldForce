@@ -1,10 +1,10 @@
 FS25RealFfbTelemetryConfig = {
+    transport = "file",
     host = "127.0.0.1",
     port = 34325,
-    updateRateHz = 125,
-    fileFallbackRateHz = 30,
+    fileTelemetryRateHz = 60,
+    udpTelemetryRateHz = 60,
     debug = false,
-    fileFallback = true,
     fileName = "telemetry.json",
     overlay = {
         enabled = false,

@@ -188,6 +188,32 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Brake_only_standstill_does_not_create_engine_load_or_lugging()
+    {
+        var settings = new GameplayFfbSettings();
+        var calculator = new GameplayFfbCalculator();
+
+        var idle = calculator.Calculate(State(Packet(
+            speedKmh: 0,
+            brake: 0.0,
+            throttle: 0.0,
+            rpm: 650,
+            rpm01: 0.12,
+            engineLoad01: 0.0)), settings);
+        var output = calculator.Calculate(State(Packet(
+            speedKmh: 0,
+            brake: 1.0,
+            throttle: 0.0,
+            rpm: 650,
+            rpm01: 0.12,
+            engineLoad01: 1.0)), settings);
+
+        Assert.False(output.EngineUnderLoadActive);
+        Assert.False(output.EngineLuggingActive);
+        Assert.Equal(idle.EngineRpmVibrationPercent, output.EngineRpmVibrationPercent);
+    }
+
+    [Fact]
     public void Electric_powertrain_suppresses_engine_rpm_vibration()
     {
         var settings = new GameplayFfbSettings();
@@ -923,6 +949,20 @@ public sealed class GameplayFfbCalculatorTests
         Assert.True(output.EventPulseActive);
         Assert.NotEqual(0, output.BumpImpulsePercent);
         Assert.Equal(FfbPulseKind.DrivetrainJerk, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Brake_delta_at_standstill_does_not_create_drivetrain_jerk()
+    {
+        var settings = new GameplayFfbSettings();
+        var calculator = new GameplayFfbCalculator();
+
+        calculator.Calculate(State(Packet(speedKmh: 0, brake: 0.0, throttle: 0.0, gear: 1)), settings);
+        var output = calculator.Calculate(State(Packet(speedKmh: 0, brake: 1.0, throttle: 0.0, gear: 1)), settings);
+
+        Assert.False(output.EventPulseActive);
+        Assert.NotEqual(FfbPulseKind.DrivetrainJerk, output.EventPulseKind);
+        Assert.Equal(0, output.BumpImpulsePercent);
     }
 
     [Fact]

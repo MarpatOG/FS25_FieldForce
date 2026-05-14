@@ -71,12 +71,12 @@ Default config is in `config/TelemetryConfig.lua`:
 
 ```lua
 FS25RealFfbTelemetryConfig = {
+    transport = "file",
     host = "127.0.0.1",
     port = 34325,
-    updateRateHz = 125,
-    fileFallbackRateHz = 30,
+    fileTelemetryRateHz = 60,
+    udpTelemetryRateHz = 60,
     debug = false,
-    fileFallback = true,
     fileName = "telemetry.json",
     overlay = {
         enabled = false,
@@ -102,11 +102,11 @@ Use `Settings` -> `General Settings` -> `FS25 Real FFB` -> `Telemetry overlay` t
 5. Enter a vehicle.
 6. Confirm the Windows app changes to `Connected`.
 
-If UDP sockets are unavailable in FS25 Lua, the mod logs the `require("socket")` error, `package.path`, `package.cpath`, host, and port, then continues without crashing the game.
-In that case, file fallback is used automatically when possible:
+By default, telemetry is written to the file transport at `60 Hz`. Supported file rates are `1`, `10`, `30`, and `60 Hz`; unsupported values fall back to `60 Hz`.
+UDP remains available as a hidden diagnostic transport through `transport = "udp"` or `transport = "file+udp"`:
 
 ```text
 Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json
 ```
 
-If file fallback also fails, check the FS25 log for the exact missing API or filesystem failure, such as unavailable `io.open`, unavailable `getUserProfileAppPath`, folder creation failure, or atomic rename failure.
+If file telemetry fails, check the FS25 log for the exact missing API or filesystem failure, such as unavailable `io.open`, unavailable `getUserProfileAppPath`, folder creation failure, or atomic rename failure.

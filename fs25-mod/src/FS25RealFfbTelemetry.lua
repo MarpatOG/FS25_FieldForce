@@ -8,12 +8,13 @@ FS25RealFfbTelemetry.SETTING_OVERLAY_ENABLED = "overlayEnabled"
 function FS25RealFfbTelemetry.new()
     local self = setmetatable({}, FS25RealFfbTelemetry_mt)
     self.config = FS25RealFfbTelemetryConfig or {}
+    self.transport = self:normalizeTransport(self.config.transport)
     self.host = self.config.host or "127.0.0.1"
     self.port = tonumber(self.config.port) or 34325
-    self.updateRateHz = math.max(1, tonumber(self.config.updateRateHz) or 125)
-    self.fileFallbackRateHz = math.max(1, tonumber(self.config.fileFallbackRateHz) or 30)
+    self.fileTelemetryRateHz = self:normalizeTelemetryRate(self.config.fileTelemetryRateHz, self.config.fileFallbackRateHz, "fileTelemetryRateHz")
+    self.udpTelemetryRateHz = self:normalizeTelemetryRate(self.config.udpTelemetryRateHz, self.config.updateRateHz, "udpTelemetryRateHz")
+    self.updateRateHz = self.transport == "udp" and self.udpTelemetryRateHz or self.fileTelemetryRateHz
     self.intervalMs = 1000 / self.updateRateHz
-    self.fileFallbackIntervalMs = 1000 / self.fileFallbackRateHz
     self.debug = self.config.debug == true
     self.elapsedMs = 0
     self.socket = nil
@@ -26,7 +27,7 @@ function FS25RealFfbTelemetry.new()
     self.lastSendTime = nil
     self.sendTimes = {}
     self.actualSendRate = 0
-    self.lastFileFallbackWriteMs = nil
+    self.lastFileWriteMs = nil
     self.lastPacketSource = "none"
     self.lastWriteError = nil
     self.overlayConfig = self.config.overlay or {}
@@ -52,7 +53,7 @@ function FS25RealFfbTelemetry:loadMap()
     self:loadOverlayUserSettings()
     self:installMenuHook()
     FS25RealFfbTelemetry.installVehicleTypeEventHook()
-    print(string.format("[FS25 Real FFB] Telemetry mod loaded. Target udp://%s:%d @ %d Hz", self.host, self.port, self.updateRateHz))
+    print(string.format("[FS25 Real FFB] Telemetry mod loaded. Transport %s @ %d Hz", self.transport, self.updateRateHz))
     self:initTransport()
 end
 
@@ -83,8 +84,45 @@ function FS25RealFfbTelemetry:update(dt)
     self:sendTelemetry()
 end
 
+function FS25RealFfbTelemetry:normalizeTransport(value)
+    if value == "udp" or value == "file+udp" or value == "file" then
+        return value
+    end
+
+    if value ~= nil then
+        self:logTransportWarning("Unsupported telemetry transport '" .. tostring(value) .. "'; using file")
+    end
+
+    return "file"
+end
+
+function FS25RealFfbTelemetry:normalizeTelemetryRate(primaryValue, legacyValue, label)
+    local value = tonumber(primaryValue)
+    if value == nil then
+        value = tonumber(legacyValue)
+    end
+
+    if value == 1 or value == 10 or value == 30 or value == 60 then
+        return value
+    end
+
+    if value ~= nil then
+        self:logTransportWarning(tostring(label) .. " must be one of 1, 10, 30, 60 Hz; using 60 Hz")
+    end
+
+    return 60
+end
+
 function FS25RealFfbTelemetry:initTransport()
-    print(string.format("[FS25 Real FFB] Initializing telemetry transport: udp://%s:%d", tostring(self.host), self.port))
+    print(string.format("[FS25 Real FFB] Initializing telemetry transport: %s", tostring(self.transport)))
+
+    if self.transport == "file" or self.transport == "file+udp" then
+        self:initFileTelemetry()
+    end
+
+    if self.transport == "file" then
+        return
+    end
 
     local okSocket, socketLib = pcall(require, "socket")
     if not okSocket or socketLib == nil then
@@ -93,7 +131,6 @@ function FS25RealFfbTelemetry:initTransport()
             tostring(socketLib),
             self:getPackagePath("path"),
             self:getPackagePath("cpath")))
-        self:initFileFallback()
         return
     end
 
@@ -124,7 +161,6 @@ function FS25RealFfbTelemetry:initTransport()
             tostring(self.host),
             self.port,
             tostring(udpOrError)))
-        self:initFileFallback()
         return
     end
 
@@ -133,25 +169,25 @@ function FS25RealFfbTelemetry:initTransport()
     print("[FS25 Real FFB] UDP telemetry enabled")
 end
 
-function FS25RealFfbTelemetry:initFileFallback()
-    if self.config.fileFallback == false then
-        self:logFileWarning("File telemetry fallback disabled by config")
+function FS25RealFfbTelemetry:initFileTelemetry()
+    if self.config.fileTelemetry == false or self.config.fileFallback == false then
+        self:logFileWarning("File telemetry disabled by config")
         return
     end
 
     local ioError = self:getFileApiError()
     if ioError ~= nil then
-        self:logFileWarning("File telemetry fallback unavailable: " .. ioError)
+        self:logFileWarning("File telemetry unavailable: " .. ioError)
         return
     end
 
     if type(createFolder) ~= "function" then
-        self:logFileWarning("createFolder is unavailable; file fallback will only work if the folder already exists")
+        self:logFileWarning("createFolder is unavailable; file telemetry will only work if the folder already exists")
     end
 
     local basePath, pathError = self:getModSettingsPath()
     if basePath == nil then
-        self:logFileWarning("File telemetry fallback unavailable: " .. tostring(pathError or "could not resolve modSettings path"))
+        self:logFileWarning("File telemetry unavailable: " .. tostring(pathError or "could not resolve modSettings path"))
         return
     end
 
@@ -161,9 +197,9 @@ function FS25RealFfbTelemetry:initFileFallback()
     local ok, writeError = self:writeFile(self.filePath, self:encodeJson(self:collectTelemetry()))
     if ok then
         self.fileEnabled = true
-        print("[FS25 Real FFB] File telemetry fallback enabled: " .. self.filePath)
+        print("[FS25 Real FFB] File telemetry enabled: " .. self.filePath)
     else
-        self:logFileWarning("File telemetry fallback unavailable: " .. tostring(writeError))
+        self:logFileWarning("File telemetry unavailable: " .. tostring(writeError))
     end
 end
 
@@ -196,7 +232,7 @@ function FS25RealFfbTelemetry:sendTelemetry()
         end
     end
 
-    if self.fileEnabled and self.filePath ~= nil and self:shouldWriteFileFallback(packet) then
+    if self.fileEnabled and self.filePath ~= nil and self:shouldWriteFileTelemetry(packet) then
         local ok, writeError = self:writeFile(self.filePath, payload)
         if not ok then
             self.lastWriteError = tostring(writeError)
@@ -2236,7 +2272,7 @@ function FS25RealFfbTelemetry:getDeltaSeconds(now, previous)
     return delta
 end
 
-function FS25RealFfbTelemetry:shouldWriteFileFallback(packet)
+function FS25RealFfbTelemetry:shouldWriteFileTelemetry(packet)
     if not self.fileEnabled then
         return false
     end
@@ -2246,11 +2282,11 @@ function FS25RealFfbTelemetry:shouldWriteFileFallback(packet)
         return true
     end
 
-    if self.lastFileFallbackWriteMs ~= nil and (nowMs - self.lastFileFallbackWriteMs) < self.fileFallbackIntervalMs then
+    if self.lastFileWriteMs ~= nil and (nowMs - self.lastFileWriteMs) < self.intervalMs then
         return false
     end
 
-    self.lastFileFallbackWriteMs = nowMs
+    self.lastFileWriteMs = nowMs
     return true
 end
 
@@ -2537,7 +2573,7 @@ end
 
 function FS25RealFfbTelemetry:getTransportLabel(sent)
     if self.udpEnabled and self.fileEnabled then
-        return sent and "udp+file" or "udp+file ready"
+        return sent and "file+udp" or "file+udp ready"
     elseif self.udpEnabled then
         return sent and "udp" or "udp ready"
     elseif self.fileEnabled then

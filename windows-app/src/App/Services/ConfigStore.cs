@@ -65,6 +65,8 @@ public sealed class ConfigStore
 
     internal static AppConfig Normalize(AppConfig config)
     {
+        config.TelemetryTransportMode = NormalizeTelemetryTransportMode(config.TelemetryTransportMode);
+        config.TelemetryFfbUpdateRateHz = NormalizeTelemetryRate(config.TelemetryFfbUpdateRateHz);
         config.GameplayFfb ??= new GameplayFfbSettings();
         GameplayFfbEffectProfile.NormalizeEffectSettings(config.GameplayFfb);
         config.GameplayFfb.VehicleCategoryProfiles = NormalizeVehicleCategoryProfiles(config.GameplayFfb.VehicleCategoryProfiles);
@@ -178,6 +180,21 @@ public sealed class ConfigStore
         }
 
         return config;
+    }
+
+    private static string NormalizeTelemetryTransportMode(string? value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "udp" => "udp",
+            "file+udp" => "file+udp",
+            _ => "file"
+        };
+    }
+
+    private static int NormalizeTelemetryRate(int value)
+    {
+        return value is 1 or 10 or 30 or 60 ? value : 60;
     }
 
     private static Dictionary<string, VehicleCategoryFfbProfile> NormalizeVehicleCategoryProfiles(
