@@ -11,7 +11,7 @@ Entry points:
 
 ## Telemetry Input
 
-The Lua mod sends nested `FS25_REAL_FFB_TELEMETRY` v1.2 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows.
+The Lua mod sends nested `FS25_REAL_FFB_TELEMETRY` v1.3 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.2.0` and `1.1.0` packets.
 
 Core blocks:
 
@@ -30,7 +30,7 @@ Important source details:
 - `motion.yawRateRadPerSec` is radians per second.
 - `vehicle.massT` and `vehicle.totalMassT` are metric tonnes.
 - `vehicle.isArticulated` marks articulated-frame vehicles whose frame/pivot motion should not be treated as a left/right suspension hit.
-- `wheels[]` carries per-wheel slip, steering flag, side, contact, and suspension impulse.
+- `wheels[]` carries per-wheel slip, steering flag, side, contact, suspension impulse, wheel type, tire type/profile, and raw surface/ground context.
 - `suspension.verticalImpactImpulse`, `suspension.landingImpulse`, and `collisions.collisionImpulse` remain telemetry inputs; they are not effect percentages.
 - `engine.state` reports `off`, `ignition`, `starting`, `running`, or `unknown`; `engine.isStarting` is true during `MotorState.STARTING`.
 - `engine.startDurationMs` and `engine.startRemainingMs` describe the FS25 starter/cranking interval when available.
@@ -50,6 +50,7 @@ loadFactor = clamp(vehicle.totalMassT / vehicle.massT, 1, 4) when both masses ar
 slip = clamp(max(steering wheel slip, max wheel slip, average wheel slip, 0), 0, 1)
 contactRatio = clamp(steering contact ratio ?? all-wheel contact ratio ?? 1, 0, 1)
 surfaceClass = road/offroad/unknownMixed; surface.isOnField=true promotes unknown surfaces to offroad
+tireSurfaceMultiplier = profile Tire x Surface matrix lookup after surface alias resolution
 wetness = max(environment.groundWetness, environment.rainScale), with wetField fallback of 0.6
 rpmRatio = clamp((engine.rpm - MinRpm) / (MaxRpm - MinRpm), 0, 1)
 yawRateRatio = clamp(abs(motion.yawRateRadPerSec converted to deg/s) / FullYawRateDegPerSec, 0, 1)
@@ -94,6 +95,9 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 
 - Speed spring, speed damper, mechanical friction, load resistance, motion feedback, contact relief, and speed stability combine into DirectInput condition effects.
 - Engine vibration, surface feedback, slip feedback, and suspension terrain rumble produce continuous haptics.
+- Tire/surface tuning is stored per wheel effects profile in `GameplayFfbSettings.TireSurfaceTuning`. `SurfaceAliases` maps raw map/mod surface names to normalized surfaces. `Matrix[tireProfile][surfaceType]` is clamped to `0..200%`, defaults to `100%`, and uses `50%` for unknown tire/surface fallback.
+- The tire/surface matrix scales only continuous `SurfaceVibrationPercent` and `TerrainRumblePercent`. Collision, landing, suspension-hit, bump, drivetrain, gear, and engine start/stop pulses are not scaled by this matrix.
+- Default matrix highlights incompatible pairs: street tires on asphalt `20%`, street tires on dirt/gravel/field/plowed field `85%`, agricultural/mud/off-road tires on field/dirt/plowed field `25%`, agricultural/mud/off-road tires on asphalt `90%`, tracked vehicles on field/dirt/plowed field `20%`, tracked vehicles on asphalt `80%`, mixed `60%`, unknown `50%`.
 - Collision, landing, left/right suspension hit, bump, gear shift, drivetrain jerk, and engine start/stop share one finite pulse bus. Articulated vehicles suppress left/right suspension-hit selection so pivot/pendulum movement falls back to the softer bump/rumble path.
 - Engine start vibration is driven primarily by `events.engineStartSeq`, so it starts during starter cranking instead of waiting for `engine.started=true`. `engine.startDurationMs` can shorten the start vibration duration within the configured start-pulse cap. RPM-rise detection remains a legacy fallback only when `engineStartSeq` is absent.
 - Brake-only standstill input is not treated as engine load or drivetrain jerk. This prevents `EL`/`LG` and clutch/brake jerk feedback from activating when the vehicle is stopped and the driver only presses the brake pedal.

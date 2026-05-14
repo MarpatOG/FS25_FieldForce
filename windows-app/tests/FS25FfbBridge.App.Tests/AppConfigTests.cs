@@ -244,4 +244,26 @@ public sealed class AppConfigTests
             Assert.Equal(28, profile.TerrainRumble.StrengthPercent);
         });
     }
+
+    [Fact]
+    public void Config_v13_migration_adds_tire_surface_defaults_without_replacing_effect_profiles()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"), "config.json");
+        var store = new ConfigStore(path);
+        var oldConfig = new AppConfig
+        {
+            EffectsProfileVersion = 13
+        };
+        oldConfig.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedSpring.StrengthPercent = 23;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(oldConfig));
+
+        var migrated = store.Load();
+
+        Assert.Equal(AppConfig.CurrentEffectsProfileVersion, migrated.EffectsProfileVersion);
+        Assert.Equal(20, migrated.GameplayFfb.TireSurfaceTuning.Matrix["street"]["asphalt"]);
+        Assert.Equal(25, migrated.GameplayFfb.TireSurfaceTuning.Matrix["agricultural"]["field"]);
+        Assert.Equal(23, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedSpring.StrengthPercent);
+    }
 }

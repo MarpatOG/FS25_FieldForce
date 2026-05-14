@@ -129,6 +129,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string _wheelTireProfile = "-";
 
     [ObservableProperty]
+    private string _activeTireSurfaceMultiplier = "50%";
+
+    [ObservableProperty]
+    private string _newSurfaceAliasRaw = "";
+
+    [ObservableProperty]
+    private string _selectedSurfaceAliasTarget = "unknownMixed";
+
+    [ObservableProperty]
     private string _attitude = "- / - / -";
 
     [ObservableProperty]
@@ -507,6 +516,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             .Select(category => new EffectCategoryOption(category, GetVehicleCategoryDisplayName(category)))
             .ToArray();
         SelectedEffectCategoryOption = EffectCategoryOptions.FirstOrDefault(option => option.Id == SelectedEffectCategory);
+        LoadTireSurfaceTuningIntoUi();
 
         _backend.UpdateForceLimits(GlobalForceLimitPercent, 100);
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
@@ -534,6 +544,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<DeviceInfo> Devices { get; } = [];
     public ObservableCollection<string> Logs { get; }
     public ObservableCollection<AppLogEntry> LogEvents { get; }
+    public ObservableCollection<TireSurfaceMatrixRow> TireSurfaceMatrixRows { get; } = [];
+    public ObservableCollection<SurfaceAliasRow> SurfaceAliasRows { get; } = [];
+    public IReadOnlyList<string> TireSurfaceTargets => TireSurfaceTuningSettings.SurfaceTypes;
     public IReadOnlyList<string> EffectCategories => VehicleCategoryFfbProfile.Categories;
     public IReadOnlyList<EffectCategoryOption> EffectCategoryOptions { get; }
     public IReadOnlyList<FfbCurveKind> CurveKinds { get; } =
@@ -781,6 +794,46 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         SaveGameplayProfile();
         _log.Information("Effect strengths copied from {Category} to all categories", SelectedEffectCategory);
+    }
+
+    [RelayCommand]
+    private void ResetMatrixDefaults()
+    {
+        _config.GameplayFfb.TireSurfaceTuning.Matrix = TireSurfaceTuningSettings.CreateDefaultMatrix();
+        LoadTireSurfaceTuningIntoUi();
+        SaveGameplayProfile();
+    }
+
+    [RelayCommand]
+    private void ResetSelectedSurface(TireSurfaceMatrixRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        var defaults = TireSurfaceTuningSettings.CreateDefaultMatrix();
+        foreach (var profile in TireSurfaceTuningSettings.TireProfiles)
+        {
+            row.Set(profile, defaults[profile][row.SurfaceType], notify: true);
+        }
+
+        SaveTireSurfaceMatrixFromUi();
+    }
+
+    [RelayCommand]
+    private void SaveAlias()
+    {
+        var raw = NewSurfaceAliasRaw.Trim();
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return;
+        }
+
+        _config.GameplayFfb.TireSurfaceTuning.SurfaceAliases[raw] = TireSurfaceTuningSettings.NormalizeSurfaceType(SelectedSurfaceAliasTarget);
+        NewSurfaceAliasRaw = "";
+        LoadSurfaceAliasesIntoUi();
+        SaveGameplayProfile();
     }
 
     [RelayCommand]
@@ -1114,8 +1167,72 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void SaveGameplayProfile()
     {
+        _config.GameplayFfb.TireSurfaceTuning = TireSurfaceTuningSettings.CreateNormalized(_config.GameplayFfb.TireSurfaceTuning);
         _effectsProfileStore.Save(_config.GameplayFfb.DeviceHapticProfileName, _config.GameplayFfb);
         _configStore.Save(_config);
+    }
+
+    private void LoadTireSurfaceTuningIntoUi()
+    {
+        _config.GameplayFfb.TireSurfaceTuning = TireSurfaceTuningSettings.CreateNormalized(_config.GameplayFfb.TireSurfaceTuning);
+        TireSurfaceMatrixRows.Clear();
+        foreach (var surface in TireSurfaceTuningSettings.SurfaceTypes)
+        {
+            var row = new TireSurfaceMatrixRow(surface);
+            foreach (var profile in TireSurfaceTuningSettings.TireProfiles)
+            {
+                row.Set(profile, _config.GameplayFfb.TireSurfaceTuning.GetMultiplierPercent(profile, surface), notify: false);
+            }
+
+            row.Changed += SaveTireSurfaceMatrixFromUi;
+            TireSurfaceMatrixRows.Add(row);
+        }
+
+        LoadSurfaceAliasesIntoUi();
+    }
+
+    private void LoadSurfaceAliasesIntoUi()
+    {
+        SurfaceAliasRows.Clear();
+        foreach (var alias in _config.GameplayFfb.TireSurfaceTuning.SurfaceAliases.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var row = new SurfaceAliasRow(alias.Key, alias.Value, TireSurfaceTargets);
+            row.Changed += SaveSurfaceAliasesFromUi;
+            SurfaceAliasRows.Add(row);
+        }
+    }
+
+    private void SaveTireSurfaceMatrixFromUi()
+    {
+        if (_loadingConfig)
+        {
+            return;
+        }
+
+        var matrix = TireSurfaceTuningSettings.CreateDefaultMatrix();
+        foreach (var row in TireSurfaceMatrixRows)
+        {
+            foreach (var profile in TireSurfaceTuningSettings.TireProfiles)
+            {
+                matrix[profile][row.SurfaceType] = row.Get(profile);
+            }
+        }
+
+        _config.GameplayFfb.TireSurfaceTuning.Matrix = matrix;
+        SaveGameplayProfile();
+    }
+
+    private void SaveSurfaceAliasesFromUi()
+    {
+        if (_loadingConfig)
+        {
+            return;
+        }
+
+        _config.GameplayFfb.TireSurfaceTuning.SurfaceAliases = SurfaceAliasRows
+            .Where(row => !string.IsNullOrWhiteSpace(row.Raw))
+            .ToDictionary(row => row.Raw.Trim(), row => TireSurfaceTuningSettings.NormalizeSurfaceType(row.Normalized), StringComparer.OrdinalIgnoreCase);
+        SaveGameplayProfile();
     }
 
     private static void CopyEffectStrengths(GameplayFfbEffectProfile source, GameplayFfbEffectProfile target)
@@ -1297,6 +1414,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             TerrainRumble = _config.GameplayFfb.TerrainRumble,
             DrivetrainPulse = _config.GameplayFfb.DrivetrainPulse,
             DeviceHapticProfileName = _config.GameplayFfb.DeviceHapticProfileName,
+            TireSurfaceTuning = _config.GameplayFfb.TireSurfaceTuning,
             VehicleCategoryEffectProfiles = _config.GameplayFfb.VehicleCategoryEffectProfiles
         };
     }
@@ -1468,6 +1586,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             GroundContactRatio = "-";
             WheelTireTypes = "-";
             WheelTireProfile = "-";
+            ActiveTireSurfaceMultiplier = "50%";
             Attitude = "- / - / -";
             LocalAcceleration = "- / - / -";
             BumpImpulse = "-";
@@ -1494,7 +1613,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WheelSlip = $"{FormatNumber(packet.WheelSlip, "0.00")} / {FormatNumber(packet.MaxWheelSlip, "0.00")}";
             GroundContactRatio = FormatNumber(packet.GroundContactRatio, "0%");
             WheelTireTypes = string.IsNullOrWhiteSpace(packet.WheelTireTypes) ? "-" : packet.WheelTireTypes;
-            WheelTireProfile = string.IsNullOrWhiteSpace(packet.WheelTireProfile) ? "-" : packet.WheelTireProfile;
+            WheelTireProfile = string.IsNullOrWhiteSpace(packet.ActiveTireProfile) ? "-" : packet.ActiveTireProfile;
+            ActiveTireSurfaceMultiplier = $"{CalculateActiveTireSurfaceMultiplier(packet)}%";
             Attitude = $"{FormatNumber(packet.PitchDeg, "0.0 deg")} / {FormatNumber(packet.RollDeg, "0.0 deg")} / {FormatNumber(packet.SlopeDeg, "0.0 deg")}";
             LocalAcceleration = $"{FormatNumber(packet.LocalAccelerationX, "0.00")} / {FormatNumber(packet.LocalAccelerationY, "0.00")} / {FormatNumber(packet.LocalAccelerationZ, "0.00")}";
             BumpImpulse = FormatNumber(packet.VerticalImpactImpulse, "0.00");
@@ -1543,6 +1663,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         return value is null ? "-" : value.Value.ToString(format);
     }
 
+    private int CalculateActiveTireSurfaceMultiplier(TelemetryPacketV1 packet)
+    {
+        var tuning = TireSurfaceTuningSettings.CreateNormalized(_config.GameplayFfb.TireSurfaceTuning);
+        var surface = tuning.ResolveSurfaceAlias(packet.SurfaceType);
+        var profile = TireSurfaceTuningSettings.NormalizeTireProfile(packet.ActiveTireProfile);
+        return tuning.GetMultiplierPercent(profile, surface);
+    }
+
     private static string LimitRawTelemetryPreview(string raw)
     {
         if (raw.Length <= MaxRawTelemetryPreviewLength)
@@ -1577,3 +1705,150 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 }
 
 public sealed record EffectCategoryOption(string Id, string DisplayName);
+
+public sealed partial class TireSurfaceMatrixRow : ObservableObject
+{
+    [ObservableProperty]
+    private int _street;
+
+    [ObservableProperty]
+    private int _agricultural;
+
+    [ObservableProperty]
+    private int _mud;
+
+    [ObservableProperty]
+    private int _offRoad;
+
+    [ObservableProperty]
+    private int _tracked;
+
+    [ObservableProperty]
+    private int _mixed;
+
+    [ObservableProperty]
+    private int _unknown;
+
+    public TireSurfaceMatrixRow(string surfaceType)
+    {
+        SurfaceType = surfaceType;
+    }
+
+    public event Action? Changed;
+
+    public string SurfaceType { get; }
+
+    public void Set(string profile, int value, bool notify)
+    {
+        value = Math.Clamp(value, 0, 200);
+        switch (profile)
+        {
+            case "street":
+                Street = value;
+                break;
+            case "agricultural":
+                Agricultural = value;
+                break;
+            case "mud":
+                Mud = value;
+                break;
+            case "offRoad":
+                OffRoad = value;
+                break;
+            case "tracked":
+                Tracked = value;
+                break;
+            case "mixed":
+                Mixed = value;
+                break;
+            default:
+                Unknown = value;
+                break;
+        }
+
+        if (notify)
+        {
+            Changed?.Invoke();
+        }
+    }
+
+    public int Get(string profile) => profile switch
+    {
+        "street" => Street,
+        "agricultural" => Agricultural,
+        "mud" => Mud,
+        "offRoad" => OffRoad,
+        "tracked" => Tracked,
+        "mixed" => Mixed,
+        _ => Unknown
+    };
+
+    partial void OnStreetChanged(int value) => ClampAndNotify(nameof(Street), value);
+    partial void OnAgriculturalChanged(int value) => ClampAndNotify(nameof(Agricultural), value);
+    partial void OnMudChanged(int value) => ClampAndNotify(nameof(Mud), value);
+    partial void OnOffRoadChanged(int value) => ClampAndNotify(nameof(OffRoad), value);
+    partial void OnTrackedChanged(int value) => ClampAndNotify(nameof(Tracked), value);
+    partial void OnMixedChanged(int value) => ClampAndNotify(nameof(Mixed), value);
+    partial void OnUnknownChanged(int value) => ClampAndNotify(nameof(Unknown), value);
+
+    private void ClampAndNotify(string propertyName, int value)
+    {
+        var clamped = Math.Clamp(value, 0, 200);
+        if (clamped != value)
+        {
+            SetPropertyValue(propertyName, clamped);
+            return;
+        }
+
+        Changed?.Invoke();
+    }
+
+    private void SetPropertyValue(string propertyName, int value)
+    {
+        switch (propertyName)
+        {
+            case nameof(Street):
+                Street = value;
+                break;
+            case nameof(Agricultural):
+                Agricultural = value;
+                break;
+            case nameof(Mud):
+                Mud = value;
+                break;
+            case nameof(OffRoad):
+                OffRoad = value;
+                break;
+            case nameof(Tracked):
+                Tracked = value;
+                break;
+            case nameof(Mixed):
+                Mixed = value;
+                break;
+            case nameof(Unknown):
+                Unknown = value;
+                break;
+        }
+    }
+}
+
+public sealed partial class SurfaceAliasRow : ObservableObject
+{
+    [ObservableProperty]
+    private string _normalized;
+
+    public SurfaceAliasRow(string raw, string normalized, IReadOnlyList<string> targets)
+    {
+        Raw = raw;
+        _normalized = normalized;
+        Targets = targets;
+    }
+
+    public event Action? Changed;
+
+    public string Raw { get; }
+
+    public IReadOnlyList<string> Targets { get; }
+
+    partial void OnNormalizedChanged(string value) => Changed?.Invoke();
+}

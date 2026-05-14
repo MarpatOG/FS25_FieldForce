@@ -70,6 +70,7 @@ public sealed class ConfigStore
         config.GameplayFfb ??= new GameplayFfbSettings();
         GameplayFfbEffectProfile.NormalizeEffectSettings(config.GameplayFfb);
         config.GameplayFfb.VehicleCategoryProfiles = NormalizeVehicleCategoryProfiles(config.GameplayFfb.VehicleCategoryProfiles);
+        config.GameplayFfb.TireSurfaceTuning = TireSurfaceTuningSettings.CreateNormalized(config.GameplayFfb.TireSurfaceTuning);
         if (config.EffectsProfileVersion < 4)
         {
             config.GameplayFfb.SurfaceFeedback.MinSpeedKmh = Math.Min(config.GameplayFfb.SurfaceFeedback.MinSpeedKmh, 0.2);
@@ -177,6 +178,12 @@ public sealed class ConfigStore
             }
 
             config.EffectsProfileVersion = 13;
+        }
+
+        if (config.EffectsProfileVersion < 14)
+        {
+            config.GameplayFfb.TireSurfaceTuning = TireSurfaceTuningSettings.CreateNormalized(config.GameplayFfb.TireSurfaceTuning);
+            config.EffectsProfileVersion = 14;
         }
 
         return config;

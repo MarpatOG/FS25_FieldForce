@@ -5,8 +5,9 @@ namespace FS25FfbBridge.App.Models;
 public sealed class TelemetryPacketV1
 {
     public const string ExpectedProtocolName = "FS25_REAL_FFB_TELEMETRY";
-    public const string ExpectedProtocolVersion = "1.2.0";
-    public const string LegacyProtocolVersion = "1.1.0";
+    public const string ExpectedProtocolVersion = "1.3.0";
+    public const string LegacyProtocolVersion = "1.2.0";
+    public const string LegacyProtocolVersionV1_1 = "1.1.0";
 
     [JsonPropertyName("protocol")]
     public TelemetryProtocolV1? Protocol { get; set; }
@@ -66,7 +67,8 @@ public sealed class TelemetryPacketV1
     public bool IsProtocolValid =>
         string.Equals(Protocol?.Name, ExpectedProtocolName, StringComparison.Ordinal) &&
         (string.Equals(Protocol?.Version, ExpectedProtocolVersion, StringComparison.Ordinal) ||
-         string.Equals(Protocol?.Version, LegacyProtocolVersion, StringComparison.Ordinal));
+         string.Equals(Protocol?.Version, LegacyProtocolVersion, StringComparison.Ordinal) ||
+         string.Equals(Protocol?.Version, LegacyProtocolVersionV1_1, StringComparison.Ordinal));
 
     [JsonIgnore]
     public bool IsPlayerInVehicle => Player?.IsInVehicle == true && Vehicle is not null;
@@ -85,6 +87,9 @@ public sealed class TelemetryPacketV1
 
     [JsonIgnore]
     public string? WheelTireProfile => Vehicle?.WheelTireProfile;
+
+    [JsonIgnore]
+    public string? ActiveTireProfile => Wheels.Select(w => w.TireProfile).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? Vehicle?.WheelTireProfile;
 
     [JsonIgnore]
     public bool? IsArticulated => Vehicle?.IsArticulated;
@@ -553,6 +558,30 @@ public sealed class TelemetryWheelV1
 
     [JsonPropertyName("suspensionImpulse")]
     public double? SuspensionImpulse { get; set; }
+
+    [JsonPropertyName("wheelType")]
+    public string? WheelType { get; set; }
+
+    [JsonPropertyName("tireType")]
+    public string? TireType { get; set; }
+
+    [JsonPropertyName("tireProfile")]
+    public string? TireProfile { get; set; }
+
+    [JsonPropertyName("surfaceType")]
+    public string? SurfaceType { get; set; }
+
+    [JsonPropertyName("surfaceAttribute")]
+    public double? SurfaceAttribute { get; set; }
+
+    [JsonPropertyName("groundType")]
+    public string? GroundType { get; set; }
+
+    [JsonPropertyName("groundDepth")]
+    public double? GroundDepth { get; set; }
+
+    [JsonPropertyName("isOnField")]
+    public bool? IsOnField { get; set; }
 }
 
 public sealed class TelemetrySuspensionV1

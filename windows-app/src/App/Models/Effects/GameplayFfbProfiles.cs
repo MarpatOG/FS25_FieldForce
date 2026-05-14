@@ -541,6 +541,8 @@ public sealed class GameplayFfbSettings : GameplayFfbEffectProfile
 
     public string DeviceHapticProfileName { get; set; } = "Logitech MOMO Racing Wheel";
 
+    public TireSurfaceTuningSettings TireSurfaceTuning { get; set; } = new();
+
     public Dictionary<string, GameplayFfbEffectProfile> VehicleCategoryEffectProfiles { get; set; }
 
     public Dictionary<string, VehicleCategoryFfbProfile> VehicleCategoryProfiles { get; set; } = VehicleCategoryFfbProfile.CreateDefaults();

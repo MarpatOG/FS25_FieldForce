@@ -206,6 +206,32 @@ public sealed class MainWindowViewModelTests
         Assert.Equal(VehicleCategoryFfbProfile.Harvester, viewModel.SelectedEffectCategory);
     }
 
+    [Fact]
+    public void Tire_surface_matrix_and_alias_changes_persist_to_wheel_profile_file()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.TireSurfaceMatrixRows.Single(row => row.SurfaceType == "asphalt").Street = 33;
+        viewModel.NewSurfaceAliasRaw = "mapClay";
+        viewModel.SelectedSurfaceAliasTarget = "mud";
+        viewModel.SaveAliasCommand.Execute(null);
+
+        var profilePath = Path.Combine(directory, "effect-profiles", "Logitech MOMO Racing Wheel.json");
+        using var profileJson = JsonDocument.Parse(File.ReadAllText(profilePath));
+        var tuning = profileJson.RootElement.GetProperty("GameplayFfb").GetProperty("TireSurfaceTuning");
+
+        Assert.Equal(33, tuning.GetProperty("Matrix").GetProperty("street").GetProperty("asphalt").GetInt32());
+        Assert.Equal("mud", tuning.GetProperty("SurfaceAliases").GetProperty("mapClay").GetString());
+    }
+
     private static int GetFreeUdpPort()
     {
         using var udp = new System.Net.Sockets.UdpClient(new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 0));

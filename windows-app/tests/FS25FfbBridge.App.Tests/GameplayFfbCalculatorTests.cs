@@ -1222,6 +1222,49 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Tire_surface_matrix_scales_street_asphalt_below_street_field()
+    {
+        var settings = new GameplayFfbSettings();
+        var asphalt = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", tireProfile: "street", suspensionImpulse: 0.35, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+        var field = _calculator.Calculate(State(Packet(speedKmh: 15, isOnField: true, surfaceType: "field", tireProfile: "street", suspensionImpulse: 0.35, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(asphalt.SurfaceVibrationPercent < field.SurfaceVibrationPercent);
+        Assert.True(asphalt.TerrainRumblePercent < field.TerrainRumblePercent);
+    }
+
+    [Fact]
+    public void Tire_surface_matrix_scales_agricultural_field_below_agricultural_asphalt()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.TireSurfaceTuning.Matrix["agricultural"]["asphalt"] = 200;
+        var field = _calculator.Calculate(State(Packet(speedKmh: 15, isOnField: true, surfaceType: "field", tireProfile: "agricultural", suspensionImpulse: 0.9, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+        var asphalt = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", tireProfile: "agricultural", suspensionImpulse: 0.9, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(field.TerrainRumblePercent < asphalt.TerrainRumblePercent);
+    }
+
+    [Fact]
+    public void Tire_surface_alias_changes_applied_multiplier()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.TireSurfaceTuning.SurfaceAliases["mapCustom"] = "field";
+        var aliased = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "mapCustom", tireProfile: "street", suspensionImpulse: 0.35, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+        var unknown = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "mapCustom", tireProfile: "unknown", suspensionImpulse: 0.35, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(aliased.SurfaceVibrationPercent > unknown.SurfaceVibrationPercent);
+    }
+
+    [Fact]
+    public void Unknown_tire_or_surface_uses_fallback_without_throwing()
+    {
+        var settings = new GameplayFfbSettings();
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "mapCustom", tireProfile: "unknown", suspensionImpulse: 0.35, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(output.IsActive);
+        Assert.True(output.TerrainRumblePercent > 0);
+    }
+
+    [Fact]
     public void Device_limit_is_independent_cap_on_directinput_magnitude()
     {
         var method = typeof(DirectInputFfbBackend).GetMethod("ScaleMagnitudeForLimits", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
@@ -1368,7 +1411,8 @@ public sealed class GameplayFfbCalculatorTests
         double? engineStartRemainingMs = null,
         double frameDtMs = 8,
         bool? isArticulated = null,
-        string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled)
+        string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled,
+        string tireProfile = "street")
     {
         return new TelemetryPacketV1
         {
@@ -1381,8 +1425,8 @@ public sealed class GameplayFfbCalculatorTests
                 Name = "Tractor",
                 Type = "tractor",
                 Category = vehicleCategory,
-                WheelTireTypes = "street",
-                WheelTireProfile = "street",
+                WheelTireTypes = tireProfile,
+                WheelTireProfile = tireProfile,
                 IsArticulated = isArticulated,
                 MassT = mass / 1000.0,
                 TotalMassT = totalMass / 1000.0
@@ -1426,7 +1470,7 @@ public sealed class GameplayFfbCalculatorTests
                 GearChangeKind = gearChangeKind,
                 GearChangeTimeMs = gearChangeTimeMs
             },
-            Wheels = CreateWheels(maxWheelSlip, groundContactRatio, steeringGroundContactRatio),
+            Wheels = CreateWheels(maxWheelSlip, groundContactRatio, steeringGroundContactRatio, tireProfile),
             Suspension = new TelemetrySuspensionV1
             {
                 Impulse = suspensionImpulse ?? bumpImpulse,
@@ -1467,7 +1511,7 @@ public sealed class GameplayFfbCalculatorTests
         };
     }
 
-    private static List<TelemetryWheelV1> CreateWheels(double? slip, double? contactRatio, double? steeringContactRatio)
+    private static List<TelemetryWheelV1> CreateWheels(double? slip, double? contactRatio, double? steeringContactRatio, string tireProfile)
     {
         var contactCount = contactRatio is null ? 4 : (int)Math.Round(Math.Clamp(contactRatio.Value, 0, 1) * 4);
         var steeringContactCount = steeringContactRatio is null ? 0 : (int)Math.Ceiling(Math.Clamp(steeringContactRatio.Value, 0, 1) * 4);
@@ -1478,7 +1522,9 @@ public sealed class GameplayFfbCalculatorTests
                 Side = index % 2 == 0 ? "left" : "right",
                 IsSteering = steeringContactRatio is not null,
                 Slip = slip,
-                HasGroundContact = steeringContactRatio is null ? index < contactCount : index < steeringContactCount
+                HasGroundContact = steeringContactRatio is null ? index < contactCount : index < steeringContactCount,
+                TireType = tireProfile,
+                TireProfile = tireProfile
             })
             .ToList();
     }

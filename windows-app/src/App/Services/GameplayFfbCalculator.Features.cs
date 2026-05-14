@@ -19,34 +19,30 @@ public sealed partial class GameplayFfbCalculator
         return Math.Clamp((loadFactor - 1) / 2, 0, 1);
     }
 
-    private static string NormalizeSurfaceType(TelemetryPacketV1 packet)
+    private static string NormalizeSurfaceType(TelemetryPacketV1 packet, TireSurfaceTuningSettings? tuning)
     {
         var value = packet.SurfaceType?.Trim();
         if (string.IsNullOrWhiteSpace(value))
         {
-            return packet.IsOnField == true ? "field" : "unknown";
+            return packet.IsOnField == true ? "field" : "unknownMixed";
         }
 
-        return value.Equals("wetField", StringComparison.OrdinalIgnoreCase)
-            ? "wetField"
-            : value.ToLowerInvariant();
+        var normalized = (tuning ?? new TireSurfaceTuningSettings()).ResolveSurfaceAlias(value);
+        return normalized == "unknownMixed" && packet.IsOnField == true ? "field" : normalized;
     }
 
     private static bool IsOffRoadSurface(string surfaceType, bool? isOnField)
     {
-        return surfaceType is "field" or "wetField" or "grass" or "dirt" or "gravel" or "mud" or "snow" or "shallowwater" ||
+        return surfaceType is "field" or "wetField" or "grass" or "dirt" or "gravel" or "mud" or "snow" or "shallowWater" ||
                (surfaceType == "unknown" && isOnField == true);
     }
 
     private static bool IsOffRoadSurface(TelemetryFeatures features)
     {
-        return features.SurfaceClass is "field" or "wetField" or "grass" or "dirt" or "gravel" or "mud" or "snow" or "shallowwater";
+        return features.SurfaceClass is "field" or "wetField" or "grass" or "dirt" or "gravel" or "mud" or "snow" or "shallowWater" or "plowedField" or "cultivatedField";
     }
 
-    private static bool IsRoadSurface(string surfaceType)
-    {
-        return surfaceType is "asphalt" or "road" or "concrete" or "pavement" or "tarmac";
-    }
+    private static bool IsRoadSurface(string surfaceType) => surfaceType is "asphalt";
 
     private static bool IsUnknownMixedSurface(TelemetryFeatures features)
     {
@@ -142,14 +138,17 @@ public sealed partial class GameplayFfbCalculator
 
     public static class TelemetryFeatureExtractor
     {
-        public static TelemetryFeatures Extract(TelemetryPacketV1 packet, GameplayFfbEffectProfile profile)
+        public static TelemetryFeatures Extract(TelemetryPacketV1 packet, GameplayFfbEffectProfile profile, TireSurfaceTuningSettings? tuning = null)
         {
+            tuning = TireSurfaceTuningSettings.CreateNormalized(tuning);
             var rawSpeed = Math.Max(0, packet.SpeedKmh ?? 0);
             var speed = rawSpeed < MovingSpeedThresholdKmh ? 0 : rawSpeed;
-            var surfaceType = NormalizeSurfaceType(packet);
+            var surfaceType = NormalizeSurfaceType(packet, tuning);
             var surfaceClass = IsOffRoadSurface(surfaceType, packet.IsOnField)
                 ? (surfaceType == "unknown" ? "field" : surfaceType)
                 : IsRoadSurface(surfaceType) ? "road" : "unknownMixed";
+            var tireProfile = ResolveTireProfile(packet);
+            var multiplier = ResolveTireSurfaceMultiplier(packet, tuning, tireProfile, surfaceType);
             var loadFactor = CalculateLoadFactor(packet.MassKg, packet.TotalMassKg);
             var steeringContact = FirstValid(packet.SteeringGroundContactRatio, packet.GroundContactRatio);
             var contactConfidence = IsValidFinite(packet.SteeringGroundContactRatio) ? 1.0 : IsValidFinite(packet.GroundContactRatio) ? 0.55 : 0.0;
@@ -209,7 +208,37 @@ public sealed partial class GameplayFfbCalculator
                 lugging,
                 packet.EngineRunning == true && loadRatio >= 0.25,
                 powertrainType,
-                heavyEngine);
+                heavyEngine,
+                tireProfile,
+                multiplier);
+        }
+
+        private static string ResolveTireProfile(TelemetryPacketV1 packet)
+        {
+            var profile = packet.Wheels
+                .Select(w => w.TireProfile)
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? packet.WheelTireProfile;
+            return TireSurfaceTuningSettings.NormalizeTireProfile(profile);
+        }
+
+        private static double ResolveTireSurfaceMultiplier(TelemetryPacketV1 packet, TireSurfaceTuningSettings tuning, string tireProfile, string surfaceType)
+        {
+            if (tireProfile != "mixed")
+            {
+                return tuning.GetMultiplierPercent(tireProfile, surfaceType) / 100.0;
+            }
+
+            var wheelProfiles = packet.Wheels
+                .Select(w => TireSurfaceTuningSettings.NormalizeTireProfile(w.TireProfile ?? w.TireType))
+                .Where(profile => profile is not "unknown" and not "mixed")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (wheelProfiles.Length == 0)
+            {
+                return tuning.GetMultiplierPercent("mixed", surfaceType) / 100.0;
+            }
+
+            return wheelProfiles.Average(profile => tuning.GetMultiplierPercent(profile, surfaceType) / 100.0);
         }
 
         private static string NormalizePowertrainType(string? powertrainType)

@@ -275,7 +275,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local packet = {
         protocol = {
             name = "FS25_REAL_FFB_TELEMETRY",
-            version = "1.2.0"
+            version = "1.3.0"
         },
         frame = {
             sequence = self.frameSequence,
@@ -1491,15 +1491,23 @@ function FS25RealFfbTelemetry:getSurfaceTelemetry(vehicle)
     local result = {
         surfaceType = "unknown",
         surfaceAttribute = nil,
-        groundWetness = nil
+        groundWetness = nil,
+        groundType = nil,
+        groundDepth = nil
     }
 
     for _, wheel in ipairs(self:getVehicleWheels(vehicle)) do
         local physics = wheel.physics
         if physics ~= nil then
-            local surfaceName, terrainAttribute = self:getWheelSurface(vehicle, physics)
+            local surfaceName, terrainAttribute, groundType, groundDepth = self:getWheelSurface(vehicle, physics)
             if result.surfaceAttribute == nil and terrainAttribute ~= nil then
                 result.surfaceAttribute = terrainAttribute
+            end
+            if result.groundType == nil and groundType ~= nil then
+                result.groundType = groundType
+            end
+            if result.groundDepth == nil and groundDepth ~= nil then
+                result.groundDepth = groundDepth
             end
 
             if surfaceName ~= nil and surfaceName ~= "unknown" then
@@ -1520,18 +1528,18 @@ function FS25RealFfbTelemetry:getSurfaceTelemetry(vehicle)
 end
 
 function FS25RealFfbTelemetry:getWheelSurface(vehicle, physics)
-    local terrainAttribute = self:getWheelTerrainAttribute(physics)
+    local terrainAttribute, groundType, groundDepth = self:getWheelTerrainAttribute(physics)
 
     if physics.hasWaterContact == true then
-        return "shallowWater", terrainAttribute
+        return "shallowWater", terrainAttribute, groundType, groundDepth
     end
 
     if physics.hasSnowContact == true then
-        return "snow", terrainAttribute
+        return "snow", terrainAttribute, groundType, groundDepth
     end
 
     if self:isGrassDensity(physics.densityType) then
-        return "grass", terrainAttribute
+        return "grass", terrainAttribute, groundType, groundDepth
     end
 
     if physics.getSurfaceSoundAttributes ~= nil then
@@ -1545,21 +1553,21 @@ function FS25RealFfbTelemetry:getWheelSurface(vehicle, physics)
 
             local exact = self:normalizeExactSurfaceName(soundSurface)
             if exact ~= nil then
-                return exact, terrainAttribute
+                return exact, terrainAttribute, groundType, groundDepth
             end
         end
     end
 
     local specSurface = self:getSurfaceFromVehicleSoundMap(vehicle, terrainAttribute)
     if specSurface ~= nil then
-        return specSurface, terrainAttribute
+        return specSurface, terrainAttribute, groundType, groundDepth
     end
 
     if self:getWheelIsOnField(physics) == true then
-        return "field", terrainAttribute
+        return self:normalizeGroundTypeSurface(groundType) or "field", terrainAttribute, groundType, groundDepth
     end
 
-    return "unknown", terrainAttribute
+    return "unknown", terrainAttribute, groundType, groundDepth
 end
 
 function FS25RealFfbTelemetry:normalizeExactSurfaceName(surfaceName)
@@ -1582,6 +1590,26 @@ function FS25RealFfbTelemetry:normalizeExactSurfaceName(surfaceName)
         return "snow"
     elseif value == "dirt" or value == "gravel" or value == "mud" then
         return value
+    end
+
+    return nil
+end
+
+function FS25RealFfbTelemetry:normalizeGroundTypeSurface(groundType)
+    if groundType == nil then
+        return nil
+    end
+
+    local value = string.lower(tostring(groundType))
+    value = string.gsub(value, "[^%w]+", "")
+    if string.find(value, "plow", 1, true) ~= nil then
+        return "plowedField"
+    elseif string.find(value, "cultivat", 1, true) ~= nil or string.find(value, "seedbed", 1, true) ~= nil then
+        return "cultivatedField"
+    elseif string.find(value, "wet", 1, true) ~= nil then
+        return "wetField"
+    elseif string.find(value, "field", 1, true) ~= nil then
+        return "field"
     end
 
     return nil
@@ -1643,19 +1671,40 @@ end
 
 function FS25RealFfbTelemetry:getWheelTerrainAttribute(physics)
     if physics.lastTerrainAttribute ~= nil then
-        return physics.lastTerrainAttribute
+        return physics.lastTerrainAttribute, nil, nil
     end
 
     if physics.getGroundAttributes ~= nil then
-        local ok, groundR, groundG, groundB, groundDepth, terrainAttribute = pcall(function()
+        local ok, groundR, groundG, groundB, groundDepth, terrainAttribute, groundType = pcall(function()
             return physics:getGroundAttributes()
         end)
         if ok then
-            return terrainAttribute
+            return terrainAttribute, self:getGroundTypeName(groundType or groundR), groundDepth
         end
     end
 
-    return nil
+    if WheelsUtil ~= nil and type(WheelsUtil.getGroundType) == "function" then
+        local ok, groundType = pcall(function()
+            return WheelsUtil.getGroundType(physics)
+        end)
+        if ok then
+            return nil, self:getGroundTypeName(groundType), nil
+        end
+    end
+
+    return nil, nil, nil
+end
+
+function FS25RealFfbTelemetry:getGroundTypeName(value)
+    if value == nil then
+        return nil
+    end
+
+    if type(value) == "string" then
+        return value
+    end
+
+    return tostring(value)
 end
 
 function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
@@ -1691,6 +1740,14 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
         local slip = nil
         local hasContact = nil
         local suspensionImpulse = nil
+        local wheelType = "unknown"
+        local tireType = nil
+        local tireProfile = "unknown"
+        local surfaceType = nil
+        local surfaceAttribute = nil
+        local groundType = nil
+        local groundDepth = nil
+        local wheelIsOnField = nil
         if isSteeringWheel then
             steeringWheelCount = steeringWheelCount + 1
         end
@@ -1701,11 +1758,15 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
         end
 
         if physics ~= nil then
-            local tireType = self:getWheelTireTypeName(physics)
+            wheelType = self:getWheelType(wheel, physics)
+            tireType = self:getWheelTireTypeName(physics)
             if tireType ~= nil and tireType ~= "" and tireTypeSet[tireType] ~= true then
                 tireTypeSet[tireType] = true
                 table.insert(tireTypes, tireType)
             end
+            tireProfile = self:getWheelTireProfile({ tireType })
+            surfaceType, surfaceAttribute, groundType, groundDepth = self:getWheelSurface(vehicle, physics)
+            wheelIsOnField = self:getWheelIsOnField(physics)
 
             slip = physics.netInfo ~= nil and physics.netInfo.slip or nil
             if type(slip) == "number" then
@@ -1750,7 +1811,15 @@ function FS25RealFfbTelemetry:getWheelTelemetry(vehicle)
             isSteering = isSteeringWheel,
             slip = slip,
             hasGroundContact = hasContact,
-            suspensionImpulse = suspensionImpulse
+            suspensionImpulse = suspensionImpulse,
+            wheelType = wheelType,
+            tireType = tireType,
+            tireProfile = tireProfile,
+            surfaceType = surfaceType,
+            surfaceAttribute = surfaceAttribute,
+            groundType = groundType,
+            groundDepth = groundDepth,
+            isOnField = wheelIsOnField
         })
     end
 
@@ -1873,6 +1942,22 @@ function FS25RealFfbTelemetry:getWheelSuspensionImpulse(wheel, physics)
     end
 
     return math.max(0, math.min(2, value))
+end
+
+function FS25RealFfbTelemetry:getWheelType(wheel, physics)
+    if wheel ~= nil and (wheel.isCrawler == true or wheel.crawlerIndex ~= nil or wheel.crawlerTrack ~= nil) then
+        return "crawler"
+    end
+
+    if physics ~= nil and (physics.isCrawler == true or physics.crawlerIndex ~= nil) then
+        return "crawler"
+    end
+
+    if wheel ~= nil or physics ~= nil then
+        return "wheel"
+    end
+
+    return "unknown"
 end
 
 function FS25RealFfbTelemetry:getWheelTireTypeName(physics)

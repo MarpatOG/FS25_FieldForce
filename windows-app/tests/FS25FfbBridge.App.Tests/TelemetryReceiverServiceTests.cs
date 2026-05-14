@@ -167,6 +167,44 @@ public sealed class TelemetryReceiverServiceTests
     }
 
     [Fact]
+    public void Telemetry_contract_accepts_v1_3_tire_surface_wheel_fields()
+    {
+        var json = """
+            {
+              "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.3.0" },
+              "frame": { "sequence": 10, "dtMs": 8, "telemetryRateHz": 60, "timestampMs": 123496, "isDuplicate": false, "isInterpolated": false },
+              "game": { "state": "mission" },
+              "player": { "isInVehicle": true },
+              "vehicle": { "name": "Tractor", "type": "tractor", "category": "TractorWheeled", "wheelTireTypes": "street", "wheelTireProfile": "street", "massT": 6.2, "totalMassT": 8.8 },
+              "controls": { "throttle": 0.2, "brake": 0.0, "clutch": 0.0 },
+              "motion": { "speedMps": 1, "speedKmh": 3.6, "localAccelerationMps2": { "x": 0, "y": 0, "z": 0 } },
+              "steering": { "angle": 0.0, "rate": 0.0 },
+              "engine": { "isRunning": true, "started": true, "rpm": 900 },
+              "transmission": { "gear": 2 },
+              "wheels": [
+                { "index": 0, "side": "left", "isSteering": true, "slip": 0.1, "hasGroundContact": true, "suspensionImpulse": 0.1, "wheelType": "wheel", "tireType": "street", "tireProfile": "street", "surfaceType": "asphalt", "surfaceAttribute": 3, "groundType": "asphalt", "groundDepth": 0.0, "isOnField": false }
+              ],
+              "suspension": { "impulse": null, "verticalImpactImpulse": null, "landingImpulse": null, "leftImpulse": null, "rightImpulse": null },
+              "surface": { "isOnField": false, "type": "asphalt", "attribute": 3 },
+              "environment": { "groundWetness": null, "rainScale": null },
+              "attachments": [],
+              "collisions": { "collisionImpulse": null, "longitudinalJerkImpulse": null },
+              "diagnostics": { "payloadBytes": 1800, "buildTimeMs": 0.4, "warnings": [] }
+            }
+            """;
+
+        var packet = JsonSerializer.Deserialize<TelemetryPacketV1>(json);
+
+        packet!.ValidateContract();
+        Assert.True(packet.IsProtocolValid);
+        Assert.Equal("street", packet.ActiveTireProfile);
+        Assert.Equal("wheel", packet.Wheels[0].WheelType);
+        Assert.Equal("asphalt", packet.Wheels[0].SurfaceType);
+        Assert.Equal(3, packet.Wheels[0].SurfaceAttribute);
+        Assert.False(packet.Wheels[0].IsOnField);
+    }
+
+    [Fact]
     public async Task Receives_valid_udp_packet()
     {
         using var log = new AppLogService();

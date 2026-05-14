@@ -3,6 +3,7 @@
         xmlns:vm="using:FS25FfbBridge.App.ViewModels"
         x:Class="FS25FfbBridge.App.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
+        x:Name="Root"
         Width="1120"
         Height="760"
         MinWidth="920"
@@ -937,6 +938,104 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Tires &amp; Surfaces">
+                <ScrollViewer Margin="0,16,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16">
+                        <Border Classes="panel">
+                            <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="12">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Classes="muted" Text="Active tire profile"/>
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding WheelTireProfile}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock Classes="muted" Text="Tire types"/>
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding WheelTireTypes}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Spacing="4">
+                                    <TextBlock Classes="muted" Text="Surface type"/>
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding SurfaceType}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="3" Spacing="4">
+                                    <TextBlock Classes="muted" Text="Raw attribute"/>
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding SurfaceAttribute}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4" Spacing="4">
+                                    <TextBlock Classes="muted" Text="Active multiplier"/>
+                                    <TextBlock FontWeight="SemiBold" Text="{Binding ActiveTireSurfaceMultiplier}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border Classes="panel">
+                            <StackPanel Spacing="12">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <StackPanel>
+                                        <TextBlock Classes="section" Text="Tire x Surface Matrix"/>
+                                        <TextBlock Classes="muted" Text="Multipliers are stored in the selected wheel effects profile."/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Content="Reset matrix defaults"
+                                            Command="{Binding ResetMatrixDefaultsCommand}"/>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="130,100,100,100,100,100,100,100,110" ColumnSpacing="10">
+                                    <TextBlock Classes="muted" Text="Surface"/>
+                                    <TextBlock Grid.Column="1" Classes="muted" Text="Street"/>
+                                    <TextBlock Grid.Column="2" Classes="muted" Text="Agric"/>
+                                    <TextBlock Grid.Column="3" Classes="muted" Text="Mud"/>
+                                    <TextBlock Grid.Column="4" Classes="muted" Text="Off-road"/>
+                                    <TextBlock Grid.Column="5" Classes="muted" Text="Tracked"/>
+                                    <TextBlock Grid.Column="6" Classes="muted" Text="Mixed"/>
+                                    <TextBlock Grid.Column="7" Classes="muted" Text="Unknown"/>
+                                </Grid>
+
+                                <ItemsControl ItemsSource="{Binding TireSurfaceMatrixRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="130,100,100,100,100,100,100,100,110" ColumnSpacing="10" Margin="0,0,0,8">
+                                                <TextBlock Text="{Binding SurfaceType}" VerticalAlignment="Center"/>
+                                                <TextBox Grid.Column="1" Text="{Binding Street, Mode=TwoWay}" MinHeight="32"/>
+                                                <TextBox Grid.Column="2" Text="{Binding Agricultural, Mode=TwoWay}" MinHeight="32"/>
+                                                <TextBox Grid.Column="3" Text="{Binding Mud, Mode=TwoWay}" MinHeight="32"/>
+                                                <TextBox Grid.Column="4" Text="{Binding OffRoad, Mode=TwoWay}" MinHeight="32"/>
+                                                <TextBox Grid.Column="5" Text="{Binding Tracked, Mode=TwoWay}" MinHeight="32"/>
+                                                <TextBox Grid.Column="6" Text="{Binding Mixed, Mode=TwoWay}" MinHeight="32"/>
+                                                <TextBox Grid.Column="7" Text="{Binding Unknown, Mode=TwoWay}" MinHeight="32"/>
+                                                <Button Grid.Column="8"
+                                                        Content="Reset row"
+                                                        Command="{Binding DataContext.ResetSelectedSurfaceCommand, ElementName=Root}"
+                                                        CommandParameter="{Binding}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Classes="panel">
+                            <StackPanel Spacing="12">
+                                <TextBlock Classes="section" Text="Surface aliases"/>
+                                <Grid ColumnDefinitions="*,180,Auto" ColumnSpacing="10">
+                                    <TextBox Watermark="Raw surface value" Text="{Binding NewSurfaceAliasRaw, Mode=TwoWay}"/>
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding TireSurfaceTargets}" SelectedItem="{Binding SelectedSurfaceAliasTarget, Mode=TwoWay}"/>
+                                    <Button Grid.Column="2" Content="Save alias" Command="{Binding SaveAliasCommand}"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding SurfaceAliasRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*,180" ColumnSpacing="10" Margin="0,0,0,8">
+                                                <TextBlock Text="{Binding Raw}" VerticalAlignment="Center"/>
+                                                <ComboBox Grid.Column="1" ItemsSource="{Binding Targets}" SelectedItem="{Binding Normalized, Mode=TwoWay}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </ScrollViewer>
             </TabItem>
 

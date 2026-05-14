@@ -1,4 +1,4 @@
-# Telemetry Protocol v1.2
+# Telemetry Protocol v1.3
 
 The FS25 telemetry mod writes JSON packets to a file transport by default. UDP remains available as a hidden diagnostic transport.
 
@@ -11,10 +11,10 @@ The FS25 telemetry mod writes JSON packets to a file transport by default. UDP r
 - Hidden UDP host: `127.0.0.1`
 - Hidden UDP port: `34325`
 
-The Windows receiver accepts the current `1.2.0` packet and the legacy `1.1.0` packet:
+The Windows receiver accepts the current `1.3.0` packet and legacy `1.2.0` / `1.1.0` packets:
 
 ```json
-{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.2.0" } }
+{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.3.0" } }
 ```
 
 Flat legacy JSON is rejected and does not replace the last valid packet.
@@ -33,7 +33,7 @@ Example:
 
 ```json
 {
-  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.2.0" },
+  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.3.0" },
   "frame": {
     "sequence": 1,
     "dtMs": 8,
@@ -80,7 +80,22 @@ Example:
   "transmission": { "gear": 3 },
   "events": { "engineStartSeq": 4, "engineStopSeq": 1, "gearChangeSeq": 8, "gearChangeKind": "up", "gearChangeTimeMs": 650 },
   "wheels": [
-    { "index": 0, "side": "left", "isSteering": true, "slip": 0.24, "hasGroundContact": true, "suspensionImpulse": 0.18 }
+    {
+      "index": 0,
+      "side": "left",
+      "isSteering": true,
+      "slip": 0.24,
+      "hasGroundContact": true,
+      "suspensionImpulse": 0.18,
+      "wheelType": "wheel",
+      "tireType": "street",
+      "tireProfile": "street",
+      "surfaceType": "asphalt",
+      "surfaceAttribute": 3,
+      "groundType": "asphalt",
+      "groundDepth": 0.0,
+      "isOnField": false
+    }
   ],
   "suspension": {
     "impulse": 0.30,
@@ -127,6 +142,12 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 - `engine.energySources`: optional array of detected energy sources such as `"diesel"`, `"electricCharge"`, or `"methane"`.
 - `events.engineStartSeq`: increments when starter cranking begins (`OFF/IGNITION -> STARTING`), not when the engine has already reached `ON`.
 - `events.engineStopSeq`: increments on stop events.
+- `wheels[].wheelType`: `"wheel"`, `"crawler"`, or `"unknown"`.
+- `wheels[].tireType`: normalized tire type: `"street"`, `"agricultural"`, `"mud"`, `"offRoad"`, `"crawler"`, or `"unknown"`.
+- `wheels[].tireProfile`: Windows tuning bucket: `"street"`, `"agricultural"`, `"mud"`, `"tracked"`, `"mixed"`, or `"unknown"`.
+- `wheels[].surfaceType`, `surface.type`: normalized surface such as `"asphalt"`, `"dirt"`, `"gravel"`, `"mud"`, `"grass"`, `"snow"`, `"shallowWater"`, `"field"`, `"plowedField"`, `"cultivatedField"`, `"wetField"`, or `"unknownMixed"`.
+- `wheels[].surfaceAttribute`, `surface.attribute`: raw/engine terrain attribute when available.
+- `wheels[].groundType` and `wheels[].groundDepth`: raw ground context from wheel physics when available.
 
 ## Derived Features
 

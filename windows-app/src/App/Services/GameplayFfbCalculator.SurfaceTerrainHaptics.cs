@@ -9,12 +9,12 @@ public sealed partial class GameplayFfbCalculator
         public static LayerContribution<ContinuousHaptics> CalculateContinuous(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var slip = CalculateSlipFeedback(features.Slip, features.SpeedKmh, profile.SlipFeedback, context.TelemetryFade, out var slipHz);
-            if (features.SurfaceClass is not ("field" or "wetField") || !profile.SurfaceFeedback.Enabled || features.SpeedKmh < Math.Max(0, profile.SurfaceFeedback.MinSpeedKmh))
+            if (!IsOffRoadSurface(features) || !profile.SurfaceFeedback.Enabled || features.SpeedKmh < Math.Max(0, profile.SurfaceFeedback.MinSpeedKmh))
             {
                 return new(new ContinuousHaptics(0, 0, slip, slipHz, 0, 0, 0, 0), Math.Max(features.SurfaceConfidence, slip > 0 ? 1.0 : 0.0));
             }
 
-            var surface = CalculateMaxCapped(profile.SurfaceFeedback, context.TelemetryFade);
+            var surface = CalculateMaxCapped(profile.SurfaceFeedback, context.TelemetryFade) * Math.Clamp(features.TireSurfaceMultiplier, 0, 2);
             var wetnessEffect = CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, context.TelemetryFade);
             if (wetnessEffect > 0)
             {
@@ -80,7 +80,7 @@ public sealed partial class GameplayFfbCalculator
             var minHz = Math.Clamp(settings.MinFrequencyHz, 4, 60);
             var maxHz = Math.Clamp(settings.MaxFrequencyHz, minHz, 60);
             var hz = Quantize((int)Math.Round(minHz + ((maxHz - minHz) * curve)), 2);
-            var surfaceScale = CalculateTerrainSurfaceScale(features);
+            var surfaceScale = CalculateTerrainSurfaceScale(features) * Math.Clamp(features.TireSurfaceMultiplier, 0, 2);
             var rumble = CalculateMaxCapped(settings, context.TelemetryFade) * curve * surfaceScale * CalculateHapticLoadScale(features);
             return new(new ContinuousHaptics(0, 0, 0, 0, 0, 0, rumble, hz), features.SuspensionConfidence);
         }
@@ -243,7 +243,7 @@ public sealed partial class GameplayFfbCalculator
 
         private static double CalculateTerrainSurfaceScale(TelemetryFeatures features)
         {
-            return IsOffRoadSurface(features) ? 1.10 : IsUnknownMixedSurface(features) ? 0.60 : 0.14;
+            return IsOffRoadSurface(features) ? 1.10 : IsUnknownMixedSurface(features) ? 0.60 : 0.35;
         }
 
         private static double CalculateCollisionSurfaceScale(TelemetryFeatures features)

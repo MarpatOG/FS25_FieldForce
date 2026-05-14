@@ -1,7 +1,7 @@
-{
+﻿{
     "protocol":  {
                      "name":  "FS25_REAL_FFB_TELEMETRY",
-                     "version":  "1.1.0"
+                     "version":  "1.3.0"
                  },
     "frame":  {
                   "sequence":  1,
@@ -63,7 +63,15 @@
                        "isSteering":  true,
                        "slip":  0.11,
                        "hasGroundContact":  true,
-                       "suspensionImpulse":  0.22
+                       "suspensionImpulse":  0.22,
+                       "wheelType":  "wheel",
+                       "tireType":  "mixed",
+                       "tireProfile":  "mixed",
+                       "surfaceType":  "field",
+                       "surfaceAttribute":  1,
+                       "groundType":  "field",
+                       "groundDepth":  0,
+                       "isOnField":  true
                    },
                    {
                        "index":  1,
@@ -71,7 +79,15 @@
                        "isSteering":  true,
                        "slip":  0.088,
                        "hasGroundContact":  true,
-                       "suspensionImpulse":  0.132
+                       "suspensionImpulse":  0.132,
+                       "wheelType":  "wheel",
+                       "tireType":  "mixed",
+                       "tireProfile":  "mixed",
+                       "surfaceType":  "field",
+                       "surfaceAttribute":  1,
+                       "groundType":  "field",
+                       "groundDepth":  0,
+                       "isOnField":  true
                    },
                    {
                        "index":  2,
@@ -79,7 +95,15 @@
                        "isSteering":  false,
                        "slip":  0.077,
                        "hasGroundContact":  true,
-                       "suspensionImpulse":  0.22
+                       "suspensionImpulse":  0.22,
+                       "wheelType":  "wheel",
+                       "tireType":  "mixed",
+                       "tireProfile":  "mixed",
+                       "surfaceType":  "field",
+                       "surfaceAttribute":  1,
+                       "groundType":  "field",
+                       "groundDepth":  0,
+                       "isOnField":  true
                    },
                    {
                        "index":  3,
@@ -87,7 +111,15 @@
                        "isSteering":  false,
                        "slip":  0.066,
                        "hasGroundContact":  true,
-                       "suspensionImpulse":  0.132
+                       "suspensionImpulse":  0.132,
+                       "wheelType":  "wheel",
+                       "tireType":  "mixed",
+                       "tireProfile":  "mixed",
+                       "surfaceType":  "field",
+                       "surfaceAttribute":  1,
+                       "groundType":  "field",
+                       "groundDepth":  0,
+                       "isOnField":  true
                    }
                ],
     "suspension":  {

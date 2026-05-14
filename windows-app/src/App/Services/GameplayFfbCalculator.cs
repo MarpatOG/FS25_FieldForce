@@ -91,7 +91,7 @@ public sealed partial class GameplayFfbCalculator
             fade,
             activeCategory,
             deviceProfile);
-        var features = TelemetryFeatureExtractor.Extract(packet, profile);
+        var features = TelemetryFeatureExtractor.Extract(packet, profile, settings.TireSurfaceTuning);
 
         var loadResistance = LoadResistanceLayer.Calculate(features, profile, context);
         var motionFeedback = MotionFeedbackLayer.Calculate(features, profile, context);
