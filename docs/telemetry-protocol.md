@@ -61,7 +61,7 @@ Example:
     "pitchDeg": 3.1,
     "rollDeg": -2.4,
     "yawRateRadPerSec": 0.14835,
-    "slopeDeg": 4.0,
+    "slopeDeg": null,
     "localAccelerationMps2": { "x": 0.3, "y": 1.8, "z": -0.6 }
   },
   "steering": { "angle": 0.13, "rate": 0.8 },
@@ -141,6 +141,7 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 - `speedKmh`: stable FS25 vehicle speed in kilometers per hour for UI and profile thresholds. The Lua mod may calculate a root-node position-delta speed for fallback/diagnostics, but position spikes are not the primary wire value.
 - `localAccelerationMps2`: vehicle-local acceleration in meters per second squared.
 - `yawRateRadPerSec`: radians per second.
+- `motion.slopeDeg`: legacy optional field. Current Lua sender writes `null`; Windows derives slope from `pitchDeg`.
 - `steering.angle`: normalized/raw steering angle from FS25 source data.
 - `steering.rate`: steering angle delta per second.
 - `engine.state`: `"off"`, `"ignition"`, `"starting"`, `"running"`, or `"unknown"` from `Motorized:getMotorState()`.

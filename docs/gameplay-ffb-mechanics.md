@@ -28,6 +28,7 @@ Important source details:
 - `motion.speedMps` is the same stable speed in meters per second.
 - `motion.localAccelerationMps2` is vehicle-local acceleration.
 - `motion.yawRateRadPerSec` is radians per second.
+- `motion.slopeDeg` is legacy-only. Current Lua writes `null`; Windows derives slope from `motion.pitchDeg`.
 - `vehicle.massT` and `vehicle.totalMassT` are metric tonnes.
 - `attachments[]` contains recursively attached implements with `name`, `massT`, `totalMassT`, `lateralOffsetM`, and `depth`.
 - `vehicle.isArticulated` marks articulated-frame vehicles whose frame/pivot motion should not be treated as a left/right suspension hit.
@@ -55,7 +56,7 @@ tireSurfaceMultiplier = profile Tire x Surface matrix lookup after surface alias
 wetness = max(environment.groundWetness, environment.rainScale), with wetField fallback of 0.6
 rpmRatio = clamp((engine.rpm - MinRpm) / (MaxRpm - MinRpm), 0, 1)
 yawRateRatio = clamp(abs(motion.yawRateRadPerSec converted to deg/s) / FullYawRateDegPerSec, 0, 1)
-slopeRatio = max(abs(motion.pitchDeg), abs(motion.slopeDeg)) normalized by FullPitchDeg
+slopeRatio = abs(motion.slopeDeg ?? motion.pitchDeg) normalized by FullPitchDeg
 rollRatio = abs(motion.rollDeg) normalized by SideSlopeBias min/full roll thresholds
 rollDirection = sign(motion.rollDeg)
 attachedMassRatio = sum(attachments[].massT) / vehicle.massT

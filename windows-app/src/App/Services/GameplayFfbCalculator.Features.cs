@@ -207,7 +207,7 @@ public sealed partial class GameplayFfbCalculator
                 CalculateFeatureWetness(packet, surfaceType),
                 loadFactor,
                 packet.MassKg is not null && packet.TotalMassKg is not null ? 1.0 : 0.0,
-                Math.Max(NormalizeAbs(packet.PitchDeg, profile.MotionFeedback.FullPitchDeg), NormalizeAbs(packet.SlopeDeg, profile.MotionFeedback.FullPitchDeg)),
+                NormalizeAbs(packet.CalculatedSlopeDeg, profile.MotionFeedback.FullPitchDeg),
                 suspension,
                 suspensionConfidence,
                 verticalImpact,

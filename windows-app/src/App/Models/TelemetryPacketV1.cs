@@ -206,6 +206,11 @@ public sealed class TelemetryPacketV1
     public double? SlopeDeg => Motion?.SlopeDeg;
 
     [JsonIgnore]
+    public double? CalculatedSlopeDeg => IsValidFinite(Motion?.SlopeDeg)
+        ? Motion!.SlopeDeg
+        : IsValidFinite(Motion?.PitchDeg) ? Math.Abs(Motion!.PitchDeg!.Value) : null;
+
+    [JsonIgnore]
     public double? LocalAccelerationX => Motion?.LocalAccelerationMps2?.X;
 
     [JsonIgnore]

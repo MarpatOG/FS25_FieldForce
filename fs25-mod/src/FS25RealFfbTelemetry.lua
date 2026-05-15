@@ -2172,7 +2172,6 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
     local rx, ry, rz = self:getWorldRotationSafe(node)
     local pitchDeg = rx ~= nil and self:normalizeTiltDeg(math.deg(rx)) or nil
     local rollDeg = rz ~= nil and self:normalizeTiltDeg(math.deg(rz)) or nil
-    local slopeDeg = wx ~= nil and self:getSlopeDeg(wx, wy or 0, wz) or nil
     local now = self:getMonotonicSeconds()
     local key = tostring(vehicle)
     local previous = self.lastVehicleMotion[key]
@@ -2265,7 +2264,7 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
         pitchDeg = pitchDeg,
         rollDeg = rollDeg,
         yawRateDegPerSec = yawRateDegPerSec,
-        slopeDeg = slopeDeg,
+        slopeDeg = nil,
         localAccelerationX = localAccelerationX,
         localAccelerationY = localAccelerationY,
         localAccelerationZ = localAccelerationZ,
@@ -2405,24 +2404,6 @@ function FS25RealFfbTelemetry:worldDirectionToLocalSafe(node, x, y, z)
     end
 
     return nil, nil, nil
-end
-
-function FS25RealFfbTelemetry:getSlopeDeg(x, y, z)
-    if type(getTerrainNormalAtWorldPos) ~= "function" then
-        return nil
-    end
-
-    local terrain = g_terrainNode or (g_currentMission ~= nil and g_currentMission.terrainRootNode) or nil
-    if terrain == nil then
-        return nil
-    end
-
-    local ok, _, ny, _ = pcall(getTerrainNormalAtWorldPos, terrain, x, y, z)
-    if ok and type(ny) == "number" then
-        return math.deg(math.acos(math.max(-1, math.min(1, ny))))
-    end
-
-    return nil
 end
 
 function FS25RealFfbTelemetry:getDeltaSeconds(now, previous)

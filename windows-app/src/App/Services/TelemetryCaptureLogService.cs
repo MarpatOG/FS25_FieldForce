@@ -173,7 +173,7 @@ public sealed class TelemetryCaptureLogService : IDisposable
             Format(packet?.SteeringRate),
             Format(packet?.PitchDeg),
             Format(packet?.RollDeg),
-            Format(packet?.SlopeDeg),
+            Format(packet?.CalculatedSlopeDeg),
             Format(packet?.LocalAccelerationX),
             Format(packet?.LocalAccelerationY),
             Format(packet?.LocalAccelerationZ),

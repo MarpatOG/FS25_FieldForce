@@ -1711,7 +1711,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WheelTireTypes = string.IsNullOrWhiteSpace(packet.WheelTireTypes) ? "-" : packet.WheelTireTypes;
             WheelTireProfile = string.IsNullOrWhiteSpace(packet.ActiveTireProfile) ? "-" : packet.ActiveTireProfile;
             ActiveTireSurfaceMultiplier = $"{CalculateActiveTireSurfaceMultiplier(packet)}%";
-            Attitude = $"{FormatNumber(packet.PitchDeg, "0.0 deg")} / {FormatNumber(packet.RollDeg, "0.0 deg")} / {FormatNumber(packet.SlopeDeg, "0.0 deg")}";
+            Attitude = $"{FormatNumber(packet.PitchDeg, "0.0 deg")} / {FormatNumber(packet.RollDeg, "0.0 deg")} / {FormatNumber(packet.CalculatedSlopeDeg, "0.0 deg")}";
             LocalAcceleration = $"{FormatNumber(packet.LocalAccelerationX, "0.00")} / {FormatNumber(packet.LocalAccelerationY, "0.00")} / {FormatNumber(packet.LocalAccelerationZ, "0.00")}";
             BumpImpulse = FormatNumber(packet.VerticalImpactImpulse, "0.00");
             GameState = string.IsNullOrWhiteSpace(packet.GameState) ? "-" : packet.GameState;
