@@ -128,7 +128,7 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 - `massT`, `totalMassT`: metric tonnes.
 - `vehicle.isArticulated`: true for articulated-frame vehicles, used by the Windows bridge to avoid treating articulation suspension movement as a sharp left/right suspension hit.
 - `speedMps`: meters per second.
-- `speedKmh`: kilometers per hour for UI and profile thresholds.
+- `speedKmh`: stable FS25 vehicle speed in kilometers per hour for UI and profile thresholds. The Lua mod may calculate a root-node position-delta speed for fallback/diagnostics, but position spikes are not the primary wire value.
 - `localAccelerationMps2`: vehicle-local acceleration in meters per second squared.
 - `yawRateRadPerSec`: radians per second.
 - `steering.angle`: normalized/raw steering angle from FS25 source data.

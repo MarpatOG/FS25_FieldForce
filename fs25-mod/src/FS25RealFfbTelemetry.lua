@@ -262,7 +262,10 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local inVehicle = vehicle ~= nil
     local surface = inVehicle and self:getSurfaceTelemetry(vehicle) or {}
     local wheel = inVehicle and self:getWheelTelemetry(vehicle) or {}
-    local motion = inVehicle and self:getMotionTelemetry(vehicle) or {}
+    local stableSpeedKmh = inVehicle and self:getSpeedKmh(vehicle) or nil
+    local motion = inVehicle and self:getMotionTelemetry(vehicle, stableSpeedKmh) or {}
+    motion.speedKmh = stableSpeedKmh or motion.speedKmh
+    self.lastMotionDeltaSpeedKmh = inVehicle and motion.deltaSpeedKmh or nil
     local impact = inVehicle and self:calculateImpactImpulses(vehicle, motion, wheel) or {}
     local weather = inVehicle and self:getWeatherTelemetry() or {}
 
@@ -319,7 +322,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
         return packet
     end
 
-    local speedKmh = motion.speedKmh or self:getSpeedKmh(vehicle)
+    local speedKmh = stableSpeedKmh or motion.speedKmh
     packet.vehicle = {
         name = self:getVehicleName(vehicle),
         type = self:getVehicleType(vehicle),
@@ -2111,7 +2114,7 @@ function FS25RealFfbTelemetry:getFirstWeatherValue(fieldNames, methodNames)
     return nil
 end
 
-function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
+function FS25RealFfbTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
     local node = self:getVehicleNode(vehicle)
     if node == nil then
         return {}
@@ -2125,6 +2128,7 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
     local now = self:getMonotonicSeconds()
     local key = tostring(vehicle)
     local previous = self.lastVehicleMotion[key]
+    local deltaSpeedKmh = nil
     local speedKmh = nil
     local yawRateDegPerSec = nil
     local localAccelerationX, localAccelerationY, localAccelerationZ = nil, nil, nil
@@ -2139,26 +2143,41 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
             local vx = dx / dtSec
             local vy = dy / dtSec
             local vz = dz / dtSec
-            local ax = (vx - previous.vx) / dtSec
-            local ay = (vy - previous.vy) / dtSec
-            local az = (vz - previous.vz) / dtSec
-            speedKmh = self:speedFromDelta(dx, dz, dtSec)
+            local previousVx = type(previous.vx) == "number" and previous.vx or 0
+            local previousVy = type(previous.vy) == "number" and previous.vy or 0
+            local previousVz = type(previous.vz) == "number" and previous.vz or 0
+            deltaSpeedKmh = self:speedFromDelta(dx, dz, dtSec)
 
-            localAccelerationX, localAccelerationY, localAccelerationZ = self:worldDirectionToLocalSafe(node, ax, ay, az)
-            if localAccelerationX == nil then
-                localAccelerationX, localAccelerationY, localAccelerationZ = ax, ay, az
+            local stableMismatch = type(stableSpeedKmh) == "number" and
+                type(deltaSpeedKmh) == "number" and
+                math.abs(deltaSpeedKmh - stableSpeedKmh) > 20
+            local deltaJump = type(previous.deltaSpeedKmh) == "number" and
+                type(deltaSpeedKmh) == "number" and
+                math.abs(deltaSpeedKmh - previous.deltaSpeedKmh) > 15
+            local positionSpike = stableMismatch or deltaJump
+
+            if not positionSpike then
+                local ax = (vx - previousVx) / dtSec
+                local ay = (vy - previousVy) / dtSec
+                local az = (vz - previousVz) / dtSec
+                speedKmh = deltaSpeedKmh
+
+                localAccelerationX, localAccelerationY, localAccelerationZ = self:worldDirectionToLocalSafe(node, ax, ay, az)
+                if localAccelerationX == nil then
+                    localAccelerationX, localAccelerationY, localAccelerationZ = ax, ay, az
+                end
+                local rawLocalAccelerationY = localAccelerationY
+
+                localAccelerationX = self:smoothMotionSample(previous.localAccelerationX, localAccelerationX, dtSec, self.motionAccelerationSmoothingSec)
+                localAccelerationY = self:smoothMotionSample(previous.localAccelerationY, localAccelerationY, dtSec, self.motionAccelerationSmoothingSec)
+                localAccelerationZ = self:smoothMotionSample(previous.localAccelerationZ, localAccelerationZ, dtSec, self.motionAccelerationSmoothingSec)
+
+                if ry ~= nil and previous.yaw ~= nil then
+                    yawRateDegPerSec = math.deg(self:angleDifference(ry, previous.yaw) / dtSec)
+                end
+
+                bumpImpulse = self:calculateVerticalImpactImpulse(rawLocalAccelerationY, localAccelerationY)
             end
-            local rawLocalAccelerationY = localAccelerationY
-
-            localAccelerationX = self:smoothMotionSample(previous.localAccelerationX, localAccelerationX, dtSec, self.motionAccelerationSmoothingSec)
-            localAccelerationY = self:smoothMotionSample(previous.localAccelerationY, localAccelerationY, dtSec, self.motionAccelerationSmoothingSec)
-            localAccelerationZ = self:smoothMotionSample(previous.localAccelerationZ, localAccelerationZ, dtSec, self.motionAccelerationSmoothingSec)
-
-            if ry ~= nil and previous.yaw ~= nil then
-                yawRateDegPerSec = math.deg(self:angleDifference(ry, previous.yaw) / dtSec)
-            end
-
-            bumpImpulse = self:calculateVerticalImpactImpulse(rawLocalAccelerationY, localAccelerationY)
 
             self.lastVehicleMotion[key] = {
                 time = now,
@@ -2166,12 +2185,13 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
                 y = wy,
                 z = wz,
                 yaw = ry or previous.yaw,
-                vx = vx,
-                vy = vy,
-                vz = vz,
-                localAccelerationX = localAccelerationX,
-                localAccelerationY = localAccelerationY,
-                localAccelerationZ = localAccelerationZ
+                vx = positionSpike and previousVx or vx,
+                vy = positionSpike and previousVy or vy,
+                vz = positionSpike and previousVz or vz,
+                deltaSpeedKmh = positionSpike and previous.deltaSpeedKmh or deltaSpeedKmh,
+                localAccelerationX = positionSpike and previous.localAccelerationX or localAccelerationX,
+                localAccelerationY = positionSpike and previous.localAccelerationY or localAccelerationY,
+                localAccelerationZ = positionSpike and previous.localAccelerationZ or localAccelerationZ
             }
         end
     elseif wx ~= nil and wy ~= nil and wz ~= nil then
@@ -2184,6 +2204,7 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
             vx = 0,
             vy = 0,
             vz = 0,
+            deltaSpeedKmh = nil,
             localAccelerationX = 0,
             localAccelerationY = 0,
             localAccelerationZ = 0
@@ -2192,6 +2213,7 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle)
 
     return {
         speedKmh = speedKmh or ((wx ~= nil and wz ~= nil) and 0 or nil),
+        deltaSpeedKmh = deltaSpeedKmh,
         pitchDeg = pitchDeg,
         rollDeg = rollDeg,
         yawRateDegPerSec = yawRateDegPerSec,
@@ -2546,6 +2568,9 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
         table.insert(lines, "wheelTireTypes: -")
         table.insert(lines, "wheelTireProfile: -")
         table.insert(lines, "speedKmh: -")
+        if self.debug then
+            table.insert(lines, "deltaSpeedKmh: -")
+        end
         table.insert(lines, "steeringAngle: -")
         table.insert(lines, "rpm: -")
         table.insert(lines, "engineStarted: -")
@@ -2578,6 +2603,9 @@ function FS25RealFfbTelemetry:getOverlayLines(packet)
     table.insert(lines, "wheelTireTypes: " .. tostring(vehicle.wheelTireTypes or "-"))
     table.insert(lines, "wheelTireProfile: " .. tostring(vehicle.wheelTireProfile or "-"))
     table.insert(lines, "speedKmh: " .. self:formatNumber(motion.speedKmh, "", 1))
+    if self.debug then
+        table.insert(lines, "deltaSpeedKmh: " .. self:formatNumber(self.lastMotionDeltaSpeedKmh, "", 1))
+    end
     table.insert(lines, "steeringAngle: " .. self:formatNumber(steering.angle, "", 3))
     table.insert(lines, "rpm: " .. self:formatNumber(engine.rpm, "", 0))
     table.insert(lines, "engineStarted: " .. self:boolText(engine.started))

@@ -1,0 +1,44 @@
+{
+  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.3.0" },
+  "frame": {
+    "sequence": 44,
+    "dtMs": 16,
+    "telemetryRateHz": 60,
+    "timestampMs": 123504,
+    "isDuplicate": false,
+    "isInterpolated": false
+  },
+  "game": { "state": "mission" },
+  "player": { "isInVehicle": true },
+  "vehicle": {
+    "name": "Tractor",
+    "type": "tractor",
+    "category": "TractorWheeled",
+    "wheelTireTypes": "street",
+    "wheelTireProfile": "street",
+    "isArticulated": false,
+    "massT": 6.2,
+    "totalMassT": 8.8
+  },
+  "controls": { "throttle": 0.42, "brake": 0.0, "clutch": 0.0 },
+  "motion": {
+    "speedMps": 3.6666666667,
+    "speedKmh": 13.2,
+    "pitchDeg": 0.1,
+    "rollDeg": 0.0,
+    "yawRateRadPerSec": null,
+    "slopeDeg": 0.2,
+    "localAccelerationMps2": { "x": null, "y": null, "z": null }
+  },
+  "steering": { "angle": 0.02, "rate": 0.0 },
+  "engine": { "isRunning": true, "started": true, "rpm": 1250 },
+  "transmission": { "gear": 2 },
+  "events": { "engineStartSeq": 0, "engineStopSeq": 0, "gearChangeSeq": 0, "gearChangeKind": "none", "gearChangeTimeMs": null },
+  "wheels": [],
+  "suspension": { "impulse": null, "verticalImpactImpulse": null, "landingImpulse": null, "leftImpulse": null, "rightImpulse": null },
+  "surface": { "isOnField": false, "type": "asphalt", "attribute": 3 },
+  "environment": { "groundWetness": 0.0, "rainScale": 0.0 },
+  "attachments": [],
+  "collisions": { "collisionImpulse": null, "longitudinalJerkImpulse": null },
+  "diagnostics": { "payloadBytes": 1800, "buildTimeMs": 0.4, "warnings": [] }
+}

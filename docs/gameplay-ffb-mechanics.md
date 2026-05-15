@@ -24,8 +24,8 @@ diagnostics
 
 Important source details:
 
-- `motion.speedKmh` is primarily derived from root-node horizontal world-position delta. Movement below `2 km/h` is treated as standstill, and values are capped at `300 km/h`.
-- `motion.speedMps` is the same source speed in meters per second.
+- `motion.speedKmh` is primarily the stable FS25 vehicle speed from `vehicle:getLastSpeed()` / `vehicle.lastSpeedReal`. Root-node horizontal world-position delta is kept as a fallback/diagnostic source and is ignored for acceleration/impact on spike frames.
+- `motion.speedMps` is the same stable speed in meters per second.
 - `motion.localAccelerationMps2` is vehicle-local acceleration.
 - `motion.yawRateRadPerSec` is radians per second.
 - `vehicle.massT` and `vehicle.totalMassT` are metric tonnes.

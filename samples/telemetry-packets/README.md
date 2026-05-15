@@ -12,3 +12,7 @@ Calibration packets:
 - `calibration-heavy-implement.json`
 - `calibration-high-slip.json`
 - `calibration-bump-landing.json`
+
+Regression packets:
+
+- `regression-position-speed-spike-filtered.json`: stable FS25 speed after a simulated position-derived speed spike; acceleration and collision impulses stay suppressed for the noisy frame.
