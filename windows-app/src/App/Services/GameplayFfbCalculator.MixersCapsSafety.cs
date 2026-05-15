@@ -110,7 +110,7 @@ public sealed partial class GameplayFfbCalculator
         {
             var cappedHaptics = haptics with
             {
-                EnginePercent = haptics.EnginePercent,
+                EnginePercent = Math.Min(haptics.EnginePercent, profile.EngineVibrationCapPercent),
                 SurfacePercent = Math.Min(haptics.SurfacePercent, profile.SurfaceHapticCapPercent),
                 SlipPercent = Math.Min(haptics.SlipPercent, profile.SlipHapticCapPercent),
                 TerrainRumblePercent = Math.Min(haptics.TerrainRumblePercent, profile.TerrainRumbleCapPercent)
@@ -118,13 +118,7 @@ public sealed partial class GameplayFfbCalculator
             var cappedPulses = pulses
                 .Select(p => p with
                 {
-                    Percent = p.Kind is FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop
-                        ? p.Percent
-                        : Math.Sign(p.Percent == 0 ? 1 : p.Percent) * Math.Min(
-                        profile.Name.Contains("MOMO", StringComparison.OrdinalIgnoreCase) && Math.Abs(p.Percent) > 0
-                            ? Math.Max(Math.Abs(p.Percent), 6)
-                            : Math.Abs(p.Percent),
-                        profile.BumpPulseCapPercent),
+                    Percent = CapPulsePercent(p, profile),
                     DurationMs = p.Kind is FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop
                         ? p.DurationMs
                         : Math.Min(p.DurationMs, profile.MaxBumpDurationMs)
@@ -132,6 +126,22 @@ public sealed partial class GameplayFfbCalculator
                 .ToArray();
 
             return (steering, cappedHaptics, cappedPulses);
+        }
+
+        private static double CapPulsePercent(EventPulse pulse, DeviceHapticProfile profile)
+        {
+            var magnitude = Math.Abs(pulse.Percent);
+            var sign = Math.Sign(pulse.Percent == 0 ? 1 : pulse.Percent);
+            var cap = pulse.Kind is FfbPulseKind.GearShift or FfbPulseKind.DrivetrainJerk or FfbPulseKind.EngineStartStop
+                ? profile.EngineDrivetrainPulseCapPercent
+                : profile.BumpPulseCapPercent;
+            var floor = pulse.Kind is FfbPulseKind.GearShift or FfbPulseKind.DrivetrainJerk or FfbPulseKind.EngineStartStop
+                ? magnitude
+                : profile.Name.Contains("MOMO", StringComparison.OrdinalIgnoreCase) && magnitude > 0
+                    ? Math.Max(magnitude, 6)
+                    : magnitude;
+
+            return sign * Math.Min(floor, cap);
         }
     }
 

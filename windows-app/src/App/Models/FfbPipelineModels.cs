@@ -99,6 +99,7 @@ public sealed record TelemetryFeatures(
 public sealed record DeviceHapticProfile(
     string Name,
     int EngineVibrationCapPercent,
+    int EngineDrivetrainPulseCapPercent,
     int SurfaceHapticCapPercent,
     int SlipHapticCapPercent,
     int TerrainRumbleCapPercent,
@@ -110,6 +111,7 @@ public sealed record DeviceHapticProfile(
     public static DeviceHapticProfile Generic { get; } = new(
         "Generic FFB",
         EngineVibrationCapPercent: 100,
+        EngineDrivetrainPulseCapPercent: 100,
         SurfaceHapticCapPercent: 100,
         SlipHapticCapPercent: 100,
         TerrainRumbleCapPercent: 100,
@@ -121,6 +123,7 @@ public sealed record DeviceHapticProfile(
     public static DeviceHapticProfile LogitechMomo { get; } = new(
         "Logitech MOMO",
         EngineVibrationCapPercent: 14,
+        EngineDrivetrainPulseCapPercent: 22,
         SurfaceHapticCapPercent: 18,
         SlipHapticCapPercent: 18,
         TerrainRumbleCapPercent: 14,
@@ -132,6 +135,7 @@ public sealed record DeviceHapticProfile(
     public static DeviceHapticProfile LogitechG25G27 { get; } = new(
         "Logitech G25/G27",
         EngineVibrationCapPercent: 24,
+        EngineDrivetrainPulseCapPercent: 28,
         SurfaceHapticCapPercent: 32,
         SlipHapticCapPercent: 32,
         TerrainRumbleCapPercent: 28,
@@ -143,6 +147,7 @@ public sealed record DeviceHapticProfile(
     public static DeviceHapticProfile LogitechG29G920G923 { get; } = new(
         "Logitech G29/G920/G923",
         EngineVibrationCapPercent: 22,
+        EngineDrivetrainPulseCapPercent: 28,
         SurfaceHapticCapPercent: 30,
         SlipHapticCapPercent: 30,
         TerrainRumbleCapPercent: 26,

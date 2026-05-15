@@ -4,6 +4,8 @@ namespace FS25FfbBridge.App.Services;
 
 public sealed partial class GameplayFfbCalculator
 {
+    private const double TelemetryLongitudinalJerkPulseThreshold = 0.85;
+
     public static class EngineDrivetrainLayer
     {
         public static LayerContribution<ContinuousHaptics> CalculateContinuous(TelemetryPacketV1 packet, TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
@@ -51,7 +53,7 @@ public sealed partial class GameplayFfbCalculator
             return [];
         }
 
-        var current = new DrivetrainSample(packet.VehicleName, packet.EngineRunning, IsEngineStarting(packet), packet.TransmissionThrottle01, packet.TransmissionBrake01, packet.TransmissionClutch01, packet.Gear, packet.EngineStartSeq, packet.EngineStopSeq, packet.GearChangeSeq);
+        var current = new DrivetrainSample(packet.VehicleName, packet.EngineRunning, IsEngineStarting(packet), packet.TransmissionThrottle01, packet.TransmissionBrake01, packet.TransmissionClutch01, packet.Gear, packet.EngineStartSeq, packet.EngineStopSeq, packet.GearChangeSeq, features.LongitudinalJerkImpulse);
         var previous = _lastDrivetrainSample;
         _lastDrivetrainSample = current;
         if (previous is null || !string.Equals(previous.VehicleName, current.VehicleName, StringComparison.Ordinal))
@@ -119,12 +121,11 @@ public sealed partial class GameplayFfbCalculator
                 ? Math.Clamp((pedalDelta - 0.35) / 0.65, 0.25, 1.0)
                 : 0;
 
-            if (features.SpeedKmh > 0 &&
-                features.LongitudinalJerkImpulse >= 0.35 &&
+            if (ShouldCreateTelemetryLongitudinalJerkPulse(features, current, previous) &&
                 features.VerticalImpactImpulse < profile.BumpFeedback.MinImpulse &&
                 features.CollisionImpulse < profile.CollisionFeedback.MinImpulse)
             {
-                pulseRatio = Math.Max(pulseRatio, Math.Clamp((features.LongitudinalJerkImpulse - 0.35) / 0.85, 0.25, 1.0));
+                pulseRatio = Math.Max(pulseRatio, Math.Clamp((features.LongitudinalJerkImpulse - TelemetryLongitudinalJerkPulseThreshold) / (2.0 - TelemetryLongitudinalJerkPulseThreshold), 0.25, 1.0));
             }
 
             if (pulseRatio > 0)
@@ -141,6 +142,14 @@ public sealed partial class GameplayFfbCalculator
         }
 
         return pulses;
+    }
+
+    private static bool ShouldCreateTelemetryLongitudinalJerkPulse(TelemetryFeatures features, DrivetrainSample current, DrivetrainSample previous)
+    {
+        return features.SpeedKmh > 0 &&
+               (IsOffRoadSurface(features) || IsUnknownMixedSurface(features)) &&
+               current.LongitudinalJerkImpulse >= TelemetryLongitudinalJerkPulseThreshold &&
+               previous.LongitudinalJerkImpulse < TelemetryLongitudinalJerkPulseThreshold;
     }
 
     private static bool IsNewSeq(long? seq, ref long? lastSeq)
@@ -344,7 +353,7 @@ public sealed partial class GameplayFfbCalculator
         _suppressRpmStartUntilEngineOff = false;
     }
 
-    private sealed record DrivetrainSample(string? VehicleName, bool? EngineStarted, bool EngineIsStarting, double? Throttle, double? Brake, double? Clutch, int? Gear, long? EngineStartSeq, long? EngineStopSeq, long? GearChangeSeq);
+    private sealed record DrivetrainSample(string? VehicleName, bool? EngineStarted, bool EngineIsStarting, double? Throttle, double? Brake, double? Clutch, int? Gear, long? EngineStartSeq, long? EngineStopSeq, long? GearChangeSeq, double LongitudinalJerkImpulse);
 
     private sealed record EngineStartStopVibrationState(int Direction, double DurationMs, double RemainingMs, double Percent, int Hz);
 

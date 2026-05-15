@@ -406,6 +406,31 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Momo_caps_engine_drivetrain_event_pulses()
+    {
+        var settings = new GameplayFfbSettings();
+        var truck = settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck];
+        truck.EngineDrivetrainMaxPercent = 86;
+        truck.GearShiftPulse.StrengthPercent = 70;
+        truck.GearShiftPulse.MaxOutputPercent = 100;
+        truck.DrivetrainPulse.StrengthPercent = 40;
+        truck.DrivetrainPulse.MaxOutputPercent = 100;
+
+        var gearCalculator = new GameplayFfbCalculator();
+        _ = gearCalculator.Calculate(State(Packet(speedKmh: 20, gear: 4, gearChangeSeq: 10, engineLoad01: 1.0, vehicleCategory: VehicleCategoryFfbProfile.Truck)), settings, DeviceHapticProfile.LogitechMomo);
+        var gear = gearCalculator.Calculate(State(Packet(speedKmh: 20, gear: 5, gearChangeSeq: 11, engineLoad01: 1.0, vehicleCategory: VehicleCategoryFfbProfile.Truck)), settings, DeviceHapticProfile.LogitechMomo);
+
+        var jerkCalculator = new GameplayFfbCalculator();
+        _ = jerkCalculator.Calculate(State(Packet(speedKmh: 20, surfaceType: "asphalt", throttle: 0.1, gear: 5, vehicleCategory: VehicleCategoryFfbProfile.Truck)), settings, DeviceHapticProfile.LogitechMomo);
+        var jerk = jerkCalculator.Calculate(State(Packet(speedKmh: 20, surfaceType: "asphalt", throttle: 0.8, gear: 5, vehicleCategory: VehicleCategoryFfbProfile.Truck)), settings, DeviceHapticProfile.LogitechMomo);
+
+        Assert.Equal(FfbPulseKind.GearShift, gear.EventPulseKind);
+        Assert.Equal(DeviceHapticProfile.LogitechMomo.EngineDrivetrainPulseCapPercent, gear.GearShiftPulsePercent);
+        Assert.Equal(FfbPulseKind.DrivetrainJerk, jerk.EventPulseKind);
+        Assert.Equal(DeviceHapticProfile.LogitechMomo.EngineDrivetrainPulseCapPercent, Math.Abs(jerk.BumpImpulsePercent));
+    }
+
+    [Fact]
     public void Engine_start_seq_takes_priority_over_same_frame_gear_change()
     {
         var calculator = new GameplayFfbCalculator();
@@ -725,6 +750,29 @@ public sealed class GameplayFfbCalculatorTests
         Assert.True(momo.SlipVibrationPercent <= generic.SlipVibrationPercent);
         Assert.True(Math.Abs(momo.BumpImpulsePercent) >= Math.Abs(generic.BumpImpulsePercent));
         Assert.True(momo.BumpDurationMs >= generic.BumpDurationMs);
+    }
+
+    [Fact]
+    public void Momo_caps_engine_vibration_to_device_limit()
+    {
+        var settings = new GameplayFfbSettings();
+        var truck = settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck];
+        truck.EngineRpmVibration.IdleStrengthPercent = 100;
+        truck.EngineRpmVibration.LoadStrengthPercent = 100;
+        truck.EngineRpmVibration.MaxOutputPercent = 100;
+        truck.EngineDrivetrainMaxPercent = 100;
+        var packet = Packet(
+            speedKmh: 25,
+            rpm: 2000,
+            rpm01: 0.8,
+            engineLoad01: 1.0,
+            vehicleCategory: VehicleCategoryFfbProfile.Truck);
+
+        var generic = new GameplayFfbCalculator().Calculate(State(packet), settings, DeviceHapticProfile.Generic);
+        var momo = new GameplayFfbCalculator().Calculate(State(packet), settings, DeviceHapticProfile.LogitechMomo);
+
+        Assert.True(generic.EngineRpmVibrationPercent > DeviceHapticProfile.LogitechMomo.EngineVibrationCapPercent);
+        Assert.Equal(DeviceHapticProfile.LogitechMomo.EngineVibrationCapPercent, momo.EngineRpmVibrationPercent);
     }
 
     [Fact]
@@ -1098,10 +1146,34 @@ public sealed class GameplayFfbCalculatorTests
     public void Longitudinal_jerk_produces_drivetrain_pulse_not_bump()
     {
         var settings = new GameplayFfbSettings();
-        _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 2, longitudinalJerkImpulse: 0.1)), settings);
-        var output = _calculator.Calculate(State(Packet(speedKmh: 8, throttle: 0.4, gear: 2, longitudinalJerkImpulse: 0.8, verticalImpactImpulse: 0.05)), settings);
+        _calculator.Calculate(State(Packet(speedKmh: 8, isOnField: true, surfaceType: "field", throttle: 0.4, gear: 2, longitudinalJerkImpulse: 0.1)), settings);
+        var output = _calculator.Calculate(State(Packet(speedKmh: 8, isOnField: true, surfaceType: "field", throttle: 0.4, gear: 2, longitudinalJerkImpulse: 0.9, verticalImpactImpulse: 0.05)), settings);
+        var repeated = _calculator.Calculate(State(Packet(speedKmh: 8, isOnField: true, surfaceType: "field", throttle: 0.4, gear: 2, longitudinalJerkImpulse: 0.9, verticalImpactImpulse: 0.05)), settings);
 
         Assert.True(output.EventPulseActive);
+        Assert.Equal(FfbPulseKind.DrivetrainJerk, output.EventPulseKind);
+        Assert.NotEqual(FfbPulseKind.DrivetrainJerk, repeated.EventPulseKind);
+    }
+
+    [Fact]
+    public void Road_longitudinal_jerk_does_not_create_drivetrain_pulse_for_steady_truck()
+    {
+        var settings = new GameplayFfbSettings();
+        var calculator = new GameplayFfbCalculator();
+        calculator.Calculate(State(Packet(speedKmh: 40, surfaceType: "asphalt", throttle: 1.0, gear: 10, longitudinalJerkImpulse: 0.1, verticalImpactImpulse: 0.0, collisionImpulse: 0.0, vehicleCategory: VehicleCategoryFfbProfile.Truck, isArticulated: true)), settings);
+        var output = calculator.Calculate(State(Packet(speedKmh: 42, surfaceType: "asphalt", throttle: 1.0, gear: 10, longitudinalJerkImpulse: 1.2, verticalImpactImpulse: 0.0, collisionImpulse: 0.0, vehicleCategory: VehicleCategoryFfbProfile.Truck, isArticulated: true)), settings);
+
+        Assert.NotEqual(FfbPulseKind.DrivetrainJerk, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Road_throttle_delta_still_creates_drivetrain_pulse()
+    {
+        var settings = new GameplayFfbSettings();
+        var calculator = new GameplayFfbCalculator();
+        calculator.Calculate(State(Packet(speedKmh: 40, surfaceType: "asphalt", throttle: 0.1, gear: 10, longitudinalJerkImpulse: 0.0, verticalImpactImpulse: 0.0, collisionImpulse: 0.0, vehicleCategory: VehicleCategoryFfbProfile.Truck)), settings);
+        var output = calculator.Calculate(State(Packet(speedKmh: 42, surfaceType: "asphalt", throttle: 0.8, gear: 10, longitudinalJerkImpulse: 0.0, verticalImpactImpulse: 0.0, collisionImpulse: 0.0, vehicleCategory: VehicleCategoryFfbProfile.Truck)), settings);
+
         Assert.Equal(FfbPulseKind.DrivetrainJerk, output.EventPulseKind);
     }
 
