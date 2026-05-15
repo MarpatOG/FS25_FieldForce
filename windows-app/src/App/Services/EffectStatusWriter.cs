@@ -80,7 +80,7 @@ public sealed class EffectStatusWriter
                 output.DamperPercent > 0,
                 output.SurfaceVibrationPercent > 0 || output.TerrainRumblePercent > 0 || output.SlipVibrationPercent > 0,
                 output.TerrainRumblePercent > 0,
-                output.LoadFactor > 1.01,
+                output.LoadResistanceActive || output.MotionFeedbackActive || output.HillStandstillLoadActive || output.SideSlopeBiasActive || output.ImplementBiasActive,
                 output.EngineVibrationPercent > 0);
 
             File.WriteAllText(_statusPath, JsonSerializer.Serialize(status, JsonOptions));

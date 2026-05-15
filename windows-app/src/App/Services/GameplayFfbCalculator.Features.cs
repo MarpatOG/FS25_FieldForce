@@ -177,6 +177,21 @@ public sealed partial class GameplayFfbCalculator
             var heavyEngine = IsHeavyEngine(packet);
             var powertrainType = NormalizePowertrainType(packet.PowertrainType);
             var lugging = packet.EngineRunning == true && loadRatio >= 0.65 && rpmRatio <= (heavyEngine ? 0.36 : 0.30);
+            var rollDeg = IsValidFinite(packet.RollDeg) ? packet.RollDeg!.Value : 0;
+            var rollAbs = Math.Abs(rollDeg);
+            var rollRatio = rollAbs <= profile.SideSlopeBias.MinRollDeg
+                ? 0
+                : Math.Clamp((rollAbs - profile.SideSlopeBias.MinRollDeg) / Math.Max(0.1, profile.SideSlopeBias.FullRollDeg - profile.SideSlopeBias.MinRollDeg), 0, 1);
+            var ownMassT = IsValidFinite(packet.MassT) && packet.MassT > 0 ? packet.MassT!.Value : 0;
+            var attachedMassT = packet.Attachments
+                .Where(a => IsValidFinite(a.MassT))
+                .Sum(a => Math.Max(0, a.MassT!.Value));
+            var weightedOffsetMass = packet.Attachments
+                .Where(a => IsValidFinite(a.MassT) && IsValidFinite(a.LateralOffsetM))
+                .Sum(a => Math.Max(0, a.MassT!.Value) * a.LateralOffsetM!.Value);
+            var weightedOffsetM = attachedMassT > 0 ? weightedOffsetMass / attachedMassT : 0;
+            var attachedMassRatio = ownMassT > 0 ? Math.Clamp(attachedMassT / ownMassT, 0, 4) : CalculateLoadRatio(loadFactor);
+            var implementLateralOffsetRatio = Math.Clamp(weightedOffsetM / Math.Max(0.1, profile.ImplementBias.FullLateralOffsetM), -1, 1);
 
             return new TelemetryFeatures(
                 speed,
@@ -210,7 +225,11 @@ public sealed partial class GameplayFfbCalculator
                 powertrainType,
                 heavyEngine,
                 tireProfile,
-                multiplier);
+                multiplier,
+                rollRatio,
+                Math.Sign(rollDeg),
+                attachedMassRatio,
+                implementLateralOffsetRatio);
         }
 
         private static string ResolveTireProfile(TelemetryPacketV1 packet)

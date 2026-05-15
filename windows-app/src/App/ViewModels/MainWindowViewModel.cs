@@ -218,6 +218,39 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private FfbCurveKind _loadResistanceCurve;
 
     [ObservableProperty]
+    private bool _slewSmoothingEnabled;
+
+    [ObservableProperty]
+    private int _slewSmoothingStrengthPercent;
+
+    [ObservableProperty]
+    private bool _hillStandstillLoadEnabled;
+
+    [ObservableProperty]
+    private int _hillStandstillLoadStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _hillStandstillLoadCurve;
+
+    [ObservableProperty]
+    private bool _sideSlopeBiasEnabled;
+
+    [ObservableProperty]
+    private int _sideSlopeBiasStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _sideSlopeBiasCurve;
+
+    [ObservableProperty]
+    private bool _implementBiasEnabled;
+
+    [ObservableProperty]
+    private int _implementBiasStrengthPercent;
+
+    [ObservableProperty]
+    private FfbCurveKind _implementBiasCurve;
+
+    [ObservableProperty]
     private bool _engineVibrationEnabled;
 
     [ObservableProperty]
@@ -399,6 +432,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private bool _motionFeedbackActive;
+
+    [ObservableProperty]
+    private bool _slewSmoothingActive;
+
+    [ObservableProperty]
+    private bool _hillStandstillLoadActive;
+
+    [ObservableProperty]
+    private bool _sideSlopeBiasActive;
+
+    [ObservableProperty]
+    private bool _implementBiasActive;
 
     [ObservableProperty]
     private bool _contactReliefControlsActive;
@@ -1039,6 +1084,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     partial void OnLoadResistanceEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnSlewSmoothingEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnSlewSmoothingStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnHillStandstillLoadEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnHillStandstillLoadStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnHillStandstillLoadCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnSideSlopeBiasEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnSideSlopeBiasStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSideSlopeBiasCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+    partial void OnImplementBiasEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
+    partial void OnImplementBiasStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnImplementBiasCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnEngineIdleStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
@@ -1104,6 +1160,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         LoadResistanceEnabled = settings.LoadResistance.Enabled;
         LoadResistanceStrengthPercent = settings.LoadResistance.StrengthPercent;
         LoadResistanceCurve = settings.LoadResistance.Curve;
+        SlewSmoothingEnabled = settings.SlewSmoothing.Enabled;
+        SlewSmoothingStrengthPercent = settings.SlewSmoothing.StrengthPercent;
+        HillStandstillLoadEnabled = settings.HillStandstillLoad.Enabled;
+        HillStandstillLoadStrengthPercent = settings.HillStandstillLoad.StrengthPercent;
+        HillStandstillLoadCurve = settings.HillStandstillLoad.Curve;
+        SideSlopeBiasEnabled = settings.SideSlopeBias.Enabled;
+        SideSlopeBiasStrengthPercent = settings.SideSlopeBias.StrengthPercent;
+        SideSlopeBiasCurve = settings.SideSlopeBias.Curve;
+        ImplementBiasEnabled = settings.ImplementBias.Enabled;
+        ImplementBiasStrengthPercent = settings.ImplementBias.StrengthPercent;
+        ImplementBiasCurve = settings.ImplementBias.Curve;
         EngineVibrationEnabled = settings.EngineVibration.Enabled;
         EngineVibrationStrengthPercent = settings.EngineVibration.StrengthPercent;
         EngineIdleStrengthPercent = settings.EngineVibration.IdleStrengthPercent;
@@ -1241,6 +1308,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         target.SpeedDamper.StrengthPercent = source.SpeedDamper.StrengthPercent;
         target.MechanicalFriction.StrengthPercent = source.MechanicalFriction.StrengthPercent;
         target.LoadResistance.StrengthPercent = source.LoadResistance.StrengthPercent;
+        target.SlewSmoothing.StrengthPercent = source.SlewSmoothing.StrengthPercent;
+        target.HillStandstillLoad.StrengthPercent = source.HillStandstillLoad.StrengthPercent;
+        target.SideSlopeBias.StrengthPercent = source.SideSlopeBias.StrengthPercent;
+        target.ImplementBias.StrengthPercent = source.ImplementBias.StrengthPercent;
         target.EngineVibration.StrengthPercent = source.EngineVibration.StrengthPercent;
         target.EngineVibration.IdleStrengthPercent = source.EngineVibration.IdleStrengthPercent;
         target.EngineVibration.LoadStrengthPercent = source.EngineVibration.LoadStrengthPercent;
@@ -1296,6 +1367,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         profile.LoadResistance.StrengthPercent = Math.Clamp(LoadResistanceStrengthPercent, 0, 100);
         profile.LoadResistance.MaxOutputPercent = 100;
         profile.LoadResistance.Curve = LoadResistanceCurve;
+        profile.SlewSmoothing.Enabled = SlewSmoothingEnabled;
+        profile.SlewSmoothing.StrengthPercent = Math.Clamp(SlewSmoothingStrengthPercent, 0, 100);
+        profile.HillStandstillLoad.Enabled = HillStandstillLoadEnabled;
+        profile.HillStandstillLoad.StrengthPercent = Math.Clamp(HillStandstillLoadStrengthPercent, 0, 100);
+        profile.HillStandstillLoad.MaxOutputPercent = 100;
+        profile.HillStandstillLoad.Curve = HillStandstillLoadCurve;
+        profile.SideSlopeBias.Enabled = SideSlopeBiasEnabled;
+        profile.SideSlopeBias.StrengthPercent = Math.Clamp(SideSlopeBiasStrengthPercent, 0, 100);
+        profile.SideSlopeBias.MaxOutputPercent = 100;
+        profile.SideSlopeBias.Curve = SideSlopeBiasCurve;
+        profile.ImplementBias.Enabled = ImplementBiasEnabled;
+        profile.ImplementBias.StrengthPercent = Math.Clamp(ImplementBiasStrengthPercent, 0, 100);
+        profile.ImplementBias.MaxOutputPercent = 100;
+        profile.ImplementBias.Curve = ImplementBiasCurve;
         profile.EngineVibration.Enabled = EngineVibrationEnabled;
         profile.EngineVibration.IdleStrengthPercent = Math.Clamp(EngineIdleStrengthPercent, 0, 100);
         profile.EngineVibration.LoadStrengthPercent = Math.Clamp(EngineLoadStrengthPercent, 0, 100);
@@ -1370,6 +1455,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         profile.SpeedDamper.MaxOutputPercent = 100;
         profile.MechanicalFriction.MaxOutputPercent = 100;
         profile.LoadResistance.MaxOutputPercent = 100;
+        profile.HillStandstillLoad.MaxOutputPercent = 100;
+        profile.SideSlopeBias.MaxOutputPercent = 100;
+        profile.ImplementBias.MaxOutputPercent = 100;
         profile.EngineVibration.MaxOutputPercent = 100;
         profile.GearShiftPulse.MaxOutputPercent = 100;
         profile.EngineStartStopPulse.MaxOutputPercent = 100;
@@ -1399,6 +1487,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             SpeedDamper = _config.GameplayFfb.SpeedDamper,
             MechanicalFriction = _config.GameplayFfb.MechanicalFriction,
             LoadResistance = _config.GameplayFfb.LoadResistance,
+            SlewSmoothing = _config.GameplayFfb.SlewSmoothing,
+            HillStandstillLoad = _config.GameplayFfb.HillStandstillLoad,
+            SideSlopeBias = _config.GameplayFfb.SideSlopeBias,
+            ImplementBias = _config.GameplayFfb.ImplementBias,
             EngineVibration = _config.GameplayFfb.EngineVibration,
             GearShiftPulse = _config.GameplayFfb.GearShiftPulse,
             EngineStartStopPulse = _config.GameplayFfb.EngineStartStopPulse,
@@ -1462,6 +1554,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             DrivetrainPulseActive = output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop;
             LoadResistanceActive = output.LoadResistanceActive;
             MotionFeedbackActive = output.MotionFeedbackActive;
+            SlewSmoothingActive = output.SlewSmoothingActive;
+            HillStandstillLoadActive = output.HillStandstillLoadActive;
+            SideSlopeBiasActive = output.SideSlopeBiasActive;
+            ImplementBiasActive = output.ImplementBiasActive;
             ContactReliefControlsActive = output.ContactReliefControlsActive;
             AntiOscillationActive = output.AntiOscillationActive;
             WetnessFeedbackActive = output.WetnessFeedbackActive;

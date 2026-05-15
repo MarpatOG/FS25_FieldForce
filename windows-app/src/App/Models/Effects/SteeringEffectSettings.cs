@@ -32,3 +32,28 @@ public sealed class MotionFeedbackSettings : FfbEffectSettings
     public int SpringModifierPercent { get; set; } = 20;
     public int DamperModifierPercent { get; set; } = 25;
 }
+
+public sealed class SlewSmoothingSettings
+{
+    public bool Enabled { get; set; } = true;
+    public int StrengthPercent { get; set; } = 45;
+}
+
+public sealed class HillStandstillLoadSettings : FfbEffectSettings
+{
+    public double MinSlopeDeg { get; set; } = 3;
+    public double FullSlopeDeg { get; set; } = 16;
+}
+
+public sealed class SideSlopeBiasSettings : FfbEffectSettings
+{
+    public double MinRollDeg { get; set; } = 3;
+    public double FullRollDeg { get; set; } = 15;
+}
+
+public sealed class ImplementBiasSettings : FfbEffectSettings
+{
+    public double MinAttachedMassRatio { get; set; } = 0.10;
+    public double FullAttachedMassRatio { get; set; } = 1.0;
+    public double FullLateralOffsetM { get; set; } = 1.5;
+}

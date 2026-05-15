@@ -53,6 +53,43 @@ public class GameplayFfbEffectProfile
         FrictionScale = 1.00
     };
 
+    public SlewSmoothingSettings SlewSmoothing { get; set; } = new()
+    {
+        Enabled = true,
+        StrengthPercent = 45
+    };
+
+    public HillStandstillLoadSettings HillStandstillLoad { get; set; } = new()
+    {
+        Enabled = true,
+        StrengthPercent = 18,
+        MaxOutputPercent = DefaultMaxOutputPercent,
+        Curve = FfbCurveKind.Smooth,
+        MinSlopeDeg = 3,
+        FullSlopeDeg = 16
+    };
+
+    public SideSlopeBiasSettings SideSlopeBias { get; set; } = new()
+    {
+        Enabled = true,
+        StrengthPercent = 12,
+        MaxOutputPercent = DefaultMaxOutputPercent,
+        Curve = FfbCurveKind.Smooth,
+        MinRollDeg = 3,
+        FullRollDeg = 15
+    };
+
+    public ImplementBiasSettings ImplementBias { get; set; } = new()
+    {
+        Enabled = true,
+        StrengthPercent = 14,
+        MaxOutputPercent = DefaultMaxOutputPercent,
+        Curve = FfbCurveKind.Smooth,
+        MinAttachedMassRatio = 0.10,
+        FullAttachedMassRatio = 1.0,
+        FullLateralOffsetM = 1.5
+    };
+
     public EngineVibrationSettings EngineRpmVibration { get; set; } = new()
     {
         Enabled = true,
@@ -244,6 +281,39 @@ public class GameplayFfbEffectProfile
                 DamperScale = settings.LoadResistance.DamperScale,
                 FrictionScale = settings.LoadResistance.FrictionScale
             },
+            SlewSmoothing = new SlewSmoothingSettings
+            {
+                Enabled = settings.SlewSmoothing.Enabled,
+                StrengthPercent = settings.SlewSmoothing.StrengthPercent
+            },
+            HillStandstillLoad = new HillStandstillLoadSettings
+            {
+                Enabled = settings.HillStandstillLoad.Enabled,
+                StrengthPercent = settings.HillStandstillLoad.StrengthPercent,
+                MaxOutputPercent = settings.HillStandstillLoad.MaxOutputPercent,
+                Curve = settings.HillStandstillLoad.Curve,
+                MinSlopeDeg = settings.HillStandstillLoad.MinSlopeDeg,
+                FullSlopeDeg = settings.HillStandstillLoad.FullSlopeDeg
+            },
+            SideSlopeBias = new SideSlopeBiasSettings
+            {
+                Enabled = settings.SideSlopeBias.Enabled,
+                StrengthPercent = settings.SideSlopeBias.StrengthPercent,
+                MaxOutputPercent = settings.SideSlopeBias.MaxOutputPercent,
+                Curve = settings.SideSlopeBias.Curve,
+                MinRollDeg = settings.SideSlopeBias.MinRollDeg,
+                FullRollDeg = settings.SideSlopeBias.FullRollDeg
+            },
+            ImplementBias = new ImplementBiasSettings
+            {
+                Enabled = settings.ImplementBias.Enabled,
+                StrengthPercent = settings.ImplementBias.StrengthPercent,
+                MaxOutputPercent = settings.ImplementBias.MaxOutputPercent,
+                Curve = settings.ImplementBias.Curve,
+                MinAttachedMassRatio = settings.ImplementBias.MinAttachedMassRatio,
+                FullAttachedMassRatio = settings.ImplementBias.FullAttachedMassRatio,
+                FullLateralOffsetM = settings.ImplementBias.FullLateralOffsetM
+            },
             EngineRpmVibration = new EngineVibrationSettings
             {
                 Enabled = settings.EngineRpmVibration.Enabled,
@@ -370,6 +440,18 @@ public class GameplayFfbEffectProfile
         settings.SpeedDamper ??= new SpeedConditionSettings();
         settings.MechanicalFriction ??= new MechanicalFrictionSettings();
         settings.LoadResistance ??= new LoadResistanceSettings();
+        settings.SlewSmoothing ??= new SlewSmoothingSettings();
+        settings.SlewSmoothing.StrengthPercent = Math.Clamp(settings.SlewSmoothing.StrengthPercent, 0, 100);
+        settings.HillStandstillLoad ??= new HillStandstillLoadSettings();
+        settings.HillStandstillLoad.MinSlopeDeg = Math.Clamp(settings.HillStandstillLoad.MinSlopeDeg, 0, 45);
+        settings.HillStandstillLoad.FullSlopeDeg = Math.Clamp(settings.HillStandstillLoad.FullSlopeDeg, Math.Max(0.1, settings.HillStandstillLoad.MinSlopeDeg), 60);
+        settings.SideSlopeBias ??= new SideSlopeBiasSettings();
+        settings.SideSlopeBias.MinRollDeg = Math.Clamp(settings.SideSlopeBias.MinRollDeg, 0, 45);
+        settings.SideSlopeBias.FullRollDeg = Math.Clamp(settings.SideSlopeBias.FullRollDeg, Math.Max(0.1, settings.SideSlopeBias.MinRollDeg), 60);
+        settings.ImplementBias ??= new ImplementBiasSettings();
+        settings.ImplementBias.MinAttachedMassRatio = Math.Clamp(settings.ImplementBias.MinAttachedMassRatio, 0, 4);
+        settings.ImplementBias.FullAttachedMassRatio = Math.Clamp(settings.ImplementBias.FullAttachedMassRatio, Math.Max(0.01, settings.ImplementBias.MinAttachedMassRatio), 4);
+        settings.ImplementBias.FullLateralOffsetM = Math.Clamp(settings.ImplementBias.FullLateralOffsetM, 0.1, 10);
         settings.EngineRpmVibration ??= settings.EngineVibration ?? new EngineVibrationSettings();
         settings.EngineRpmVibration.IdleStrengthPercent = Math.Clamp(settings.EngineRpmVibration.IdleStrengthPercent, 0, 100);
         settings.EngineRpmVibration.LoadStrengthPercent = Math.Clamp(settings.EngineRpmVibration.LoadStrengthPercent, 0, 100);
@@ -439,6 +521,9 @@ public class GameplayFfbEffectProfile
         ApplyOverallOutputCap(settings.SpeedDamper, overallCap);
         ApplyOverallOutputCap(settings.MechanicalFriction, overallCap);
         ApplyOverallOutputCap(settings.LoadResistance, overallCap);
+        ApplyOverallOutputCap(settings.HillStandstillLoad, overallCap);
+        ApplyOverallOutputCap(settings.SideSlopeBias, overallCap);
+        ApplyOverallOutputCap(settings.ImplementBias, overallCap);
         ApplyOverallOutputCap(settings.EngineRpmVibration, overallCap);
         ApplyOverallOutputCap(settings.GearShiftPulse, overallCap);
         ApplyOverallOutputCap(settings.EngineStartStopPulse, overallCap);

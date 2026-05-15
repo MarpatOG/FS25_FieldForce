@@ -797,6 +797,10 @@ public sealed class GameplayFfbCalculatorTests
     {
         var settings = new GameplayFfbSettings();
         settings.MotionFeedback.Enabled = false;
+        foreach (var profile in settings.VehicleCategoryEffectProfiles.Values)
+        {
+            profile.MotionFeedback.Enabled = false;
+        }
 
         var flat = _calculator.Calculate(State(Packet(speedKmh: 25)), settings);
         var motion = _calculator.Calculate(State(Packet(speedKmh: 25, pitchDeg: 8, yawRateDegPerSec: 30)), settings);
@@ -810,12 +814,87 @@ public sealed class GameplayFfbCalculatorTests
     {
         var settings = new GameplayFfbSettings();
         settings.MotionFeedback.StrengthPercent = 0;
+        foreach (var profile in settings.VehicleCategoryEffectProfiles.Values)
+        {
+            profile.MotionFeedback.StrengthPercent = 0;
+        }
 
         var flat = _calculator.Calculate(State(Packet(speedKmh: 25)), settings);
         var motion = _calculator.Calculate(State(Packet(speedKmh: 25, pitchDeg: 8, yawRateDegPerSec: 30)), settings);
 
         Assert.Equal(flat.SpringPercent, motion.SpringPercent);
         Assert.Equal(flat.DamperPercent, motion.DamperPercent);
+    }
+
+    [Fact]
+    public void Hill_standstill_load_activates_only_at_standstill_on_slope()
+    {
+        var settings = new GameplayFfbSettings();
+        var flat = _calculator.Calculate(State(Packet(speedKmh: 0, pitchDeg: 0)), settings);
+        var slope = _calculator.Calculate(State(Packet(speedKmh: 0, pitchDeg: 10)), settings);
+        var moving = _calculator.Calculate(State(Packet(speedKmh: 8, pitchDeg: 10)), settings);
+
+        Assert.True(slope.HillStandstillLoadActive);
+        Assert.True(slope.DamperPercent >= flat.DamperPercent);
+        Assert.False(moving.HillStandstillLoadActive);
+    }
+
+    [Fact]
+    public void Side_slope_bias_outputs_signed_center_offset()
+    {
+        var left = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 8, rollDeg: -12)), new GameplayFfbSettings());
+        var right = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 8, rollDeg: 12)), new GameplayFfbSettings());
+
+        Assert.True(left.SideSlopeBiasActive);
+        Assert.True(right.SideSlopeBiasActive);
+        Assert.True(left.CenterOffsetPercent < 0);
+        Assert.True(right.CenterOffsetPercent > 0);
+    }
+
+    [Fact]
+    public void Implement_bias_centered_attachment_adds_load_without_offset()
+    {
+        var packet = Packet(speedKmh: 8, mass: 6000, totalMass: 9000);
+        packet.Attachments =
+        [
+            new TelemetryAttachmentV1 { Name = "Centered", MassT = 3, TotalMassT = 3, LateralOffsetM = 0, Depth = 1 }
+        ];
+
+        var output = _calculator.Calculate(State(packet), new GameplayFfbSettings());
+
+        Assert.True(output.ImplementBiasActive);
+        Assert.Equal(0, output.CenterOffsetPercent);
+        Assert.True(output.DamperPercent > 0 || output.FrictionPercent > 0);
+    }
+
+    [Fact]
+    public void Implement_bias_lateral_attachment_adds_signed_offset()
+    {
+        var packet = Packet(speedKmh: 8, mass: 6000, totalMass: 9000);
+        packet.Attachments =
+        [
+            new TelemetryAttachmentV1 { Name = "Offset", MassT = 3, TotalMassT = 3, LateralOffsetM = 1.2, Depth = 1 }
+        ];
+
+        var output = _calculator.Calculate(State(packet), new GameplayFfbSettings());
+
+        Assert.True(output.ImplementBiasActive);
+        Assert.True(output.CenterOffsetPercent > 0);
+    }
+
+    [Fact]
+    public void Slew_smoothing_reports_active_when_rate_limited()
+    {
+        var settings = new GameplayFfbSettings();
+        foreach (var profile in settings.VehicleCategoryEffectProfiles.Values)
+        {
+            profile.SlewSmoothing.StrengthPercent = 100;
+        }
+
+        _calculator.Calculate(State(Packet(speedKmh: 0, frameDtMs: 1)), settings, DeviceHapticProfile.Generic);
+        var output = _calculator.Calculate(State(Packet(speedKmh: 60, frameDtMs: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(output.SlewSmoothingActive);
     }
 
     [Fact]

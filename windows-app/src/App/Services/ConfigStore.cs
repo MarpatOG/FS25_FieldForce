@@ -186,6 +186,17 @@ public sealed class ConfigStore
             config.EffectsProfileVersion = 14;
         }
 
+        if (config.EffectsProfileVersion < 15)
+        {
+            GameplayFfbEffectProfile.NormalizeEffectSettings(config.GameplayFfb);
+            foreach (var profile in config.GameplayFfb.VehicleCategoryEffectProfiles.Values)
+            {
+                GameplayFfbEffectProfile.NormalizeEffectSettings(profile);
+            }
+
+            config.EffectsProfileVersion = 15;
+        }
+
         return config;
     }
 

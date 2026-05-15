@@ -11,7 +11,7 @@ Entry points:
 
 ## Telemetry Input
 
-The Lua mod sends nested `FS25_REAL_FFB_TELEMETRY` v1.3 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.2.0` and `1.1.0` packets.
+The Lua mod sends nested `FS25_REAL_FFB_TELEMETRY` v1.4 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.3.0` and `1.2.0` packets.
 
 Core blocks:
 
@@ -29,6 +29,7 @@ Important source details:
 - `motion.localAccelerationMps2` is vehicle-local acceleration.
 - `motion.yawRateRadPerSec` is radians per second.
 - `vehicle.massT` and `vehicle.totalMassT` are metric tonnes.
+- `attachments[]` contains recursively attached implements with `name`, `massT`, `totalMassT`, `lateralOffsetM`, and `depth`.
 - `vehicle.isArticulated` marks articulated-frame vehicles whose frame/pivot motion should not be treated as a left/right suspension hit.
 - `wheels[]` carries per-wheel slip, steering flag, side, contact, suspension impulse, wheel type, tire type/profile, and raw surface/ground context.
 - `suspension.verticalImpactImpulse`, `suspension.landingImpulse`, and `collisions.collisionImpulse` remain telemetry inputs; they are not effect percentages.
@@ -55,6 +56,10 @@ wetness = max(environment.groundWetness, environment.rainScale), with wetField f
 rpmRatio = clamp((engine.rpm - MinRpm) / (MaxRpm - MinRpm), 0, 1)
 yawRateRatio = clamp(abs(motion.yawRateRadPerSec converted to deg/s) / FullYawRateDegPerSec, 0, 1)
 slopeRatio = max(abs(motion.pitchDeg), abs(motion.slopeDeg)) normalized by FullPitchDeg
+rollRatio = abs(motion.rollDeg) normalized by SideSlopeBias min/full roll thresholds
+rollDirection = sign(motion.rollDeg)
+attachedMassRatio = sum(attachments[].massT) / vehicle.massT
+implementLateralOffsetRatio = mass-weighted attachments[].lateralOffsetM normalized by ImplementBias.FullLateralOffsetM
 suspensionImpulse = maxValid(abs(suspension.impulse), abs(suspension.verticalImpactImpulse)), clamped 0..2
 verticalImpactImpulse = maxValid(abs(suspension.verticalImpactImpulse), abs(suspension.impulse)), clamped 0..2
 landingImpulse = normalized separately with small impulse noise rejected
@@ -93,7 +98,11 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 
 ## Effects
 
-- Speed spring, speed damper, mechanical friction, load resistance, motion feedback, contact relief, and speed stability combine into DirectInput condition effects.
+- Speed spring, speed damper, mechanical friction, load resistance, motion feedback, hill standstill load, side slope bias, implement bias, contact relief, and speed stability combine into DirectInput condition effects.
+- Slew smoothing is a tunable dt-based rate limiter over spring, damper, friction, and center offset. It reports active only when it actually clamps a frame-to-frame change.
+- Hill standstill load activates at `speed <= 2 km/h` with pitch/slope input and adds extra spring, damper, and friction scaled by load.
+- Side slope bias uses roll direction to produce signed `CenterOffsetPercent`, plus a small damper/friction load.
+- Implement bias uses attached mass and mass-weighted lateral offset. Centered implements add load only; lateral implements also produce signed `CenterOffsetPercent`.
 - Engine vibration, surface feedback, slip feedback, and suspension terrain rumble produce continuous haptics.
 - Tire/surface tuning is stored per wheel effects profile in `GameplayFfbSettings.TireSurfaceTuning`. `SurfaceAliases` maps raw map/mod surface names to normalized surfaces. `Matrix[tireProfile][surfaceType]` is clamped to `0..200%`, defaults to `100%`, and uses `50%` for unknown tire/surface fallback.
 - The tire/surface matrix scales only continuous `SurfaceVibrationPercent` and `TerrainRumblePercent`. Collision, landing, suspension-hit, bump, drivetrain, gear, and engine start/stop pulses are not scaled by this matrix.
@@ -107,6 +116,7 @@ DirectInput outputs:
 
 ```text
 SpringPercent           -> Spring condition
+CenterOffsetPercent     -> Spring condition offset
 DamperPercent           -> Damper condition
 FrictionPercent         -> Friction condition
 EngineVibrationPercent  -> Sine periodic

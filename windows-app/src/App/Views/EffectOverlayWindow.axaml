@@ -96,7 +96,7 @@
                     <Border Classes="lamp" Classes.active="{Binding AntiOscillationActive}" ToolTip.Tip="Anti-oscillation">
                         <TextBlock Classes="lampCode" Text="AO"/>
                     </Border>
-                    <Border Classes="lamp unimplemented" ToolTip.Tip="Slew smoothing">
+                    <Border Classes="lamp" Classes.active="{Binding SlewSmoothingActive}" ToolTip.Tip="Slew smoothing">
                         <TextBlock Classes="lampCode" Text="SM"/>
                     </Border>
                 </StackPanel>
@@ -153,13 +153,13 @@
                     <Border Classes="lamp" Classes.active="{Binding MotionFeedbackActive}" ToolTip.Tip="Motion">
                         <TextBlock Classes="lampCode" Text="MO"/>
                     </Border>
-                    <Border Classes="lamp unimplemented" ToolTip.Tip="Hill standstill load">
+                    <Border Classes="lamp" Classes.active="{Binding HillStandstillLoadActive}" ToolTip.Tip="Hill standstill load">
                         <TextBlock Classes="lampCode" Text="HL"/>
                     </Border>
-                    <Border Classes="lamp unimplemented" ToolTip.Tip="Side slope bias">
+                    <Border Classes="lamp" Classes.active="{Binding SideSlopeBiasActive}" ToolTip.Tip="Side slope bias">
                         <TextBlock Classes="lampCode" Text="SB"/>
                     </Border>
-                    <Border Classes="lamp unimplemented" ToolTip.Tip="Implement bias">
+                    <Border Classes="lamp" Classes.active="{Binding ImplementBiasActive}" ToolTip.Tip="Implement bias">
                         <TextBlock Classes="lampCode" Text="IB"/>
                     </Border>
                 </StackPanel>

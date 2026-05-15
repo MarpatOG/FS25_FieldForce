@@ -40,7 +40,12 @@ public sealed record GameplayFfbOutput(
     bool EngineLuggingActive = false,
     bool EngineUnderLoadActive = false,
     bool GearShiftPulseActive = false,
-    bool EngineStartStopPulseActive = false)
+    bool EngineStartStopPulseActive = false,
+    int CenterOffsetPercent = 0,
+    bool SlewSmoothingActive = false,
+    bool HillStandstillLoadActive = false,
+    bool SideSlopeBiasActive = false,
+    bool ImplementBiasActive = false)
 {
     public static GameplayFfbOutput Zero { get; } = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, false);
 

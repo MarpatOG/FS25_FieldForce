@@ -201,6 +201,93 @@ public sealed partial class GameplayFfbCalculator
         }
     }
 
+    public static class HillStandstillLoadLayer
+    {
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        {
+            var settings = profile.HillStandstillLoad;
+            var slopeDeg = features.SlopeRatio * Math.Max(0.1, profile.MotionFeedback.FullPitchDeg);
+            var slopeRatio = slopeDeg <= settings.MinSlopeDeg
+                ? 0
+                : Math.Clamp((slopeDeg - settings.MinSlopeDeg) / Math.Max(0.1, settings.FullSlopeDeg - settings.MinSlopeDeg), 0, 1);
+            if (!settings.Enabled || features.SpeedKmh > MovingSpeedThresholdKmh || slopeRatio <= 0)
+            {
+                return new(Zero(nameof(HillStandstillLoadLayer)), 1.0);
+            }
+
+            var loadScale = Math.Clamp(0.75 + (CalculateLoadRatio(features.LoadFactor) * 0.65), 0.75, 1.4);
+            var weighted = (CalculateMaxCapped(settings, context.TelemetryFade) / 100.0) * ApplyCurve(slopeRatio, settings.Curve) * loadScale;
+            var baseSpring = CalculateSpeedEffect(profile.SpeedSpring, 0, context.TelemetryFade);
+            var baseDamper = CalculateSpeedEffect(profile.SpeedDamper, 0, context.TelemetryFade);
+            return new(new SteeringContribution(
+                nameof(HillStandstillLoadLayer),
+                Math.Max(8, baseSpring) * weighted * 0.85,
+                Math.Max(6, baseDamper) * weighted * 1.15,
+                MechanicalFrictionLayer.Calculate(features, profile, context).Value.FrictionAdd * weighted * 0.75,
+                0,
+                0,
+                1), 1.0);
+        }
+    }
+
+    public static class SideSlopeBiasLayer
+    {
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        {
+            var settings = profile.SideSlopeBias;
+            if (!settings.Enabled || features.RollRatio <= 0 || features.RollDirection == 0)
+            {
+                return new(Zero(nameof(SideSlopeBiasLayer)), 1.0);
+            }
+
+            var shaped = ApplyCurve(features.RollRatio, settings.Curve);
+            var max = CalculateMaxCapped(settings, context.TelemetryFade);
+            var load = (max / 100.0) * shaped;
+            return new(new SteeringContribution(
+                nameof(SideSlopeBiasLayer),
+                0,
+                Math.Max(4, CalculateSpeedEffect(profile.SpeedDamper, features.SpeedKmh, context.TelemetryFade)) * load * 0.45,
+                Math.Max(4, MechanicalFrictionLayer.Calculate(features, profile, context).Value.FrictionAdd) * load * 0.35,
+                0,
+                0,
+                1,
+                features.RollDirection * max * shaped), 1.0);
+        }
+    }
+
+    public static class ImplementBiasLayer
+    {
+        public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
+        {
+            var settings = profile.ImplementBias;
+            if (!settings.Enabled || features.AttachedMassRatio <= settings.MinAttachedMassRatio)
+            {
+                return new(Zero(nameof(ImplementBiasLayer)), 1.0);
+            }
+
+            var massRatio = Math.Clamp(
+                (features.AttachedMassRatio - settings.MinAttachedMassRatio) /
+                Math.Max(0.01, settings.FullAttachedMassRatio - settings.MinAttachedMassRatio),
+                0,
+                1);
+            var shaped = ApplyCurve(massRatio, settings.Curve);
+            var max = CalculateMaxCapped(settings, context.TelemetryFade);
+            var load = (max / 100.0) * shaped;
+            var offset = Math.Abs(features.ImplementLateralOffsetRatio) > 0.01
+                ? Math.Clamp(features.ImplementLateralOffsetRatio, -1, 1) * max * shaped
+                : 0;
+            return new(new SteeringContribution(
+                nameof(ImplementBiasLayer),
+                Math.Max(6, CalculateSpeedEffect(profile.SpeedSpring, features.SpeedKmh, context.TelemetryFade)) * load * 0.18,
+                Math.Max(5, CalculateSpeedEffect(profile.SpeedDamper, features.SpeedKmh, context.TelemetryFade)) * load * 0.55,
+                Math.Max(4, MechanicalFrictionLayer.Calculate(features, profile, context).Value.FrictionAdd) * load * 0.55,
+                0,
+                0,
+                1,
+                offset), 1.0);
+        }
+    }
+
     private static SteeringContribution Zero(string source)
     {
         return new SteeringContribution(source, 0, 0, 0, 0, 0, 1);

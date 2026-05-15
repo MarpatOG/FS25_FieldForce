@@ -11,6 +11,7 @@ public sealed partial class GameplayFfbCalculator
             var spring = 0.0;
             var damper = 0.0;
             var friction = 0.0;
+            var centerOffset = 0.0;
             var springRelief = 0.0;
             var frictionRelief = 0.0;
 
@@ -22,6 +23,7 @@ public sealed partial class GameplayFfbCalculator
                 spring += value.SpringAdd * confidence;
                 damper += value.DamperAdd * confidence;
                 friction += value.FrictionAdd * confidence;
+                centerOffset += value.CenterOffsetAdd * confidence;
                 springRelief += value.SpringRelief * confidence;
                 frictionRelief += value.FrictionRelief * confidence;
             }
@@ -32,7 +34,8 @@ public sealed partial class GameplayFfbCalculator
             return new SteeringModel(
                 spring * (1 - springRelief),
                 damper,
-                friction * (1 - frictionRelief));
+                friction * (1 - frictionRelief),
+                centerOffset);
         }
     }
 
@@ -139,29 +142,46 @@ public sealed partial class GameplayFfbCalculator
             return new SteeringModel(
                 Math.Clamp(steering.Spring, 0, 100),
                 Math.Clamp(steering.Damper, 0, 100),
-                Math.Clamp(steering.Friction, 0, 100));
+                Math.Clamp(steering.Friction, 0, 100),
+                Math.Clamp(steering.CenterOffsetPercent, -100, 100));
         }
     }
 
-    private SteeringModel SmoothSteering(SteeringModel current, FfbFrameContext context)
+    private SteeringModel SmoothSteering(SteeringModel current, FfbFrameContext context, GameplayFfbEffectProfile profile)
     {
-        const double alpha = 0.18;
+        _lastSlewLimited = false;
 
-        if (_lastSteeringModel is null)
+        if (_lastSteeringModel is null || !profile.SlewSmoothing.Enabled)
         {
             _lastSteeringModel = current;
             return current;
         }
 
         var previous = _lastSteeringModel;
+        var strength = Math.Clamp(profile.SlewSmoothing.StrengthPercent, 0, 100) / 100.0;
+        var limitPerSecond = Math.Max(1, context.DeviceProfile.SlewLimitPerSecond * Lerp(2.0, 0.35, strength));
+        var maxDelta = limitPerSecond * Math.Clamp(context.DeltaTime.TotalSeconds, 0.001, 1.0);
 
         var smoothed = new SteeringModel(
-            Lerp(previous.Spring, current.Spring, alpha),
-            Lerp(previous.Damper, current.Damper, alpha),
-            Lerp(previous.Friction, current.Friction, alpha));
+            LimitRate(previous.Spring, current.Spring, maxDelta),
+            LimitRate(previous.Damper, current.Damper, maxDelta),
+            LimitRate(previous.Friction, current.Friction, maxDelta),
+            LimitRate(previous.CenterOffsetPercent, current.CenterOffsetPercent, maxDelta));
 
         _lastSteeringModel = smoothed;
         return smoothed;
+    }
+
+    private double LimitRate(double previous, double target, double maxDelta)
+    {
+        var delta = target - previous;
+        if (Math.Abs(delta) <= maxDelta)
+        {
+            return target;
+        }
+
+        _lastSlewLimited = true;
+        return previous + (Math.Sign(delta) * maxDelta);
     }
 
     private static double Lerp(double from, double to, double ratio)

@@ -714,11 +714,11 @@
                                     <TextBlock Grid.Row="2" Grid.Column="5" Classes="output muted" Text="Not tunable" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="3" Text="Slew smoothing" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="unavailable" Text="X" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="2" Classes="muted" Text="Built in" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="3" Classes="muted" Text="-" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="3" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable slew smoothing" IsChecked="{Binding SlewSmoothingEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="3" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Slew smoothing strength" IsSnapToTickEnabled="True" Value="{Binding SlewSmoothingStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding SlewSmoothingStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="3" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="5" Classes="output muted" Text="Not implemented" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
                                 </Grid>
                             </StackPanel>
 
@@ -843,25 +843,25 @@
                                     <TextBlock Grid.Row="2" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="3" Text="Hill standstill load" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="unavailable" Text="X" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="2" Classes="muted" Text="Built in" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="3" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="5" Classes="output muted" Text="Not implemented" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="3" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable hill standstill load" IsChecked="{Binding HillStandstillLoadEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="3" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Hill standstill load strength" IsSnapToTickEnabled="True" Value="{Binding HillStandstillLoadStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding HillStandstillLoadStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Row="3" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding HillStandstillLoadCurve, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="5" Classes="output" Text="{Binding LoadFactor}" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="4" Text="Side slope bias" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1" Classes="unavailable" Text="X" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="2" Classes="muted" Text="Built in" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="3" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="5" Classes="output muted" Text="Not implemented" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable side slope bias" IsChecked="{Binding SideSlopeBiasEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="4" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Side slope bias strength" IsSnapToTickEnabled="True" Value="{Binding SideSlopeBiasStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding SideSlopeBiasStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Row="4" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding SideSlopeBiasCurve, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="5" Classes="output" Text="{Binding Attitude}" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="5" Text="Implement bias" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="1" Classes="unavailable" Text="X" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="2" Classes="muted" Text="Built in" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="3" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="5" Grid.Column="5" Classes="output muted" Text="Not implemented" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="5" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable implement bias" IsChecked="{Binding ImplementBiasEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="5" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Implement bias strength" IsSnapToTickEnabled="True" Value="{Binding ImplementBiasStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding ImplementBiasStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Row="5" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding ImplementBiasCurve, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="5" Classes="output" Text="{Binding MassAndTotal}" VerticalAlignment="Center"/>
                                 </Grid>
                             </StackPanel>
 

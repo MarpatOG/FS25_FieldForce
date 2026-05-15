@@ -278,7 +278,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
     local packet = {
         protocol = {
             name = "FS25_REAL_FFB_TELEMETRY",
-            version = "1.3.0"
+            version = "1.4.0"
         },
         frame = {
             sequence = self.frameSequence,
@@ -333,6 +333,7 @@ function FS25RealFfbTelemetry:collectTelemetry()
         massT = self:kgToTons(self:getMass(vehicle)),
         totalMassT = self:kgToTons(self:getTotalMass(vehicle))
     }
+    packet.attachments = self:jsonArray(self:getAttachmentTelemetry(vehicle))
     packet.controls = {
         throttle = self:getFirstNumber(vehicle.axisForward, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisForward or nil),
         brake = self:getFirstNumber(vehicle.axisBrake, vehicle.brakePedal, vehicle.spec_drivable ~= nil and vehicle.spec_drivable.axisBrake or nil),
@@ -1475,6 +1476,53 @@ function FS25RealFfbTelemetry:getAttachedVehicles(vehicle)
     end
 
     return result
+end
+
+function FS25RealFfbTelemetry:getAttachmentTelemetry(vehicle)
+    local result = {}
+    self:collectAttachmentTelemetry(vehicle, vehicle, result, {}, 0)
+    return result
+end
+
+function FS25RealFfbTelemetry:collectAttachmentTelemetry(rootVehicle, vehicle, result, visited, depth)
+    if vehicle == nil then
+        return
+    end
+
+    local key = tostring(vehicle)
+    if visited[key] == true then
+        return
+    end
+    visited[key] = true
+
+    for _, attached in ipairs(self:getAttachedVehicles(vehicle)) do
+        if attached ~= nil then
+            table.insert(result, {
+                name = self:getVehicleName(attached),
+                massT = self:kgToTons(self:getMass(attached)),
+                totalMassT = self:kgToTons(self:getTotalMass(attached)),
+                lateralOffsetM = self:getLateralOffsetM(rootVehicle, attached),
+                depth = depth + 1
+            })
+            self:collectAttachmentTelemetry(rootVehicle, attached, result, visited, depth + 1)
+        end
+    end
+end
+
+function FS25RealFfbTelemetry:getLateralOffsetM(rootVehicle, attached)
+    local rootNode = self:getVehicleNode(rootVehicle)
+    local attachedNode = self:getVehicleNode(attached)
+    if rootNode ~= nil and attachedNode ~= nil and type(getWorldTranslation) == "function" and type(worldToLocal) == "function" then
+        local okWorld, wx, wy, wz = pcall(getWorldTranslation, attachedNode)
+        if okWorld then
+            local okLocal, lx = pcall(worldToLocal, rootNode, wx, wy, wz)
+            if okLocal and type(lx) == "number" then
+                return lx
+            end
+        end
+    end
+
+    return 0
 end
 
 function FS25RealFfbTelemetry:getIsOnField(vehicle)

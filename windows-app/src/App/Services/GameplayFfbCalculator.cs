@@ -43,6 +43,7 @@ public sealed partial class GameplayFfbCalculator
     private long? _lastGearChangeSeq;
 
     private SteeringModel? _lastSteeringModel;
+    private bool _lastSlewLimited;
 
     private EngineStartStopVibrationState? _engineStartStopVibration;
 
@@ -104,9 +105,12 @@ public sealed partial class GameplayFfbCalculator
             loadResistance,
             motionFeedback,
             contactRelief,
-            SpeedStabilityLayer.Calculate(features, profile, context));
+            SpeedStabilityLayer.Calculate(features, profile, context),
+            HillStandstillLoadLayer.Calculate(features, profile, context),
+            SideSlopeBiasLayer.Calculate(features, profile, context),
+            ImplementBiasLayer.Calculate(features, profile, context));
         steering = SafetyFilters.Apply(steering);
-        steering = SmoothSteering(steering, context);
+        steering = SmoothSteering(steering, context, profile);
 
         var engineDrivetrainPulses = CalculateEngineDrivetrainPulses(packet, features, profile, context);
         var engineStartStopVibration = CalculateEngineStartStopVibrationContinuous(profile, context);
@@ -162,7 +166,12 @@ public sealed partial class GameplayFfbCalculator
             features.EngineLugging,
             features.EngineUnderLoad,
             bump?.Kind == FfbPulseKind.GearShift,
-            engineStartStopVibration.Direction != 0);
+            engineStartStopVibration.Direction != 0,
+            ClampSignedPercent(capped.Steering.CenterOffsetPercent),
+            _lastSlewLimited,
+            CalculateHillStandstillLoadActive(features, profile, fade),
+            CalculateSideSlopeBiasActive(features, profile, fade),
+            CalculateImplementBiasActive(features, profile, fade));
 
         return output with
         {
@@ -174,6 +183,7 @@ public sealed partial class GameplayFfbCalculator
                        output.TerrainRumblePercent > 0 ||
                        output.SlipVibrationPercent > 0 ||
                        output.BumpImpulsePercent != 0 ||
+                       output.CenterOffsetPercent != 0 ||
                        output.TerrainRumbleActive
         };
     }
@@ -245,7 +255,24 @@ public sealed partial class GameplayFfbCalculator
                 Math.Abs(contribution.DamperAdd) > epsilon ||
                 Math.Abs(contribution.FrictionAdd) > epsilon ||
                 Math.Abs(contribution.SpringRelief) > epsilon ||
-                Math.Abs(contribution.FrictionRelief) > epsilon);
+                Math.Abs(contribution.FrictionRelief) > epsilon ||
+                Math.Abs(contribution.CenterOffsetAdd) > epsilon);
+    }
+
+    private static bool CalculateHillStandstillLoadActive(TelemetryFeatures features, GameplayFfbEffectProfile profile, double fade)
+    {
+        var slopeDeg = features.SlopeRatio * Math.Max(0.1, profile.MotionFeedback.FullPitchDeg);
+        return profile.HillStandstillLoad.Enabled && fade > 0 && features.SpeedKmh <= MovingSpeedThresholdKmh && slopeDeg > profile.HillStandstillLoad.MinSlopeDeg;
+    }
+
+    private static bool CalculateSideSlopeBiasActive(TelemetryFeatures features, GameplayFfbEffectProfile profile, double fade)
+    {
+        return profile.SideSlopeBias.Enabled && fade > 0 && features.RollRatio > 0;
+    }
+
+    private static bool CalculateImplementBiasActive(TelemetryFeatures features, GameplayFfbEffectProfile profile, double fade)
+    {
+        return profile.ImplementBias.Enabled && fade > 0 && features.AttachedMassRatio > 0;
     }
 
     private static bool CalculateContactReliefActive(TelemetryFeatures features)

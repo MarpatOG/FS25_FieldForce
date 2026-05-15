@@ -14,7 +14,8 @@ public sealed record LayerContribution<T>(
 public sealed record SteeringModel(
     double Spring,
     double Damper,
-    double Friction);
+    double Friction,
+    double CenterOffsetPercent = 0);
 
 public sealed record SteeringContribution(
     string Source,
@@ -23,7 +24,8 @@ public sealed record SteeringContribution(
     double FrictionAdd,
     double SpringRelief,
     double FrictionRelief,
-    double Confidence);
+    double Confidence,
+    double CenterOffsetAdd = 0);
 
 public sealed record ContinuousHaptics(
     double SurfacePercent,
@@ -88,7 +90,11 @@ public sealed record TelemetryFeatures(
     string PowertrainType = "unknown",
     bool HeavyEngine = false,
     string TireProfile = "unknown",
-    double TireSurfaceMultiplier = 0.5);
+    double TireSurfaceMultiplier = 0.5,
+    double RollRatio = 0,
+    double RollDirection = 0,
+    double AttachedMassRatio = 0,
+    double ImplementLateralOffsetRatio = 0);
 
 public sealed record DeviceHapticProfile(
     string Name,

@@ -1,4 +1,4 @@
-# Telemetry Protocol v1.3
+# Telemetry Protocol v1.4
 
 The FS25 telemetry mod writes JSON packets to a file transport by default. UDP remains available as a hidden diagnostic transport.
 
@@ -11,10 +11,10 @@ The FS25 telemetry mod writes JSON packets to a file transport by default. UDP r
 - Hidden UDP host: `127.0.0.1`
 - Hidden UDP port: `34325`
 
-The Windows receiver accepts the current `1.3.0` packet and legacy `1.2.0` / `1.1.0` packets:
+The Windows receiver accepts the current `1.4.0` packet and legacy `1.3.0` / `1.2.0` packets:
 
 ```json
-{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.3.0" } }
+{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.4.0" } }
 ```
 
 Flat legacy JSON is rejected and does not replace the last valid packet.
@@ -33,7 +33,7 @@ Example:
 
 ```json
 {
-  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.3.0" },
+  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.4.0" },
   "frame": {
     "sequence": 1,
     "dtMs": 8,
@@ -106,7 +106,15 @@ Example:
   },
   "surface": { "isOnField": true, "type": "field", "attribute": 1 },
   "environment": { "groundWetness": 0.35, "rainScale": 0.2 },
-  "attachments": [],
+  "attachments": [
+    {
+      "name": "Seeder",
+      "massT": 1.6,
+      "totalMassT": 1.6,
+      "lateralOffsetM": 0.35,
+      "depth": 1
+    }
+  ],
   "collisions": { "collisionImpulse": null, "longitudinalJerkImpulse": 0.21 },
   "diagnostics": { "payloadBytes": 1800, "buildTimeMs": 0.4, "warnings": [] }
 }
@@ -126,6 +134,8 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 ## Units
 
 - `massT`, `totalMassT`: metric tonnes.
+- `attachments[]`: recursively attached implements. `lateralOffsetM` is measured in the active vehicle local coordinate system; negative/positive sign follows the local X axis.
+- `attachments[].depth`: attachment-tree depth where direct implements are `1`.
 - `vehicle.isArticulated`: true for articulated-frame vehicles, used by the Windows bridge to avoid treating articulation suspension movement as a sharp left/right suspension hit.
 - `speedMps`: meters per second.
 - `speedKmh`: stable FS25 vehicle speed in kilometers per hour for UI and profile thresholds. The Lua mod may calculate a root-node position-delta speed for fallback/diagnostics, but position spikes are not the primary wire value.

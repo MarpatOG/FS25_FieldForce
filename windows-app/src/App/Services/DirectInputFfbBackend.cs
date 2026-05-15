@@ -157,8 +157,8 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             {
                 var effect = kind switch
                 {
-                    FfbEffectKind.Spring => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Spring, MomoTestConditionCoefficient, MomoTestConditionSaturation, MomoSpringDeadBand), "test spring"),
-                    FfbEffectKind.Damper => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Damper, MomoTestConditionCoefficient, MomoTestConditionSaturation, deadBand: 0), "test damper"),
+                    FfbEffectKind.Spring => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Spring, MomoTestConditionCoefficient, MomoTestConditionSaturation, MomoSpringDeadBand, centerOffsetPercent: 0), "test spring"),
+                    FfbEffectKind.Damper => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Damper, MomoTestConditionCoefficient, MomoTestConditionSaturation, deadBand: 0, centerOffsetPercent: 0), "test damper"),
                     FfbEffectKind.ConstantLeft => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionForLogicalForce(-1), ConstantTestDuration), "test constant left"),
                     FfbEffectKind.ConstantRight => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionForLogicalForce(1), ConstantTestDuration), "test constant right"),
                     FfbEffectKind.LowVibration => CreateEffectWithAcquireRetry(() => CreatePeriodicEffect(EffectGuid.Sine, MomoVibrationMagnitude, MomoVibrationHz, VibrationTestDuration), "test vibration"),
@@ -209,9 +209,9 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
             var previous = _lastGameplayOutput;
             FfbApplyResult? result = null;
-            if (previous.SpringPercent != quantized.SpringPercent)
+            if (previous.SpringPercent != quantized.SpringPercent || previous.CenterOffsetPercent != quantized.CenterOffsetPercent)
             {
-                result ??= ApplyConditionEffect(ref _gameplaySpringEffect, EffectGuid.Spring, quantized.SpringPercent, deadBand: GameplaySpringDeadBand, "spring");
+                result ??= ApplyConditionEffect(ref _gameplaySpringEffect, EffectGuid.Spring, quantized.SpringPercent, deadBand: GameplaySpringDeadBand, "spring", quantized.CenterOffsetPercent);
             }
 
             if (previous.DamperPercent != quantized.DamperPercent)
@@ -258,8 +258,9 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
             _lastGameplayOutput = quantized;
             _log.Information(
-                "Gameplay FFB updated: result=applied, spring={Spring}%, damper={Damper}%, friction={Friction}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, terrain={Terrain}%/{TerrainHz}Hz, slip={Slip}%/{SlipHz}Hz, pulse={PulseKind}/{Bump}%/{Duration}ms, load={Load:0.00}, fade={Fade:0.00}",
+                "Gameplay FFB updated: result=applied, spring={Spring}%, centerOffset={CenterOffset}%, damper={Damper}%, friction={Friction}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, terrain={Terrain}%/{TerrainHz}Hz, slip={Slip}%/{SlipHz}Hz, pulse={PulseKind}/{Bump}%/{Duration}ms, load={Load:0.00}, fade={Fade:0.00}",
                 quantized.SpringPercent,
+                quantized.CenterOffsetPercent,
                 quantized.DamperPercent,
                 quantized.FrictionPercent,
                 quantized.EngineVibrationPercent,
@@ -369,11 +370,12 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         _directInput.Dispose();
     }
 
-    private IDirectInputEffect CreateConditionEffect(Guid effectGuid, int coefficient, int saturation, int deadBand)
+    private IDirectInputEffect CreateConditionEffect(Guid effectGuid, int coefficient, int saturation, int deadBand, int centerOffsetPercent)
     {
         var cappedCoefficient = ScaleMagnitude(coefficient);
         var cappedSaturation = ScaleMagnitude(saturation);
-        _log.Information("Preparing condition effect: guid={EffectGuid}, axis={AxisOffset}, coefficient={Coefficient}, saturation={Saturation}", effectGuid, _primaryAxisOffset, cappedCoefficient, cappedSaturation);
+        var offset = PercentToSignedDirectInputOffset(centerOffsetPercent);
+        _log.Information("Preparing condition effect: guid={EffectGuid}, axis={AxisOffset}, coefficient={Coefficient}, saturation={Saturation}, offset={Offset}", effectGuid, _primaryAxisOffset, cappedCoefficient, cappedSaturation, offset);
         var parameters = BaseParameters(TimeSpan.FromMilliseconds(-1));
         parameters.Parameters = new ConditionSet
         {
@@ -381,7 +383,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             [
                 new Condition
                 {
-                    Offset = 0,
+                    Offset = offset,
                     PositiveCoefficient = cappedCoefficient,
                     NegativeCoefficient = cappedCoefficient,
                     PositiveSaturation = cappedSaturation,
@@ -425,7 +427,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return _device!.CreateEffect(effectGuid, parameters);
     }
 
-    private FfbApplyResult? ApplyConditionEffect(ref IDirectInputEffect? effect, Guid effectGuid, int percent, int deadBand, string label)
+    private FfbApplyResult? ApplyConditionEffect(ref IDirectInputEffect? effect, Guid effectGuid, int percent, int deadBand, string label, int centerOffsetPercent = 0)
     {
         StopAndDisposeEffect(ref effect, label);
         if (percent <= 0)
@@ -436,7 +438,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         try
         {
             var magnitude = PercentToDirectInputMagnitude(percent);
-            effect = CreateEffectWithAcquireRetry(() => CreateConditionEffect(effectGuid, magnitude, magnitude, deadBand), label);
+            effect = CreateEffectWithAcquireRetry(() => CreateConditionEffect(effectGuid, magnitude, magnitude, deadBand, centerOffsetPercent), label);
             effect.Download().CheckError();
             effect.Start(1).CheckError();
             return null;
@@ -658,6 +660,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return Math.Clamp((int)Math.Round(DirectInputMax * (Math.Clamp(percent, 0, 100) / 100.0)), 0, DirectInputMax);
     }
 
+    internal static int PercentToSignedDirectInputOffset(int percent)
+    {
+        return Math.Clamp((int)Math.Round(DirectInputMax * (Math.Clamp(percent, -100, 100) / 100.0)), -DirectInputMax, DirectInputMax);
+    }
+
     private static int DirectionForLogicalForce(int signedValue)
     {
         return signedValue < 0 ? DirectionPositive : DirectionNegative;
@@ -668,6 +675,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return output with
         {
             SpringPercent = QuantizePercent(output.SpringPercent, 1),
+            CenterOffsetPercent = QuantizeSignedPercent(output.CenterOffsetPercent, 1),
             DamperPercent = QuantizePercent(output.DamperPercent, 2),
             FrictionPercent = QuantizePercent(output.FrictionPercent, 2),
             EngineRpmVibrationPercent = QuantizePercent(output.EngineRpmVibrationPercent, 2),
@@ -695,6 +703,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private static bool IsSameGameplayOutput(GameplayFfbOutput left, GameplayFfbOutput right)
     {
         return left.SpringPercent == right.SpringPercent &&
+               left.CenterOffsetPercent == right.CenterOffsetPercent &&
                left.DamperPercent == right.DamperPercent &&
                left.FrictionPercent == right.FrictionPercent &&
                left.EngineVibrationPercent == right.EngineVibrationPercent &&

@@ -11,7 +11,7 @@ public sealed class TelemetryReceiverServiceTests
 {
     private const string ValidPacket = """
         {
-          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" },
+          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.2.0" },
           "frame": { "sequence": 1, "dtMs": 8, "telemetryRateHz": 125, "timestampMs": 123456, "isDuplicate": false, "isInterpolated": false },
           "game": { "state": "mission" },
           "player": { "isInVehicle": true },
@@ -50,7 +50,7 @@ public sealed class TelemetryReceiverServiceTests
 
     private const string ExtendedPacket = """
         {
-          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" },
+          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.2.0" },
           "frame": { "sequence": 2, "dtMs": 8, "telemetryRateHz": 125, "timestampMs": 123464, "isDuplicate": false, "isInterpolated": false },
           "game": { "state": "mission" },
           "player": { "isInVehicle": true },
@@ -86,7 +86,9 @@ public sealed class TelemetryReceiverServiceTests
           "suspension": { "impulse": 0.30, "verticalImpactImpulse": 0.46, "landingImpulse": 0.55, "leftImpulse": 0.18, "rightImpulse": 0.06 },
           "surface": { "isOnField": true, "type": "field", "attribute": 1 },
           "environment": { "groundWetness": 0.35, "rainScale": 0.2 },
-          "attachments": [],
+          "attachments": [
+            { "name": "Seeder", "massT": 1.6, "totalMassT": 1.6, "lateralOffsetM": 0.35, "depth": 1 }
+          ],
           "collisions": { "collisionImpulse": 0.0, "longitudinalJerkImpulse": 0.21 },
           "diagnostics": { "payloadBytes": 1800, "buildTimeMs": 0.4, "warnings": [] }
         }
@@ -94,7 +96,7 @@ public sealed class TelemetryReceiverServiceTests
 
     private const string NoVehiclePacket = """
         {
-          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.1.0" },
+          "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.2.0" },
           "frame": { "sequence": 3, "dtMs": 8, "telemetryRateHz": 125, "timestampMs": 123472, "isDuplicate": false, "isInterpolated": false },
           "game": { "state": "mission" },
           "player": { "isInVehicle": false },
@@ -297,6 +299,10 @@ public sealed class TelemetryReceiverServiceTests
         Assert.Equal(0.55, packet?.LandingImpulse);
         Assert.Equal(0.0, packet?.CollisionImpulse);
         Assert.Equal(0.21, packet?.LongitudinalJerkImpulse);
+        Assert.Single(packet?.Attachments ?? []);
+        Assert.Equal("Seeder", packet?.Attachments[0].Name);
+        Assert.Equal(0.35, packet?.Attachments[0].LateralOffsetM);
+        Assert.Equal(1, packet?.Attachments[0].Depth);
     }
 
     [Fact]
@@ -413,7 +419,7 @@ public sealed class TelemetryReceiverServiceTests
         receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
         var stateTask = WaitForStateAsync(receiver, state => state.LastParseError is not null);
 
-        await SendUdpAsync(port, ValidPacket.Replace("\"1.1.0\"", "\"0.6.1\"", StringComparison.Ordinal));
+        await SendUdpAsync(port, ValidPacket.Replace("\"1.2.0\"", "\"0.6.1\"", StringComparison.Ordinal));
 
         var state = await stateTask;
         Assert.Null(state.LastPacket);
