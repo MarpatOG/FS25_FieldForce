@@ -258,11 +258,12 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
             _lastGameplayOutput = quantized;
             _log.Information(
-                "Gameplay FFB updated: result=applied, spring={Spring}%, centerOffset={CenterOffset}%, damper={Damper}%, friction={Friction}%, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, terrain={Terrain}%/{TerrainHz}Hz, slip={Slip}%/{SlipHz}Hz, pulse={PulseKind}/{Bump}%/{Duration}ms, load={Load:0.00}, fade={Fade:0.00}",
+                "Gameplay FFB updated: result=applied, spring={Spring}%, centerOffset={CenterOffset}%, damper={Damper}%, friction={Friction}%, slew={Slew}, engine={Engine}%/{EngineHz}Hz, surface={Surface}%/{SurfaceHz}Hz, terrain={Terrain}%/{TerrainHz}Hz, slip={Slip}%/{SlipHz}Hz, pulse={PulseKind}/{Bump}%/{Duration}ms, load={Load:0.00}, fade={Fade:0.00}",
                 quantized.SpringPercent,
                 quantized.CenterOffsetPercent,
                 quantized.DamperPercent,
                 quantized.FrictionPercent,
+                quantized.SlewSmoothingActive,
                 quantized.EngineVibrationPercent,
                 quantized.EngineVibrationHz,
                 quantized.SurfaceVibrationPercent,

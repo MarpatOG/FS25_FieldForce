@@ -73,6 +73,11 @@ public sealed record GameplayFfbOutput(
                 active.Add("Friction");
             }
 
+            if (SlewSmoothingActive)
+            {
+                active.Add("Slew");
+            }
+
             if (EngineRpmVibrationPercent > 0)
             {
                 active.Add("Engine");

@@ -895,6 +895,7 @@ public sealed class GameplayFfbCalculatorTests
         var output = _calculator.Calculate(State(Packet(speedKmh: 60, frameDtMs: 1)), settings, DeviceHapticProfile.Generic);
 
         Assert.True(output.SlewSmoothingActive);
+        Assert.Contains("Slew", output.ActiveEffectsText);
     }
 
     [Fact]
