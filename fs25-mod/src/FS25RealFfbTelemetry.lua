@@ -2170,8 +2170,8 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
 
     local wx, wy, wz = self:getWorldTranslationSafe(node)
     local rx, ry, rz = self:getWorldRotationSafe(node)
-    local pitchDeg = rx ~= nil and math.deg(rx) or nil
-    local rollDeg = rz ~= nil and math.deg(rz) or nil
+    local pitchDeg = rx ~= nil and self:normalizeTiltDeg(math.deg(rx)) or nil
+    local rollDeg = rz ~= nil and self:normalizeTiltDeg(math.deg(rz)) or nil
     local slopeDeg = wx ~= nil and self:getSlopeDeg(wx, wy or 0, wz) or nil
     local now = self:getMonotonicSeconds()
     local key = tostring(vehicle)
@@ -2271,6 +2271,21 @@ function FS25RealFfbTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
         localAccelerationZ = localAccelerationZ,
         bumpImpulse = bumpImpulse
     }
+end
+
+function FS25RealFfbTelemetry:normalizeTiltDeg(deg)
+    if type(deg) ~= "number" then
+        return nil
+    end
+
+    local wrapped = ((deg + 180) % 360) - 180
+    if wrapped > 90 then
+        return wrapped - 180
+    elseif wrapped < -90 then
+        return wrapped + 180
+    end
+
+    return wrapped
 end
 
 function FS25RealFfbTelemetry:smoothMotionSample(previousValue, currentValue, dtSec, smoothingSec)

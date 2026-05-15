@@ -151,37 +151,38 @@ public sealed partial class GameplayFfbCalculator
     {
         _lastSlewLimited = false;
 
-        if (_lastSteeringModel is null || !profile.SlewSmoothing.Enabled)
+        var strength = Math.Clamp(profile.SlewSmoothing.StrengthPercent, 0, 100) / 100.0;
+        if (_lastSteeringModel is null || !profile.SlewSmoothing.Enabled || strength <= 0)
         {
             _lastSteeringModel = current;
             return current;
         }
 
         var previous = _lastSteeringModel;
-        var strength = Math.Clamp(profile.SlewSmoothing.StrengthPercent, 0, 100) / 100.0;
-        var limitPerSecond = Math.Max(1, context.DeviceProfile.SlewLimitPerSecond * Lerp(2.0, 0.35, strength));
-        var maxDelta = limitPerSecond * Math.Clamp(context.DeltaTime.TotalSeconds, 0.001, 1.0);
+        var dt = Math.Clamp(context.DeltaTime.TotalSeconds, 0.001, 0.25);
+        var smoothingSec = Lerp(0.015, 0.095, strength);
+        var alpha = 1 - Math.Exp(-dt / Math.Max(0.001, smoothingSec));
 
         var smoothed = new SteeringModel(
-            LimitRate(previous.Spring, current.Spring, maxDelta),
-            LimitRate(previous.Damper, current.Damper, maxDelta),
-            LimitRate(previous.Friction, current.Friction, maxDelta),
-            LimitRate(previous.CenterOffsetPercent, current.CenterOffsetPercent, maxDelta));
+            SmoothAxis(previous.Spring, current.Spring, alpha),
+            SmoothAxis(previous.Damper, current.Damper, alpha),
+            SmoothAxis(previous.Friction, current.Friction, alpha),
+            SmoothAxis(previous.CenterOffsetPercent, current.CenterOffsetPercent, alpha));
 
         _lastSteeringModel = smoothed;
         return smoothed;
     }
 
-    private double LimitRate(double previous, double target, double maxDelta)
+    private double SmoothAxis(double previous, double target, double alpha)
     {
         var delta = target - previous;
-        if (Math.Abs(delta) <= maxDelta)
+        if (Math.Abs(delta) < 0.35)
         {
             return target;
         }
 
         _lastSlewLimited = true;
-        return previous + (Math.Sign(delta) * maxDelta);
+        return Lerp(previous, target, alpha);
     }
 
     private static double Lerp(double from, double to, double ratio)
