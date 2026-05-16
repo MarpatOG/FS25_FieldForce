@@ -43,35 +43,44 @@ public sealed class TireSurfaceTuningSettings
             _ => SurfaceTypes.ToDictionary(surface => surface, _ => DefaultMultiplierPercent, StringComparer.OrdinalIgnoreCase),
             StringComparer.OrdinalIgnoreCase);
 
-        foreach (var surface in SurfaceTypes)
-        {
-            matrix["unknown"][surface] = UnknownFallbackPercent;
-            matrix["mixed"][surface] = 60;
-        }
-
-        matrix["street"]["asphalt"] = 20;
-        foreach (var surface in new[] { "dirt", "gravel", "field", "plowedField" })
-        {
-            matrix["street"][surface] = 85;
-        }
-
-        foreach (var profile in new[] { "agricultural", "mud", "offRoad" })
-        {
-            foreach (var surface in new[] { "field", "dirt", "plowedField" })
-            {
-                matrix[profile][surface] = 25;
-            }
-
-            matrix[profile]["asphalt"] = 90;
-        }
-
-        foreach (var surface in new[] { "field", "dirt", "plowedField" })
-        {
-            matrix["tracked"][surface] = 20;
-        }
-
-        matrix["tracked"]["asphalt"] = 80;
+        SetScaleRow(matrix, "asphalt", street: 2, agricultural: 6, mud: 7, offRoad: 6, tracked: 5, mixed: 5, unknown: 4);
+        SetScaleRow(matrix, "dirt", street: 6, agricultural: 3, mud: 3, offRoad: 3, tracked: 3, mixed: 4, unknown: 4);
+        SetScaleRow(matrix, "gravel", street: 5, agricultural: 4, mud: 4, offRoad: 3, tracked: 4, mixed: 4, unknown: 4);
+        SetScaleRow(matrix, "mud", street: 9, agricultural: 4, mud: 2, offRoad: 3, tracked: 3, mixed: 5, unknown: 4);
+        SetScaleRow(matrix, "grass", street: 7, agricultural: 3, mud: 3, offRoad: 3, tracked: 3, mixed: 4, unknown: 4);
+        SetScaleRow(matrix, "snow", street: 8, agricultural: 5, mud: 4, offRoad: 4, tracked: 4, mixed: 5, unknown: 4);
+        SetScaleRow(matrix, "shallowWater", street: 8, agricultural: 5, mud: 4, offRoad: 4, tracked: 4, mixed: 5, unknown: 4);
+        SetScaleRow(matrix, "field", street: 8, agricultural: 2, mud: 2, offRoad: 3, tracked: 2, mixed: 4, unknown: 4);
+        SetScaleRow(matrix, "plowedField", street: 9, agricultural: 3, mud: 2, offRoad: 3, tracked: 2, mixed: 5, unknown: 4);
+        SetScaleRow(matrix, "cultivatedField", street: 8, agricultural: 2, mud: 2, offRoad: 3, tracked: 2, mixed: 4, unknown: 4);
+        SetScaleRow(matrix, "wetField", street: 9, agricultural: 4, mud: 3, offRoad: 4, tracked: 3, mixed: 5, unknown: 4);
+        SetScaleRow(matrix, "unknownMixed", street: 5, agricultural: 5, mud: 5, offRoad: 5, tracked: 5, mixed: 5, unknown: 4);
         return matrix;
+    }
+
+    private static void SetScaleRow(
+        Dictionary<string, Dictionary<string, int>> matrix,
+        string surface,
+        int street,
+        int agricultural,
+        int mud,
+        int offRoad,
+        int tracked,
+        int mixed,
+        int unknown)
+    {
+        matrix["street"][surface] = ScaleToPercent(street);
+        matrix["agricultural"][surface] = ScaleToPercent(agricultural);
+        matrix["mud"][surface] = ScaleToPercent(mud);
+        matrix["offRoad"][surface] = ScaleToPercent(offRoad);
+        matrix["tracked"][surface] = ScaleToPercent(tracked);
+        matrix["mixed"][surface] = ScaleToPercent(mixed);
+        matrix["unknown"][surface] = ScaleToPercent(unknown);
+    }
+
+    private static int ScaleToPercent(int scale)
+    {
+        return Math.Clamp(scale, 1, 10) * 20;
     }
 
     public static void Normalize(TireSurfaceTuningSettings? settings)

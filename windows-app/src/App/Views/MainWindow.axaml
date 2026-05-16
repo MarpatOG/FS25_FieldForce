@@ -978,7 +978,8 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <StackPanel>
                                         <TextBlock Classes="section" Text="Tire x Surface Matrix"/>
-                                        <TextBlock Classes="muted" Text="Columns are Tires. Rows are Surface. Values use a 1 to 10 scale; red is low feedback and green is high feedback."/>
+                                        <TextBlock Classes="muted" Text="Columns are Tires. Rows are Surface. Enter 1-10; Enter or clicking outside commits the value."/>
+                                        <TextBlock Classes="muted" Text="Red is low feedback and green is high feedback."/>
                                         <TextBlock Classes="muted" Text="Multipliers are stored in the selected wheel effects profile."/>
                                     </StackPanel>
                                     <Button Grid.Column="1"
@@ -1002,13 +1003,13 @@
                                         <DataTemplate>
                                             <Grid ColumnDefinitions="130,100,100,100,100,100,100,100,110" ColumnSpacing="10" Margin="0,0,0,8">
                                                 <TextBlock Text="{Binding SurfaceType}" VerticalAlignment="Center"/>
-                                                <TextBox Grid.Column="1" Text="{Binding Street, Mode=TwoWay}" Background="{Binding StreetBrush}" TextAlignment="Center" MinHeight="32"/>
-                                                <TextBox Grid.Column="2" Text="{Binding Agricultural, Mode=TwoWay}" Background="{Binding AgriculturalBrush}" TextAlignment="Center" MinHeight="32"/>
-                                                <TextBox Grid.Column="3" Text="{Binding Mud, Mode=TwoWay}" Background="{Binding MudBrush}" TextAlignment="Center" MinHeight="32"/>
-                                                <TextBox Grid.Column="4" Text="{Binding OffRoad, Mode=TwoWay}" Background="{Binding OffRoadBrush}" TextAlignment="Center" MinHeight="32"/>
-                                                <TextBox Grid.Column="5" Text="{Binding Tracked, Mode=TwoWay}" Background="{Binding TrackedBrush}" TextAlignment="Center" MinHeight="32"/>
-                                                <TextBox Grid.Column="6" Text="{Binding Mixed, Mode=TwoWay}" Background="{Binding MixedBrush}" TextAlignment="Center" MinHeight="32"/>
-                                                <TextBox Grid.Column="7" Text="{Binding Unknown, Mode=TwoWay}" Background="{Binding UnknownBrush}" TextAlignment="Center" MinHeight="32"/>
+                                                <TextBox Grid.Column="1" Classes="tireSurfaceScale" Tag="street" Text="{Binding Street, Mode=OneWay}" Background="{Binding StreetBrush}" TextAlignment="Center" MinHeight="32" KeyDown="OnTireSurfaceScaleKeyDown" TextInput="OnTireSurfaceScaleTextInput" LostFocus="OnTireSurfaceScaleLostFocus"/>
+                                                <TextBox Grid.Column="2" Classes="tireSurfaceScale" Tag="agricultural" Text="{Binding Agricultural, Mode=OneWay}" Background="{Binding AgriculturalBrush}" TextAlignment="Center" MinHeight="32" KeyDown="OnTireSurfaceScaleKeyDown" TextInput="OnTireSurfaceScaleTextInput" LostFocus="OnTireSurfaceScaleLostFocus"/>
+                                                <TextBox Grid.Column="3" Classes="tireSurfaceScale" Tag="mud" Text="{Binding Mud, Mode=OneWay}" Background="{Binding MudBrush}" TextAlignment="Center" MinHeight="32" KeyDown="OnTireSurfaceScaleKeyDown" TextInput="OnTireSurfaceScaleTextInput" LostFocus="OnTireSurfaceScaleLostFocus"/>
+                                                <TextBox Grid.Column="4" Classes="tireSurfaceScale" Tag="offRoad" Text="{Binding OffRoad, Mode=OneWay}" Background="{Binding OffRoadBrush}" TextAlignment="Center" MinHeight="32" KeyDown="OnTireSurfaceScaleKeyDown" TextInput="OnTireSurfaceScaleTextInput" LostFocus="OnTireSurfaceScaleLostFocus"/>
+                                                <TextBox Grid.Column="5" Classes="tireSurfaceScale" Tag="tracked" Text="{Binding Tracked, Mode=OneWay}" Background="{Binding TrackedBrush}" TextAlignment="Center" MinHeight="32" KeyDown="OnTireSurfaceScaleKeyDown" TextInput="OnTireSurfaceScaleTextInput" LostFocus="OnTireSurfaceScaleLostFocus"/>
+                                                <TextBox Grid.Column="6" Classes="tireSurfaceScale" Tag="mixed" Text="{Binding Mixed, Mode=OneWay}" Background="{Binding MixedBrush}" TextAlignment="Center" MinHeight="32" KeyDown="OnTireSurfaceScaleKeyDown" TextInput="OnTireSurfaceScaleTextInput" LostFocus="OnTireSurfaceScaleLostFocus"/>
+                                                <TextBox Grid.Column="7" Classes="tireSurfaceScale" Tag="unknown" Text="{Binding Unknown, Mode=OneWay}" Background="{Binding UnknownBrush}" TextAlignment="Center" MinHeight="32" KeyDown="OnTireSurfaceScaleKeyDown" TextInput="OnTireSurfaceScaleTextInput" LostFocus="OnTireSurfaceScaleLostFocus"/>
                                                 <Button Grid.Column="8"
                                                         Content="Reset row"
                                                         Command="{Binding DataContext.ResetSelectedSurfaceCommand, ElementName=Root}"

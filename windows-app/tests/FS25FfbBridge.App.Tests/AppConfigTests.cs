@@ -262,8 +262,8 @@ public sealed class AppConfigTests
         var migrated = store.Load();
 
         Assert.Equal(AppConfig.CurrentEffectsProfileVersion, migrated.EffectsProfileVersion);
-        Assert.Equal(20, migrated.GameplayFfb.TireSurfaceTuning.Matrix["street"]["asphalt"]);
-        Assert.Equal(25, migrated.GameplayFfb.TireSurfaceTuning.Matrix["agricultural"]["field"]);
+        Assert.Equal(40, migrated.GameplayFfb.TireSurfaceTuning.Matrix["street"]["asphalt"]);
+        Assert.Equal(40, migrated.GameplayFfb.TireSurfaceTuning.Matrix["agricultural"]["field"]);
         Assert.Equal(23, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedSpring.StrengthPercent);
     }
 }

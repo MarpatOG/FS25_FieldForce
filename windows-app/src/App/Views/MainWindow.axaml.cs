@@ -104,6 +104,75 @@ public partial class MainWindow : Window
         CenterSelectedEffectCategory();
     }
 
+    private void OnTireSurfaceScaleKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (sender is not Avalonia.Controls.TextBox textBox)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            CommitTireSurfaceScaleText(textBox);
+            Focus();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.Back or Key.Delete or Key.Left or Key.Right or Key.Tab or Key.Home or Key.End ||
+            e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            return;
+        }
+
+        if (!IsDigitKey(e.Key))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void OnTireSurfaceScaleTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (sender is not Avalonia.Controls.TextBox textBox || string.IsNullOrEmpty(e.Text))
+        {
+            return;
+        }
+
+        var selectedTextLength = textBox.SelectionEnd - textBox.SelectionStart;
+        var proposedLength = (textBox.Text?.Length ?? 0) - selectedTextLength + e.Text.Length;
+        if (!e.Text.All(char.IsDigit) || proposedLength > 2)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void OnTireSurfaceScaleLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Avalonia.Controls.TextBox textBox)
+        {
+            CommitTireSurfaceScaleText(textBox);
+        }
+    }
+
+    private static void CommitTireSurfaceScaleText(Avalonia.Controls.TextBox textBox)
+    {
+        var value = int.TryParse(textBox.Text, out var parsed)
+            ? Math.Clamp(parsed, 1, 10)
+            : 1;
+        if (textBox.DataContext is TireSurfaceMatrixRow row &&
+            textBox.Tag is string profile)
+        {
+            row.SetScale(profile, value, notify: true);
+        }
+
+        textBox.Text = value.ToString();
+    }
+
+    private static bool IsDigitKey(Key key)
+    {
+        return key is >= Key.D0 and <= Key.D9 or >= Key.NumPad0 and <= Key.NumPad9;
+    }
+
     private void CenterSelectedEffectCategory()
     {
         Dispatcher.UIThread.Post(() =>

@@ -1874,25 +1874,25 @@ public sealed record EffectCategoryOption(string Id, string DisplayName);
 public sealed partial class TireSurfaceMatrixRow : ObservableObject
 {
     [ObservableProperty]
-    private double _street;
+    private int _street;
 
     [ObservableProperty]
-    private double _agricultural;
+    private int _agricultural;
 
     [ObservableProperty]
-    private double _mud;
+    private int _mud;
 
     [ObservableProperty]
-    private double _offRoad;
+    private int _offRoad;
 
     [ObservableProperty]
-    private double _tracked;
+    private int _tracked;
 
     [ObservableProperty]
-    private double _mixed;
+    private int _mixed;
 
     [ObservableProperty]
-    private double _unknown;
+    private int _unknown;
 
     public TireSurfaceMatrixRow(string surfaceType)
     {
@@ -1919,7 +1919,13 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
 
     public void Set(string profile, int value, bool notify)
     {
-        var scale = PercentToScale(value);
+        SetScale(profile, PercentToScale(value), notify);
+    }
+
+    public void SetScale(string profile, int scale, bool notify)
+    {
+        scale = ClampScale(scale);
+        var previous = GetScale(profile);
         switch (profile)
         {
             case "street":
@@ -1945,7 +1951,7 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
                 break;
         }
 
-        if (notify)
+        if (notify && previous == scale)
         {
             Changed?.Invoke();
         }
@@ -1962,18 +1968,29 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
         _ => Unknown
     });
 
-    partial void OnStreetChanged(double value) => ClampAndNotify(nameof(Street), nameof(StreetBrush), value);
-    partial void OnAgriculturalChanged(double value) => ClampAndNotify(nameof(Agricultural), nameof(AgriculturalBrush), value);
-    partial void OnMudChanged(double value) => ClampAndNotify(nameof(Mud), nameof(MudBrush), value);
-    partial void OnOffRoadChanged(double value) => ClampAndNotify(nameof(OffRoad), nameof(OffRoadBrush), value);
-    partial void OnTrackedChanged(double value) => ClampAndNotify(nameof(Tracked), nameof(TrackedBrush), value);
-    partial void OnMixedChanged(double value) => ClampAndNotify(nameof(Mixed), nameof(MixedBrush), value);
-    partial void OnUnknownChanged(double value) => ClampAndNotify(nameof(Unknown), nameof(UnknownBrush), value);
+    private int GetScale(string profile) => profile switch
+    {
+        "street" => Street,
+        "agricultural" => Agricultural,
+        "mud" => Mud,
+        "offRoad" => OffRoad,
+        "tracked" => Tracked,
+        "mixed" => Mixed,
+        _ => Unknown
+    };
 
-    private void ClampAndNotify(string propertyName, string brushPropertyName, double value)
+    partial void OnStreetChanged(int value) => ClampAndNotify(nameof(Street), nameof(StreetBrush), value);
+    partial void OnAgriculturalChanged(int value) => ClampAndNotify(nameof(Agricultural), nameof(AgriculturalBrush), value);
+    partial void OnMudChanged(int value) => ClampAndNotify(nameof(Mud), nameof(MudBrush), value);
+    partial void OnOffRoadChanged(int value) => ClampAndNotify(nameof(OffRoad), nameof(OffRoadBrush), value);
+    partial void OnTrackedChanged(int value) => ClampAndNotify(nameof(Tracked), nameof(TrackedBrush), value);
+    partial void OnMixedChanged(int value) => ClampAndNotify(nameof(Mixed), nameof(MixedBrush), value);
+    partial void OnUnknownChanged(int value) => ClampAndNotify(nameof(Unknown), nameof(UnknownBrush), value);
+
+    private void ClampAndNotify(string propertyName, string brushPropertyName, int value)
     {
         var clamped = ClampScale(value);
-        if (Math.Abs(clamped - value) > 0.0001)
+        if (clamped != value)
         {
             SetPropertyValue(propertyName, clamped);
             return;
@@ -1983,7 +2000,7 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
         Changed?.Invoke();
     }
 
-    private void SetPropertyValue(string propertyName, double value)
+    private void SetPropertyValue(string propertyName, int value)
     {
         switch (propertyName)
         {
@@ -2011,22 +2028,22 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
         }
     }
 
-    public static double PercentToScale(int percent)
+    public static int PercentToScale(int percent)
     {
-        return Math.Round(Math.Clamp(percent, 20, 200) / 20.0, 2);
+        return Math.Clamp((int)Math.Round(percent / 20.0, MidpointRounding.AwayFromZero), 1, 10);
     }
 
-    private static int ScaleToPercent(double scale)
+    private static int ScaleToPercent(int scale)
     {
-        return (int)Math.Round(ClampScale(scale) * 20, MidpointRounding.AwayFromZero);
+        return ClampScale(scale) * 20;
     }
 
-    private static double ClampScale(double scale)
+    private static int ClampScale(int scale)
     {
-        return double.IsFinite(scale) ? Math.Clamp(scale, 1, 10) : 1;
+        return Math.Clamp(scale, 1, 10);
     }
 
-    private static IBrush CreateScaleBrush(double scale)
+    private static IBrush CreateScaleBrush(int scale)
     {
         var ratio = (ClampScale(scale) - 1) / 9.0;
         var red = Lerp(0xF6, 0xD9, ratio);

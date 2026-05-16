@@ -267,7 +267,7 @@ public sealed class MainWindowViewModelTests
         using var telemetry = new TelemetryReceiverService(log);
         using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
 
-        viewModel.TireSurfaceMatrixRows.Single(row => row.SurfaceType == "asphalt").Street = 1.65;
+        viewModel.TireSurfaceMatrixRows.Single(row => row.SurfaceType == "asphalt").Street = 7;
         viewModel.NewSurfaceAliasRaw = "mapClay";
         viewModel.SelectedSurfaceAliasTarget = "mud";
         viewModel.SaveAliasCommand.Execute(null);
@@ -276,7 +276,7 @@ public sealed class MainWindowViewModelTests
         using var profileJson = JsonDocument.Parse(File.ReadAllText(profilePath));
         var tuning = profileJson.RootElement.GetProperty("GameplayFfb").GetProperty("TireSurfaceTuning");
 
-        Assert.Equal(33, tuning.GetProperty("Matrix").GetProperty("street").GetProperty("asphalt").GetInt32());
+        Assert.Equal(140, tuning.GetProperty("Matrix").GetProperty("street").GetProperty("asphalt").GetInt32());
         Assert.Equal("mud", tuning.GetProperty("SurfaceAliases").GetProperty("mapClay").GetString());
     }
 
