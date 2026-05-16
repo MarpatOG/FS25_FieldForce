@@ -147,7 +147,7 @@ public sealed class EffectsProfileStore
     {
         public int EffectsProfileVersion { get; set; } = AppConfig.CurrentEffectsProfileVersion;
         public string WheelProfileId { get; set; } = WheelProfileCatalog.LogitechMomoRacingId;
-        public string DeviceProfileName { get; set; } = "Logitech MOMO Racing Wheel";
+        public string DeviceProfileName { get; set; } = "Logitech Momo Racing";
         public GameplayFfbSettings GameplayFfb { get; set; } = new();
     }
 }

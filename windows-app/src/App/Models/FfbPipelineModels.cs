@@ -113,7 +113,7 @@ public static class WheelProfileCatalog
 
     public static IReadOnlyList<WheelProfile> Profiles { get; } =
     [
-        new(LogitechMomoRacingId, "Logitech MOMO Racing Wheel",
+        new(LogitechMomoRacingId, "Logitech Momo Racing",
             ["logitech momo racing wheel", "momo racing", "momo force", "momo racing force"],
             270, "Override / 270 degrees / low global force", 40, DeviceHapticProfile.LogitechMomo),
         new("logitech-driving-force-gt", "Logitech Driving Force GT",

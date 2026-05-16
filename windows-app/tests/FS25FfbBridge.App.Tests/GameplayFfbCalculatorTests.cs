@@ -39,11 +39,11 @@ public sealed class GameplayFfbCalculatorTests
         var capped = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 45)), settings);
 
         Assert.InRange(stopped.SpringPercent, 12, 14);
-        Assert.InRange(creeping.SpringPercent, 27, 30);
-        Assert.InRange(light.SpringPercent, 36, 39);
-        Assert.InRange(moderate.SpringPercent, 50, 53);
-        Assert.InRange(stable.SpringPercent, 59, 61);
-        Assert.InRange(capped.SpringPercent, 59, 61);
+        Assert.InRange(creeping.SpringPercent, 15, 18);
+        Assert.InRange(light.SpringPercent, 23, 26);
+        Assert.InRange(moderate.SpringPercent, 45, 47);
+        Assert.InRange(stable.SpringPercent, 55, 57);
+        Assert.InRange(capped.SpringPercent, 55, 57);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
-    public void Vehicle_category_profile_applies_multipliers()
+    public void Vehicle_category_profile_applies_category_defaults()
     {
         var settings = new GameplayFfbSettings();
         var wheeled = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 25, vehicleCategory: VehicleCategoryFfbProfile.TractorWheeled)), settings);
@@ -87,7 +87,7 @@ public sealed class GameplayFfbCalculatorTests
 
         Assert.True(tracked.DamperPercent > wheeled.DamperPercent);
         Assert.True(tracked.FrictionPercent > wheeled.FrictionPercent);
-        Assert.Equal(wheeled.SpringPercent, tracked.SpringPercent);
+        Assert.True(tracked.SpringPercent < wheeled.SpringPercent);
     }
 
     [Fact]
@@ -1295,7 +1295,10 @@ public sealed class GameplayFfbCalculatorTests
     [Fact]
     public void Road_bump_passes_for_noticeable_impact()
     {
-        var output = _calculator.Calculate(State(Packet(speedKmh: 18, surfaceType: "asphalt", verticalImpactImpulse: 0.75, groundContactRatio: 1)), new GameplayFfbSettings(), DeviceHapticProfile.Generic);
+        var settings = new GameplayFfbSettings();
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].BumpFeedback.StrengthPercent = 34;
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].BumpFeedback.Curve = FfbCurveKind.Aggressive;
+        var output = _calculator.Calculate(State(Packet(speedKmh: 18, surfaceType: "asphalt", verticalImpactImpulse: 0.75, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
 
         Assert.Equal(FfbPulseKind.Bump, output.EventPulseKind);
         Assert.True(Math.Abs(output.BumpImpulsePercent) >= 4);
@@ -1338,7 +1341,10 @@ public sealed class GameplayFfbCalculatorTests
     [Fact]
     public void Symmetric_side_impulse_falls_back_to_bump()
     {
-        var output = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.75, leftSuspensionImpulse: 0.42, rightSuspensionImpulse: 0.39, groundContactRatio: 1)), new GameplayFfbSettings());
+        var settings = new GameplayFfbSettings();
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].BumpFeedback.StrengthPercent = 34;
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].BumpFeedback.Curve = FfbCurveKind.Aggressive;
+        var output = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.75, leftSuspensionImpulse: 0.42, rightSuspensionImpulse: 0.39, groundContactRatio: 1)), settings);
 
         Assert.Equal(FfbPulseKind.Bump, output.EventPulseKind);
     }
@@ -1433,6 +1439,7 @@ public sealed class GameplayFfbCalculatorTests
     {
         var settings = new GameplayFfbSettings();
         settings.TireSurfaceTuning.Matrix["agricultural"]["asphalt"] = 200;
+        settings.TireSurfaceTuning.Matrix["agricultural"]["field"] = 20;
         var field = _calculator.Calculate(State(Packet(speedKmh: 15, isOnField: true, surfaceType: "field", tireProfile: "agricultural", suspensionImpulse: 0.9, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
         var asphalt = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", tireProfile: "agricultural", suspensionImpulse: 0.9, verticalImpactImpulse: 0.05, groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
 
@@ -1515,8 +1522,11 @@ public sealed class GameplayFfbCalculatorTests
     [Fact]
     public void Bump_and_side_hit_cooldowns_are_limited_for_terrain_pulses()
     {
-        var bump = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.8, groundContactRatio: 1)), new GameplayFfbSettings());
-        var side = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.35, leftSuspensionImpulse: 0.8, rightSuspensionImpulse: 0.15, groundContactRatio: 1)), new GameplayFfbSettings());
+        var settings = new GameplayFfbSettings();
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].BumpFeedback.StrengthPercent = 34;
+        settings.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].BumpFeedback.Curve = FfbCurveKind.Aggressive;
+        var bump = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.8, groundContactRatio: 1)), settings);
+        var side = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", verticalImpactImpulse: 0.35, leftSuspensionImpulse: 0.8, rightSuspensionImpulse: 0.15, groundContactRatio: 1)), settings);
 
         Assert.Equal(FfbPulseKind.Bump, bump.EventPulseKind);
         Assert.InRange(bump.BumpCooldownMs, 20, 105);

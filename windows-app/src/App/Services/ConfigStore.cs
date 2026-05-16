@@ -214,6 +214,18 @@ public sealed class ConfigStore
             config.EffectsProfileVersion = 16;
         }
 
+        if (config.EffectsProfileVersion < 17)
+        {
+            if (string.Equals(config.GameplayFfb.WheelProfileId, WheelProfileCatalog.LogitechMomoRacingId, StringComparison.OrdinalIgnoreCase))
+            {
+                GameplayFfbEffectProfile.ApplyLogitechMomoRacingPreset(config.GameplayFfb);
+                config.GameplayFfb.VehicleCategoryEffectProfiles = GameplayFfbEffectProfile.CreateLogitechMomoRacingCategoryDefaults();
+                config.GameplayFfb.TireSurfaceTuning = new TireSurfaceTuningSettings();
+            }
+
+            config.EffectsProfileVersion = 17;
+        }
+
         return config;
     }
 

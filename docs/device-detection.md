@@ -13,7 +13,7 @@ For each detected device it shows:
 
 The selected device stable ID and resolved wheel profile id are saved to `%APPDATA%/FS25FFBBridge/config.json`. On the next launch, the app auto-selects the device only when the same stable ID is present.
 
-Built-in wheel profiles are resolved from DirectInput product/instance aliases for Logitech MOMO Racing Wheel, Driving Force GT/Pro/EX, G25, G27, G29, G920, and G923. Unknown devices use `Generic FFB Wheel`.
+Built-in wheel profiles are resolved from DirectInput product/instance aliases for Logitech Momo Racing, Driving Force GT/Pro/EX, G25, G27, G29, G920, and G923. Unknown devices use `Generic FFB Wheel`.
 
 If the saved wheel is missing, the app stays idle and does not attempt to send forces.
 

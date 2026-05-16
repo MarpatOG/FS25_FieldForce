@@ -226,7 +226,25 @@ public class GameplayFfbEffectProfile
 
     public static Dictionary<string, GameplayFfbEffectProfile> CreateCategoryDefaults(GameplayFfbEffectProfile baseProfile)
     {
-        return CreateCategoryProfiles(baseProfile, VehicleCategoryFfbProfile.CreateDefaults(), applyLegacyMultipliers: true);
+        return CreateLogitechMomoRacingCategoryDefaults();
+    }
+
+    public static void ApplyLogitechMomoRacingPreset(GameplayFfbEffectProfile settings)
+    {
+        ApplyLogitechMomoCategoryDefaults(settings, VehicleCategoryFfbProfile.TractorWheeled);
+    }
+
+    public static Dictionary<string, GameplayFfbEffectProfile> CreateLogitechMomoRacingCategoryDefaults()
+    {
+        var result = new Dictionary<string, GameplayFfbEffectProfile>(StringComparer.OrdinalIgnoreCase);
+        foreach (var category in VehicleCategoryFfbProfile.Categories)
+        {
+            var profile = new GameplayFfbEffectProfile();
+            ApplyLogitechMomoCategoryDefaults(profile, category);
+            result[category] = profile;
+        }
+
+        return result;
     }
 
     public static Dictionary<string, GameplayFfbEffectProfile> CreateCategoryProfiles(
@@ -514,6 +532,54 @@ public class GameplayFfbEffectProfile
         settings.TerrainRumble.MaxFrequencyHz = 14;
     }
 
+    private static void ApplyLogitechMomoCategoryDefaults(GameplayFfbEffectProfile settings, string category)
+    {
+        var values = LogitechMomoCategoryValues.For(category);
+        ApplySpeed(settings.SpeedSpring, values.SpeedSpring, values.SpeedSpringCurve, maxOutputPercent: 100);
+        ApplyEffect(settings.MechanicalFriction, values.MechanicalFriction, values.MechanicalFrictionCurve);
+        ApplySpeed(settings.SpeedDamper, values.SpeedDamper, values.SpeedDamperCurve);
+        ApplyEffect(settings.SurfaceFeedback, values.SurfaceFeedback, values.SurfaceFeedbackCurve);
+        ApplyEffect(settings.SlipFeedback, values.SlipFeedback, values.SlipFeedbackCurve);
+        ApplyEffect(settings.WetnessFeedback, values.Wetness, values.WetnessCurve);
+        ApplyEffect(settings.BumpFeedback, values.Bump, values.BumpCurve);
+        ApplyEffect(settings.SuspensionHitFeedback, values.SuspensionHit, values.SuspensionHitCurve);
+        ApplyEffect(settings.CollisionFeedback, values.CollisionPulse, values.CollisionPulseCurve);
+        ApplyEffect(settings.LandingFeedback, values.LandingPulse, values.LandingPulseCurve);
+        ApplyEffect(settings.TerrainRumble, values.TerrainRumble, values.TerrainRumbleCurve);
+        ApplyEffect(settings.LoadResistance, values.LoadResistance, values.LoadResistanceCurve);
+        ApplyEffect(settings.MotionFeedback, values.Motion, values.MotionCurve);
+        ApplyEffect(settings.HillStandstillLoad, values.HillStandstillLoad, values.HillStandstillLoadCurve);
+        ApplyEffect(settings.SideSlopeBias, values.SideSlopeBias, values.SideSlopeBiasCurve);
+        ApplyEffect(settings.ImplementBias, values.ImplementBias, values.ImplementBiasCurve);
+
+        settings.EngineRpmVibration.Enabled = true;
+        settings.EngineRpmVibration.IdleStrengthPercent = values.RpmIdle;
+        settings.EngineRpmVibration.LoadStrengthPercent = values.RpmLoad;
+        settings.EngineRpmVibration.LuggingBoostPercent = values.LuggingBoost;
+        settings.EngineRpmVibration.StrengthPercent = Math.Max(values.RpmIdle, values.RpmLoad);
+        settings.EngineRpmVibration.MaxOutputPercent = 100;
+        settings.EngineRpmVibration.Curve = FfbCurveKind.Smooth;
+
+        ApplyEffect(settings.GearShiftPulse, values.GearShiftPulse, values.GearShiftPulseCurve, maxOutputPercent: 100);
+        settings.GearShiftPulse.CooldownMs = values.GearCooldownMs;
+        ApplyEffect(settings.DrivetrainPulse, values.ClutchBrakeJerk, values.ClutchBrakeJerkCurve, maxOutputPercent: 100);
+        ApplyEffect(settings.EngineStartStopPulse, values.EngineStartStop, values.EngineStartStopCurve, maxOutputPercent: 100);
+        settings.EngineDrivetrainMaxPercent = values.EngineCapPercent;
+    }
+
+    private static void ApplyEffect(FfbEffectSettings settings, int strengthPercent, FfbCurveKind curve, int maxOutputPercent = DefaultMaxOutputPercent)
+    {
+        settings.Enabled = true;
+        settings.StrengthPercent = strengthPercent;
+        settings.MaxOutputPercent = maxOutputPercent;
+        settings.Curve = curve;
+    }
+
+    private static void ApplySpeed(SpeedConditionSettings settings, int strengthPercent, FfbCurveKind curve, int maxOutputPercent = DefaultMaxOutputPercent)
+    {
+        ApplyEffect(settings, strengthPercent, curve, maxOutputPercent);
+    }
+
     public static void ApplyOverallOutputCap(GameplayFfbEffectProfile settings, int overallCapPercent)
     {
         var overallCap = Math.Clamp(overallCapPercent, 0, 100);
@@ -619,6 +685,7 @@ public sealed class GameplayFfbSettings : GameplayFfbEffectProfile
 {
     public GameplayFfbSettings()
     {
+        ApplyLogitechMomoRacingPreset(this);
         VehicleCategoryEffectProfiles = GameplayFfbEffectProfile.CreateCategoryDefaults(this);
     }
 
@@ -626,13 +693,91 @@ public sealed class GameplayFfbSettings : GameplayFfbEffectProfile
 
     public string WheelProfileId { get; set; } = WheelProfileCatalog.LogitechMomoRacingId;
 
-    public string DeviceHapticProfileName { get; set; } = "Logitech MOMO Racing Wheel";
+    public string DeviceHapticProfileName { get; set; } = "Logitech Momo Racing";
 
     public TireSurfaceTuningSettings TireSurfaceTuning { get; set; } = new();
 
     public Dictionary<string, GameplayFfbEffectProfile> VehicleCategoryEffectProfiles { get; set; }
 
     public Dictionary<string, VehicleCategoryFfbProfile> VehicleCategoryProfiles { get; set; } = VehicleCategoryFfbProfile.CreateDefaults();
+}
+
+internal sealed record LogitechMomoCategoryValues(
+    int SpeedSpring,
+    FfbCurveKind SpeedSpringCurve,
+    int MechanicalFriction,
+    FfbCurveKind MechanicalFrictionCurve,
+    int SpeedDamper,
+    FfbCurveKind SpeedDamperCurve,
+    int SurfaceFeedback,
+    FfbCurveKind SurfaceFeedbackCurve,
+    int SlipFeedback,
+    FfbCurveKind SlipFeedbackCurve,
+    int Wetness,
+    FfbCurveKind WetnessCurve,
+    int Bump,
+    FfbCurveKind BumpCurve,
+    int SuspensionHit,
+    FfbCurveKind SuspensionHitCurve,
+    int CollisionPulse,
+    FfbCurveKind CollisionPulseCurve,
+    int LandingPulse,
+    FfbCurveKind LandingPulseCurve,
+    int TerrainRumble,
+    FfbCurveKind TerrainRumbleCurve,
+    int LoadResistance,
+    FfbCurveKind LoadResistanceCurve,
+    int Motion,
+    FfbCurveKind MotionCurve,
+    int HillStandstillLoad,
+    FfbCurveKind HillStandstillLoadCurve,
+    int SideSlopeBias,
+    FfbCurveKind SideSlopeBiasCurve,
+    int ImplementBias,
+    FfbCurveKind ImplementBiasCurve,
+    int RpmIdle,
+    int RpmLoad,
+    int LuggingBoost,
+    int GearShiftPulse,
+    FfbCurveKind GearShiftPulseCurve,
+    int ClutchBrakeJerk,
+    FfbCurveKind ClutchBrakeJerkCurve,
+    int EngineStartStop,
+    FfbCurveKind EngineStartStopCurve,
+    int EngineCapPercent,
+    int GearCooldownMs)
+{
+    public static LogitechMomoCategoryValues For(string category)
+    {
+        return category switch
+        {
+            VehicleCategoryFfbProfile.TractorTracked => new(
+                42, S, 38, S, 45, L, 28, S, 18, S, 24, S, 20, S, 24, S, 42, A, 28, A, 38, S, 48, S,
+                18, S, 38, S, 22, S, 36, S, 16, 28, 28, 18, A, 16, A, 24, A, 42, 550),
+            VehicleCategoryFfbProfile.Harvester => new(
+                48, S, 34, S, 42, L, 25, S, 18, S, 22, S, 18, S, 24, S, 40, A, 26, A, 30, S, 42, S,
+                22, S, 30, S, 28, S, 26, S, 20, 32, 24, 16, A, 14, A, 26, A, 45, 650),
+            VehicleCategoryFfbProfile.Truck => new(
+                45, S, 24, L, 38, L, 22, S, 24, A, 24, S, 22, S, 28, A, 45, A, 30, A, 22, S, 30, S,
+                22, S, 24, S, 18, S, 18, S, 16, 24, 20, 26, A, 26, A, 22, A, 38, 400),
+            VehicleCategoryFfbProfile.LoaderTelehandler => new(
+                50, S, 36, S, 34, L, 35, S, 30, A, 30, S, 28, A, 36, A, 48, A, 36, A, 36, S, 45, S,
+                28, S, 34, S, 30, S, 32, S, 18, 30, 28, 22, A, 24, A, 26, A, 45, 450),
+            VehicleCategoryFfbProfile.LightVehicle => new(
+                38, S, 18, L, 28, L, 30, S, 34, A, 28, S, 30, A, 34, A, 40, A, 34, A, 28, S, 18, S,
+                30, S, 16, S, 22, S, 10, S, 14, 20, 16, 24, A, 24, A, 18, A, 35, 350),
+            VehicleCategoryFfbProfile.Unknown => new(
+                45, S, 25, S, 32, L, 28, S, 24, A, 25, S, 22, S, 28, A, 40, A, 30, A, 28, S, 32, S,
+                22, S, 25, S, 22, S, 24, S, 16, 25, 22, 20, A, 20, A, 22, A, 40, 500),
+            _ => new(
+                55, S, 28, S, 35, L, 32, S, 26, A, 30, S, 24, S, 32, A, 45, A, 34, A, 30, S, 40, S,
+                24, S, 34, S, 26, S, 34, S, 18, 30, 30, 24, A, 22, A, 26, A, 45, 450)
+        };
+    }
+
+    private static FfbCurveKind S => FfbCurveKind.Smooth;
+    private static FfbCurveKind L => FfbCurveKind.Linear;
+    private static FfbCurveKind A => FfbCurveKind.Aggressive;
 }
 
 public sealed class VehicleCategoryFfbProfile

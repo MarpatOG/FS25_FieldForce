@@ -43,18 +43,18 @@ public sealed class TireSurfaceTuningSettings
             _ => SurfaceTypes.ToDictionary(surface => surface, _ => DefaultMultiplierPercent, StringComparer.OrdinalIgnoreCase),
             StringComparer.OrdinalIgnoreCase);
 
-        SetScaleRow(matrix, "asphalt", street: 2, agricultural: 6, mud: 7, offRoad: 6, tracked: 5, mixed: 5, unknown: 4);
-        SetScaleRow(matrix, "dirt", street: 6, agricultural: 3, mud: 3, offRoad: 3, tracked: 3, mixed: 4, unknown: 4);
-        SetScaleRow(matrix, "gravel", street: 5, agricultural: 4, mud: 4, offRoad: 3, tracked: 4, mixed: 4, unknown: 4);
-        SetScaleRow(matrix, "mud", street: 9, agricultural: 4, mud: 2, offRoad: 3, tracked: 3, mixed: 5, unknown: 4);
-        SetScaleRow(matrix, "grass", street: 7, agricultural: 3, mud: 3, offRoad: 3, tracked: 3, mixed: 4, unknown: 4);
-        SetScaleRow(matrix, "snow", street: 8, agricultural: 5, mud: 4, offRoad: 4, tracked: 4, mixed: 5, unknown: 4);
-        SetScaleRow(matrix, "shallowWater", street: 8, agricultural: 5, mud: 4, offRoad: 4, tracked: 4, mixed: 5, unknown: 4);
-        SetScaleRow(matrix, "field", street: 8, agricultural: 2, mud: 2, offRoad: 3, tracked: 2, mixed: 4, unknown: 4);
-        SetScaleRow(matrix, "plowedField", street: 9, agricultural: 3, mud: 2, offRoad: 3, tracked: 2, mixed: 5, unknown: 4);
-        SetScaleRow(matrix, "cultivatedField", street: 8, agricultural: 2, mud: 2, offRoad: 3, tracked: 2, mixed: 4, unknown: 4);
-        SetScaleRow(matrix, "wetField", street: 9, agricultural: 4, mud: 3, offRoad: 4, tracked: 3, mixed: 5, unknown: 4);
-        SetScaleRow(matrix, "unknownMixed", street: 5, agricultural: 5, mud: 5, offRoad: 5, tracked: 5, mixed: 5, unknown: 4);
+        SetScaleRow(matrix, "asphalt", street: 3, agricultural: 3, mud: 2, offRoad: 4, tracked: 2, mixed: 3, unknown: 5);
+        SetScaleRow(matrix, "dirt", street: 5, agricultural: 6, mud: 5, offRoad: 7, tracked: 5, mixed: 6, unknown: 5);
+        SetScaleRow(matrix, "gravel", street: 6, agricultural: 6, mud: 5, offRoad: 7, tracked: 5, mixed: 6, unknown: 5);
+        SetScaleRow(matrix, "mud", street: 8, agricultural: 8, mud: 7, offRoad: 9, tracked: 6, mixed: 8, unknown: 5);
+        SetScaleRow(matrix, "grass", street: 4, agricultural: 5, mud: 4, offRoad: 6, tracked: 4, mixed: 5, unknown: 5);
+        SetScaleRow(matrix, "snow", street: 6, agricultural: 6, mud: 5, offRoad: 7, tracked: 5, mixed: 6, unknown: 5);
+        SetScaleRow(matrix, "shallowWater", street: 7, agricultural: 7, mud: 6, offRoad: 8, tracked: 5, mixed: 7, unknown: 5);
+        SetScaleRow(matrix, "field", street: 6, agricultural: 7, mud: 6, offRoad: 8, tracked: 5, mixed: 7, unknown: 5);
+        SetScaleRow(matrix, "plowedField", street: 8, agricultural: 8, mud: 7, offRoad: 9, tracked: 6, mixed: 8, unknown: 5);
+        SetScaleRow(matrix, "cultivatedField", street: 7, agricultural: 7, mud: 6, offRoad: 8, tracked: 5, mixed: 7, unknown: 5);
+        SetScaleRow(matrix, "wetField", street: 9, agricultural: 9, mud: 8, offRoad: 10, tracked: 7, mixed: 9, unknown: 5);
+        SetScaleRow(matrix, "unknownMixed", street: 5, agricultural: 5, mud: 5, offRoad: 5, tracked: 5, mixed: 5, unknown: 5);
         return matrix;
     }
 
