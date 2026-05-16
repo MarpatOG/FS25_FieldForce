@@ -267,7 +267,7 @@ public sealed class MainWindowViewModelTests
         using var telemetry = new TelemetryReceiverService(log);
         using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
 
-        viewModel.TireSurfaceMatrixRows.Single(row => row.SurfaceType == "asphalt").Street = 33;
+        viewModel.TireSurfaceMatrixRows.Single(row => row.SurfaceType == "asphalt").Street = 1.65;
         viewModel.NewSurfaceAliasRaw = "mapClay";
         viewModel.SelectedSurfaceAliasTarget = "mud";
         viewModel.SaveAliasCommand.Execute(null);

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -1745,7 +1746,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             GroundContactRatio = "-";
             WheelTireTypes = "-";
             WheelTireProfile = "-";
-            ActiveTireSurfaceMultiplier = "50%";
+            ActiveTireSurfaceMultiplier = FormatTireSurfaceMultiplier(50);
             Attitude = "- / - / -";
             LocalAcceleration = "- / - / -";
             BumpImpulse = "-";
@@ -1773,7 +1774,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             GroundContactRatio = FormatNumber(packet.GroundContactRatio, "0%");
             WheelTireTypes = string.IsNullOrWhiteSpace(packet.WheelTireTypes) ? "-" : packet.WheelTireTypes;
             WheelTireProfile = string.IsNullOrWhiteSpace(packet.ActiveTireProfile) ? "-" : packet.ActiveTireProfile;
-            ActiveTireSurfaceMultiplier = $"{CalculateActiveTireSurfaceMultiplier(packet)}%";
+            ActiveTireSurfaceMultiplier = FormatTireSurfaceMultiplier(CalculateActiveTireSurfaceMultiplier(packet));
             Attitude = $"{FormatNumber(packet.PitchDeg, "0.0 deg")} / {FormatNumber(packet.RollDeg, "0.0 deg")} / {FormatNumber(packet.CalculatedSlopeDeg, "0.0 deg")}";
             LocalAcceleration = $"{FormatNumber(packet.LocalAccelerationX, "0.00")} / {FormatNumber(packet.LocalAccelerationY, "0.00")} / {FormatNumber(packet.LocalAccelerationZ, "0.00")}";
             BumpImpulse = FormatNumber(packet.VerticalImpactImpulse, "0.00");
@@ -1830,6 +1831,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         return tuning.GetMultiplierPercent(profile, surface);
     }
 
+    private static string FormatTireSurfaceMultiplier(int percent)
+    {
+        return $"{TireSurfaceMatrixRow.PercentToScale(percent):0.##}/10";
+    }
+
     private static string LimitRawTelemetryPreview(string raw)
     {
         if (raw.Length <= MaxRawTelemetryPreviewLength)
@@ -1868,25 +1874,25 @@ public sealed record EffectCategoryOption(string Id, string DisplayName);
 public sealed partial class TireSurfaceMatrixRow : ObservableObject
 {
     [ObservableProperty]
-    private int _street;
+    private double _street;
 
     [ObservableProperty]
-    private int _agricultural;
+    private double _agricultural;
 
     [ObservableProperty]
-    private int _mud;
+    private double _mud;
 
     [ObservableProperty]
-    private int _offRoad;
+    private double _offRoad;
 
     [ObservableProperty]
-    private int _tracked;
+    private double _tracked;
 
     [ObservableProperty]
-    private int _mixed;
+    private double _mixed;
 
     [ObservableProperty]
-    private int _unknown;
+    private double _unknown;
 
     public TireSurfaceMatrixRow(string surfaceType)
     {
@@ -1897,31 +1903,45 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
 
     public string SurfaceType { get; }
 
+    public IBrush StreetBrush => CreateScaleBrush(Street);
+
+    public IBrush AgriculturalBrush => CreateScaleBrush(Agricultural);
+
+    public IBrush MudBrush => CreateScaleBrush(Mud);
+
+    public IBrush OffRoadBrush => CreateScaleBrush(OffRoad);
+
+    public IBrush TrackedBrush => CreateScaleBrush(Tracked);
+
+    public IBrush MixedBrush => CreateScaleBrush(Mixed);
+
+    public IBrush UnknownBrush => CreateScaleBrush(Unknown);
+
     public void Set(string profile, int value, bool notify)
     {
-        value = Math.Clamp(value, 0, 200);
+        var scale = PercentToScale(value);
         switch (profile)
         {
             case "street":
-                Street = value;
+                Street = scale;
                 break;
             case "agricultural":
-                Agricultural = value;
+                Agricultural = scale;
                 break;
             case "mud":
-                Mud = value;
+                Mud = scale;
                 break;
             case "offRoad":
-                OffRoad = value;
+                OffRoad = scale;
                 break;
             case "tracked":
-                Tracked = value;
+                Tracked = scale;
                 break;
             case "mixed":
-                Mixed = value;
+                Mixed = scale;
                 break;
             default:
-                Unknown = value;
+                Unknown = scale;
                 break;
         }
 
@@ -1931,7 +1951,7 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
         }
     }
 
-    public int Get(string profile) => profile switch
+    public int Get(string profile) => ScaleToPercent(profile switch
     {
         "street" => Street,
         "agricultural" => Agricultural,
@@ -1940,29 +1960,30 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
         "tracked" => Tracked,
         "mixed" => Mixed,
         _ => Unknown
-    };
+    });
 
-    partial void OnStreetChanged(int value) => ClampAndNotify(nameof(Street), value);
-    partial void OnAgriculturalChanged(int value) => ClampAndNotify(nameof(Agricultural), value);
-    partial void OnMudChanged(int value) => ClampAndNotify(nameof(Mud), value);
-    partial void OnOffRoadChanged(int value) => ClampAndNotify(nameof(OffRoad), value);
-    partial void OnTrackedChanged(int value) => ClampAndNotify(nameof(Tracked), value);
-    partial void OnMixedChanged(int value) => ClampAndNotify(nameof(Mixed), value);
-    partial void OnUnknownChanged(int value) => ClampAndNotify(nameof(Unknown), value);
+    partial void OnStreetChanged(double value) => ClampAndNotify(nameof(Street), nameof(StreetBrush), value);
+    partial void OnAgriculturalChanged(double value) => ClampAndNotify(nameof(Agricultural), nameof(AgriculturalBrush), value);
+    partial void OnMudChanged(double value) => ClampAndNotify(nameof(Mud), nameof(MudBrush), value);
+    partial void OnOffRoadChanged(double value) => ClampAndNotify(nameof(OffRoad), nameof(OffRoadBrush), value);
+    partial void OnTrackedChanged(double value) => ClampAndNotify(nameof(Tracked), nameof(TrackedBrush), value);
+    partial void OnMixedChanged(double value) => ClampAndNotify(nameof(Mixed), nameof(MixedBrush), value);
+    partial void OnUnknownChanged(double value) => ClampAndNotify(nameof(Unknown), nameof(UnknownBrush), value);
 
-    private void ClampAndNotify(string propertyName, int value)
+    private void ClampAndNotify(string propertyName, string brushPropertyName, double value)
     {
-        var clamped = Math.Clamp(value, 0, 200);
-        if (clamped != value)
+        var clamped = ClampScale(value);
+        if (Math.Abs(clamped - value) > 0.0001)
         {
             SetPropertyValue(propertyName, clamped);
             return;
         }
 
+        OnPropertyChanged(brushPropertyName);
         Changed?.Invoke();
     }
 
-    private void SetPropertyValue(string propertyName, int value)
+    private void SetPropertyValue(string propertyName, double value)
     {
         switch (propertyName)
         {
@@ -1988,6 +2009,35 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
                 Unknown = value;
                 break;
         }
+    }
+
+    public static double PercentToScale(int percent)
+    {
+        return Math.Round(Math.Clamp(percent, 20, 200) / 20.0, 2);
+    }
+
+    private static int ScaleToPercent(double scale)
+    {
+        return (int)Math.Round(ClampScale(scale) * 20, MidpointRounding.AwayFromZero);
+    }
+
+    private static double ClampScale(double scale)
+    {
+        return double.IsFinite(scale) ? Math.Clamp(scale, 1, 10) : 1;
+    }
+
+    private static IBrush CreateScaleBrush(double scale)
+    {
+        var ratio = (ClampScale(scale) - 1) / 9.0;
+        var red = Lerp(0xF6, 0xD9, ratio);
+        var green = Lerp(0xD8, 0xEE, ratio);
+        var blue = Lerp(0xD6, 0xDA, ratio);
+        return new SolidColorBrush(Avalonia.Media.Color.FromRgb(red, green, blue));
+    }
+
+    private static byte Lerp(byte start, byte end, double ratio)
+    {
+        return (byte)Math.Round(start + ((end - start) * ratio));
     }
 }
 
