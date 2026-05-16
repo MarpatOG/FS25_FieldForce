@@ -979,7 +979,7 @@
                                     <StackPanel>
                                         <TextBlock Classes="section" Text="Tire x Surface Matrix"/>
                                         <TextBlock Classes="muted" Text="Columns are Tires. Rows are Surface. Enter 1-10; Enter or clicking outside commits the value."/>
-                                        <TextBlock Classes="muted" Text="Red is low feedback and green is high feedback."/>
+                                        <TextBlock Classes="muted" Text="Green is low feedback and red is high feedback."/>
                                         <TextBlock Classes="muted" Text="Multipliers are stored in the selected wheel effects profile."/>
                                     </StackPanel>
                                     <Button Grid.Column="1"

@@ -2045,7 +2045,7 @@ public sealed partial class TireSurfaceMatrixRow : ObservableObject
 
     private static IBrush CreateScaleBrush(int scale)
     {
-        var ratio = (ClampScale(scale) - 1) / 9.0;
+        var ratio = 1 - ((ClampScale(scale) - 1) / 9.0);
         var red = Lerp(0xF6, 0xD9, ratio);
         var green = Lerp(0xD8, 0xEE, ratio);
         var blue = Lerp(0xD6, 0xDA, ratio);
