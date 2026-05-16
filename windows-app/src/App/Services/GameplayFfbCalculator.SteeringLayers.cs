@@ -141,7 +141,7 @@ public sealed partial class GameplayFfbCalculator
                 return new(Zero(nameof(MotionFeedbackLayer)), 1.0);
             }
 
-            var motionRatio = Math.Max(features.YawRateRatio * features.SpeedRatio, features.SlopeRatio);
+            var motionRatio = Math.Max(Math.Max(features.YawRateRatio * features.SpeedRatio, features.SlopeRatio), features.AccelerationRatio);
             if (motionRatio <= 0)
             {
                 return new(Zero(nameof(MotionFeedbackLayer)), 1.0);
@@ -206,6 +206,11 @@ public sealed partial class GameplayFfbCalculator
         public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var settings = profile.HillStandstillLoad;
+            if (!profile.MotionFeedback.Enabled)
+            {
+                return new(Zero(nameof(HillStandstillLoadLayer)), 1.0);
+            }
+
             var slopeDeg = features.SlopeRatio * Math.Max(0.1, profile.MotionFeedback.FullPitchDeg);
             var slopeRatio = slopeDeg <= settings.MinSlopeDeg
                 ? 0
@@ -226,7 +231,8 @@ public sealed partial class GameplayFfbCalculator
                 MechanicalFrictionLayer.Calculate(features, profile, context).Value.FrictionAdd * weighted * 0.75,
                 0,
                 0,
-                1), 1.0);
+                1,
+                features.RollDirection * settings.MaxOutputPercent * weighted * Math.Min(features.RollRatio, 1)), 1.0);
         }
     }
 
@@ -235,7 +241,7 @@ public sealed partial class GameplayFfbCalculator
         public static LayerContribution<SteeringContribution> Calculate(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var settings = profile.SideSlopeBias;
-            if (!settings.Enabled || features.RollRatio <= 0 || features.RollDirection == 0)
+            if (!profile.MotionFeedback.Enabled || !settings.Enabled || features.RollRatio <= 0 || features.RollDirection == 0)
             {
                 return new(Zero(nameof(SideSlopeBiasLayer)), 1.0);
             }

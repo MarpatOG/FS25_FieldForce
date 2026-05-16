@@ -197,7 +197,34 @@ public sealed class ConfigStore
             config.EffectsProfileVersion = 15;
         }
 
+        if (config.EffectsProfileVersion < 16)
+        {
+            var wheelProfile = WheelProfileCatalog.Resolve(config.GameplayFfb.DeviceHapticProfileName);
+            if (wheelProfile.Id == WheelProfileCatalog.GenericId)
+            {
+                wheelProfile = WheelProfileCatalog.Resolve(config.DeviceProfileName);
+            }
+
+            if (wheelProfile.Id == WheelProfileCatalog.GenericId)
+            {
+                wheelProfile = WheelProfileCatalog.Resolve(config.GameplayFfb.WheelProfileId);
+            }
+
+            ApplyWheelProfile(config, wheelProfile);
+            config.EffectsProfileVersion = 16;
+        }
+
         return config;
+    }
+
+    private static void ApplyWheelProfile(AppConfig config, WheelProfile wheelProfile)
+    {
+        config.WheelProfileId = wheelProfile.Id;
+        config.DeviceProfileName = wheelProfile.DisplayName;
+        config.RotationDegrees = wheelProfile.RotationDegrees;
+        config.RecommendedMode = wheelProfile.RecommendedMode;
+        config.GameplayFfb.WheelProfileId = wheelProfile.Id;
+        config.GameplayFfb.DeviceHapticProfileName = wheelProfile.DisplayName;
     }
 
     private static string NormalizeTelemetryTransportMode(string? value)

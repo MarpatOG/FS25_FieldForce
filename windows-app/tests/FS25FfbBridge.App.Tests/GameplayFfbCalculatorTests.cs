@@ -851,10 +851,19 @@ public sealed class GameplayFfbCalculatorTests
         }
 
         var flat = _calculator.Calculate(State(Packet(speedKmh: 25)), settings);
-        var motion = _calculator.Calculate(State(Packet(speedKmh: 25, pitchDeg: 8, yawRateDegPerSec: 30)), settings);
+        var motion = _calculator.Calculate(State(Packet(
+            speedKmh: 25,
+            rollDeg: 12,
+            pitchDeg: 8,
+            yawRateDegPerSec: 30,
+            localAccelerationX: 3,
+            localAccelerationY: 1,
+            localAccelerationZ: 2)), settings);
 
         Assert.Equal(flat.SpringPercent, motion.SpringPercent);
         Assert.Equal(flat.DamperPercent, motion.DamperPercent);
+        Assert.Equal(0, motion.CenterOffsetPercent);
+        Assert.False(motion.MotionFeedbackActive);
     }
 
     [Fact]
@@ -868,10 +877,45 @@ public sealed class GameplayFfbCalculatorTests
         }
 
         var flat = _calculator.Calculate(State(Packet(speedKmh: 25)), settings);
-        var motion = _calculator.Calculate(State(Packet(speedKmh: 25, pitchDeg: 8, yawRateDegPerSec: 30)), settings);
+        var motion = _calculator.Calculate(State(Packet(speedKmh: 25, pitchDeg: 8, yawRateDegPerSec: 30, localAccelerationX: 3)), settings);
 
         Assert.Equal(flat.SpringPercent, motion.SpringPercent);
         Assert.Equal(flat.DamperPercent, motion.DamperPercent);
+    }
+
+    [Fact]
+    public void Motion_feedback_disabled_blocks_hill_standstill_and_side_slope_bias()
+    {
+        var settings = new GameplayFfbSettings();
+        settings.MotionFeedback.Enabled = false;
+        foreach (var profile in settings.VehicleCategoryEffectProfiles.Values)
+        {
+            profile.MotionFeedback.Enabled = false;
+        }
+
+        var hill = _calculator.Calculate(State(Packet(speedKmh: 0, pitchDeg: 10)), settings);
+        var sideSlope = _calculator.Calculate(State(Packet(speedKmh: 8, rollDeg: 12)), settings);
+
+        Assert.False(hill.HillStandstillLoadActive);
+        Assert.False(sideSlope.SideSlopeBiasActive);
+        Assert.Equal(0, sideSlope.CenterOffsetPercent);
+    }
+
+    [Fact]
+    public void Motion_feedback_does_not_create_event_pulse()
+    {
+        var output = _calculator.Calculate(State(Packet(
+            speedKmh: 25,
+            rollDeg: 12,
+            pitchDeg: 8,
+            yawRateDegPerSec: 30,
+            localAccelerationX: 3,
+            localAccelerationY: 1,
+            localAccelerationZ: 2)), new GameplayFfbSettings());
+
+        Assert.True(output.MotionFeedbackActive);
+        Assert.False(output.EventPulseActive);
+        Assert.Equal(FfbPulseKind.None, output.EventPulseKind);
     }
 
     [Fact]

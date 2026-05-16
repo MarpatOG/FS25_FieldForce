@@ -93,8 +93,108 @@ public sealed record TelemetryFeatures(
     double TireSurfaceMultiplier = 0.5,
     double RollRatio = 0,
     double RollDirection = 0,
+    double AccelerationRatio = 0,
     double AttachedMassRatio = 0,
     double ImplementLateralOffsetRatio = 0);
+
+public sealed record WheelProfile(
+    string Id,
+    string DisplayName,
+    IReadOnlyList<string> Aliases,
+    int RotationDegrees,
+    string RecommendedMode,
+    int DefaultGlobalForceLimitPercent,
+    DeviceHapticProfile Haptics);
+
+public static class WheelProfileCatalog
+{
+    public const string LogitechMomoRacingId = "logitech-momo-racing";
+    public const string GenericId = "generic-ffb-wheel";
+
+    public static IReadOnlyList<WheelProfile> Profiles { get; } =
+    [
+        new(LogitechMomoRacingId, "Logitech MOMO Racing Wheel",
+            ["logitech momo racing wheel", "momo racing", "momo force", "momo racing force"],
+            270, "Override / 270 degrees / low global force", 40, DeviceHapticProfile.LogitechMomo),
+        new("logitech-driving-force-gt", "Logitech Driving Force GT",
+            ["logitech driving force gt", "driving force gt", "dfgt"],
+            900, "Override / 900 degrees / low global force", 45, DeviceHapticProfile.LogitechDrivingForce),
+        new("logitech-driving-force-pro", "Logitech Driving Force Pro",
+            ["logitech driving force pro", "driving force pro", "dfp"],
+            900, "Override / 900 degrees / low global force", 42, DeviceHapticProfile.LogitechDrivingForce),
+        new("logitech-driving-force-ex", "Logitech Driving Force EX",
+            ["logitech driving force ex", "driving force ex", "df ex"],
+            180, "Override / 180 degrees / low global force", 38, DeviceHapticProfile.LogitechDrivingForceEx),
+        new("logitech-g25", "Logitech G25",
+            ["logitech g25", "g25 racing wheel", "g25"],
+            900, "Override / 900 degrees / moderate global force", 50, DeviceHapticProfile.LogitechG25G27),
+        new("logitech-g27", "Logitech G27",
+            ["logitech g27", "g27 racing wheel", "g27"],
+            900, "Override / 900 degrees / moderate global force", 50, DeviceHapticProfile.LogitechG25G27),
+        new("logitech-g29", "Logitech G29",
+            ["logitech g29", "g29 driving force racing wheel", "g29"],
+            900, "Override / 900 degrees / moderate global force", 48, DeviceHapticProfile.LogitechG29G920G923),
+        new("logitech-g920", "Logitech G920",
+            ["logitech g920", "g920 driving force racing wheel", "g920"],
+            900, "Override / 900 degrees / moderate global force", 48, DeviceHapticProfile.LogitechG29G920G923),
+        new("logitech-g923", "Logitech G923",
+            ["logitech g923", "g923 racing wheel", "g923 trueforce", "g923"],
+            900, "Override / 900 degrees / moderate global force", 48, DeviceHapticProfile.LogitechG29G920G923),
+        new(GenericId, "Generic FFB Wheel",
+            ["generic ffb wheel", "generic ffb", "generic force feedback wheel"],
+            900, "Default DirectInput mode / start with a low global force", 35, DeviceHapticProfile.Generic)
+    ];
+
+    public static WheelProfile Generic => Profiles.Single(profile => profile.Id == GenericId);
+
+    public static WheelProfile ResolveById(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            return Generic;
+        }
+
+        return Profiles.FirstOrDefault(profile => profile.Id.Equals(id.Trim(), StringComparison.OrdinalIgnoreCase)) ?? Generic;
+    }
+
+    public static WheelProfile Resolve(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return Generic;
+        }
+
+        var normalized = Normalize(value);
+        var byId = Profiles.FirstOrDefault(profile => profile.Id.Equals(normalized, StringComparison.OrdinalIgnoreCase));
+        if (byId is not null)
+        {
+            return byId;
+        }
+
+        return Profiles
+            .Where(profile => profile.Id != GenericId)
+            .FirstOrDefault(profile => profile.Aliases.Any(alias => normalized.Contains(Normalize(alias), StringComparison.OrdinalIgnoreCase))) ?? Generic;
+    }
+
+    public static WheelProfile Resolve(DeviceInfo device)
+    {
+        foreach (var value in new[] { device.ProductName, device.InstanceName, device.DisplayName })
+        {
+            var profile = Resolve(value);
+            if (profile.Id != GenericId)
+            {
+                return profile;
+            }
+        }
+
+        return Generic;
+    }
+
+    private static string Normalize(string value)
+    {
+        return value.Trim().ToLowerInvariant();
+    }
+}
 
 public sealed record DeviceHapticProfile(
     string Name,
@@ -109,7 +209,7 @@ public sealed record DeviceHapticProfile(
     double SteeringRateDamperScale)
 {
     public static DeviceHapticProfile Generic { get; } = new(
-        "Generic FFB",
+        "Generic FFB Wheel",
         EngineVibrationCapPercent: 100,
         EngineDrivetrainPulseCapPercent: 100,
         SurfaceHapticCapPercent: 100,
@@ -119,6 +219,30 @@ public sealed record DeviceHapticProfile(
         MaxBumpDurationMs: 250,
         SlewLimitPerSecond: 260,
         SteeringRateDamperScale: 1.0);
+
+    public static DeviceHapticProfile LogitechDrivingForce { get; } = new(
+        "Logitech Driving Force GT/Pro",
+        EngineVibrationCapPercent: 18,
+        EngineDrivetrainPulseCapPercent: 24,
+        SurfaceHapticCapPercent: 24,
+        SlipHapticCapPercent: 24,
+        TerrainRumbleCapPercent: 20,
+        BumpPulseCapPercent: 42,
+        MaxBumpDurationMs: 130,
+        SlewLimitPerSecond: 165,
+        SteeringRateDamperScale: 1.15);
+
+    public static DeviceHapticProfile LogitechDrivingForceEx { get; } = new(
+        "Logitech Driving Force EX",
+        EngineVibrationCapPercent: 14,
+        EngineDrivetrainPulseCapPercent: 20,
+        SurfaceHapticCapPercent: 18,
+        SlipHapticCapPercent: 18,
+        TerrainRumbleCapPercent: 14,
+        BumpPulseCapPercent: 36,
+        MaxBumpDurationMs: 130,
+        SlewLimitPerSecond: 145,
+        SteeringRateDamperScale: 1.20);
 
     public static DeviceHapticProfile LogitechMomo { get; } = new(
         "Logitech MOMO",
@@ -158,30 +282,6 @@ public sealed record DeviceHapticProfile(
 
     public static DeviceHapticProfile Resolve(string? deviceProfileName)
     {
-        if (string.IsNullOrWhiteSpace(deviceProfileName))
-        {
-            return Generic;
-        }
-
-        var name = deviceProfileName.Trim();
-        if (name.Contains("momo", StringComparison.OrdinalIgnoreCase))
-        {
-            return LogitechMomo;
-        }
-
-        if (name.Contains("g25", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("g27", StringComparison.OrdinalIgnoreCase))
-        {
-            return LogitechG25G27;
-        }
-
-        if (name.Contains("g29", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("g920", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("g923", StringComparison.OrdinalIgnoreCase))
-        {
-            return LogitechG29G920G923;
-        }
-
-        return Generic;
+        return WheelProfileCatalog.Resolve(deviceProfileName).Haptics;
     }
 }

@@ -624,6 +624,8 @@ public sealed class GameplayFfbSettings : GameplayFfbEffectProfile
 
     public bool Enabled { get; set; } = true;
 
+    public string WheelProfileId { get; set; } = WheelProfileCatalog.LogitechMomoRacingId;
+
     public string DeviceHapticProfileName { get; set; } = "Logitech MOMO Racing Wheel";
 
     public TireSurfaceTuningSettings TireSurfaceTuning { get; set; } = new();

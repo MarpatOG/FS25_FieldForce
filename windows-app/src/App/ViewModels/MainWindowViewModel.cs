@@ -542,7 +542,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _telemetryCaptureHotkey.Pressed += HandleTelemetryCaptureHotkey;
         _telemetryCaptureHotkey.Register();
         _config = _configStore.Load();
-        _config.GameplayFfb = _effectsProfileStore.Load(_config.GameplayFfb.DeviceHapticProfileName, _config.GameplayFfb);
+        _config.GameplayFfb = _effectsProfileStore.Load(_config.GameplayFfb.WheelProfileId, _config.GameplayFfb);
         UseGlobalForceLimitOnly(_config.GameplayFfb);
         _loadingConfig = true;
         _globalForceLimitPercent = _config.GlobalForceLimitPercent;
@@ -994,11 +994,20 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         var selected = _backend.SelectDevice(device, _windowHandle, GlobalForceLimitPercent, 100);
         if (selected)
         {
-            SelectedDeviceStatus = $"{device.DisplayName} acquired";
+            var wheelProfile = WheelProfileCatalog.Resolve(device);
+            SelectedDeviceStatus = $"{device.DisplayName} acquired ({wheelProfile.DisplayName})";
             BackendStatus = "DirectInput FFB ready";
             _config.SelectedDeviceStableId = device.StableId;
-            _config.GameplayFfb = _effectsProfileStore.Load(device.DisplayName, _config.GameplayFfb);
-            _config.GameplayFfb.DeviceHapticProfileName = device.DisplayName;
+            _config.WheelProfileId = wheelProfile.Id;
+            _config.DeviceProfileName = wheelProfile.DisplayName;
+            _config.RotationDegrees = wheelProfile.RotationDegrees;
+            _config.RecommendedMode = wheelProfile.RecommendedMode;
+            _config.GlobalForceLimitPercent = wheelProfile.DefaultGlobalForceLimitPercent;
+            GlobalForceLimitPercent = wheelProfile.DefaultGlobalForceLimitPercent;
+            _backend.UpdateForceLimits(GlobalForceLimitPercent, 100);
+            _config.GameplayFfb = _effectsProfileStore.Load(wheelProfile.Id, _config.GameplayFfb);
+            _config.GameplayFfb.WheelProfileId = wheelProfile.Id;
+            _config.GameplayFfb.DeviceHapticProfileName = wheelProfile.DisplayName;
             _loadingConfig = true;
             GameplayFfbEnabled = _config.GameplayFfb.Enabled;
             LoadGameplaySettingsIntoUi(GetSelectedCategoryProfile(SelectedEffectCategory));
@@ -1235,7 +1244,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void SaveGameplayProfile()
     {
         _config.GameplayFfb.TireSurfaceTuning = TireSurfaceTuningSettings.CreateNormalized(_config.GameplayFfb.TireSurfaceTuning);
-        _effectsProfileStore.Save(_config.GameplayFfb.DeviceHapticProfileName, _config.GameplayFfb);
+        _effectsProfileStore.Save(_config.GameplayFfb.WheelProfileId, _config.GameplayFfb);
         _configStore.Save(_config);
     }
 
@@ -1505,6 +1514,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             CollisionFeedback = _config.GameplayFfb.CollisionFeedback,
             TerrainRumble = _config.GameplayFfb.TerrainRumble,
             DrivetrainPulse = _config.GameplayFfb.DrivetrainPulse,
+            WheelProfileId = _config.GameplayFfb.WheelProfileId,
             DeviceHapticProfileName = _config.GameplayFfb.DeviceHapticProfileName,
             TireSurfaceTuning = _config.GameplayFfb.TireSurfaceTuning,
             VehicleCategoryEffectProfiles = _config.GameplayFfb.VehicleCategoryEffectProfiles

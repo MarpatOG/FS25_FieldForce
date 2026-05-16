@@ -26,17 +26,17 @@ public sealed class EffectsProfileStore
 
     public string ProfilesDirectory { get; }
 
-    public string GetProfilePath(string? deviceProfileName)
+    public string GetProfilePath(string? wheelProfileId)
     {
-        var fileName = SanitizeFileName(string.IsNullOrWhiteSpace(deviceProfileName)
-            ? "Unknown FFB Wheel"
-            : deviceProfileName);
+        var profile = WheelProfileCatalog.Resolve(wheelProfileId);
+        var fileName = SanitizeFileName(profile.Id);
         return Path.Combine(ProfilesDirectory, $"{fileName}.json");
     }
 
-    public GameplayFfbSettings Load(string? deviceProfileName, GameplayFfbSettings fallback)
+    public GameplayFfbSettings Load(string? wheelProfileId, GameplayFfbSettings fallback)
     {
-        var path = GetProfilePath(deviceProfileName);
+        var wheelProfile = ResolveWheelProfile(wheelProfileId, fallback);
+        var path = GetProfilePath(wheelProfile.Id);
         try
         {
             if (File.Exists(path))
@@ -44,7 +44,19 @@ public sealed class EffectsProfileStore
                 var profile = JsonSerializer.Deserialize<WheelEffectsProfile>(File.ReadAllText(path), JsonOptions);
                 if (profile?.GameplayFfb is not null)
                 {
-                    return Normalize(profile.GameplayFfb, deviceProfileName, profile.EffectsProfileVersion);
+                    return Normalize(profile.GameplayFfb, wheelProfile, profile.EffectsProfileVersion);
+                }
+            }
+
+            var legacyPath = GetLegacyProfilePath(fallback.DeviceHapticProfileName);
+            if (legacyPath != path && File.Exists(legacyPath))
+            {
+                var profile = JsonSerializer.Deserialize<WheelEffectsProfile>(File.ReadAllText(legacyPath), JsonOptions);
+                if (profile?.GameplayFfb is not null)
+                {
+                    var migrated = Normalize(profile.GameplayFfb, wheelProfile, profile.EffectsProfileVersion);
+                    Save(wheelProfile.Id, migrated);
+                    return migrated;
                 }
             }
         }
@@ -54,39 +66,41 @@ public sealed class EffectsProfileStore
         }
 
         var cloned = Clone(fallback);
-        cloned.DeviceHapticProfileName = string.IsNullOrWhiteSpace(deviceProfileName)
-            ? cloned.DeviceHapticProfileName
-            : deviceProfileName!;
-        var normalized = Normalize(cloned, cloned.DeviceHapticProfileName, AppConfig.CurrentEffectsProfileVersion);
-        Save(normalized.DeviceHapticProfileName, normalized);
+        var normalized = Normalize(cloned, wheelProfile, AppConfig.CurrentEffectsProfileVersion);
+        Save(normalized.WheelProfileId, normalized);
         return normalized;
     }
 
-    public void Save(string? deviceProfileName, GameplayFfbSettings settings)
+    public void Save(string? wheelProfileId, GameplayFfbSettings settings)
     {
         Directory.CreateDirectory(ProfilesDirectory);
+        var wheelProfile = ResolveWheelProfile(wheelProfileId, settings);
+        settings.WheelProfileId = wheelProfile.Id;
+        settings.DeviceHapticProfileName = wheelProfile.DisplayName;
         var profile = new WheelEffectsProfile
         {
             EffectsProfileVersion = AppConfig.CurrentEffectsProfileVersion,
-            DeviceProfileName = string.IsNullOrWhiteSpace(deviceProfileName)
-                ? settings.DeviceHapticProfileName
-                : deviceProfileName!,
+            WheelProfileId = wheelProfile.Id,
+            DeviceProfileName = wheelProfile.DisplayName,
             GameplayFfb = Clone(settings)
         };
 
-        File.WriteAllText(GetProfilePath(profile.DeviceProfileName), JsonSerializer.Serialize(profile, JsonOptions));
+        File.WriteAllText(GetProfilePath(profile.WheelProfileId), JsonSerializer.Serialize(profile, JsonOptions));
     }
 
-    private static GameplayFfbSettings Normalize(GameplayFfbSettings settings, string? deviceProfileName, int version)
+    private static GameplayFfbSettings Normalize(GameplayFfbSettings settings, WheelProfile wheelProfile, int version)
     {
         var config = new AppConfig
         {
             EffectsProfileVersion = version,
+            WheelProfileId = wheelProfile.Id,
+            DeviceProfileName = wheelProfile.DisplayName,
+            RotationDegrees = wheelProfile.RotationDegrees,
+            RecommendedMode = wheelProfile.RecommendedMode,
             GameplayFfb = settings
         };
-        config.GameplayFfb.DeviceHapticProfileName = string.IsNullOrWhiteSpace(deviceProfileName)
-            ? config.GameplayFfb.DeviceHapticProfileName
-            : deviceProfileName!;
+        config.GameplayFfb.WheelProfileId = wheelProfile.Id;
+        config.GameplayFfb.DeviceHapticProfileName = wheelProfile.DisplayName;
         return ConfigStore.Normalize(config).GameplayFfb;
     }
 
@@ -104,9 +118,35 @@ public sealed class EffectsProfileStore
         return string.IsNullOrWhiteSpace(sanitized) ? "Unknown FFB Wheel" : sanitized;
     }
 
+    private string GetLegacyProfilePath(string? deviceProfileName)
+    {
+        var fileName = SanitizeFileName(string.IsNullOrWhiteSpace(deviceProfileName)
+            ? "Unknown FFB Wheel"
+            : deviceProfileName);
+        return Path.Combine(ProfilesDirectory, $"{fileName}.json");
+    }
+
+    private static WheelProfile ResolveWheelProfile(string? wheelProfileId, GameplayFfbSettings fallback)
+    {
+        var profile = WheelProfileCatalog.ResolveById(wheelProfileId);
+        if (profile.Id != WheelProfileCatalog.GenericId || string.Equals(wheelProfileId, WheelProfileCatalog.GenericId, StringComparison.OrdinalIgnoreCase))
+        {
+            return profile;
+        }
+
+        profile = WheelProfileCatalog.Resolve(fallback.WheelProfileId);
+        if (profile.Id != WheelProfileCatalog.GenericId)
+        {
+            return profile;
+        }
+
+        return WheelProfileCatalog.Resolve(fallback.DeviceHapticProfileName);
+    }
+
     private sealed class WheelEffectsProfile
     {
         public int EffectsProfileVersion { get; set; } = AppConfig.CurrentEffectsProfileVersion;
+        public string WheelProfileId { get; set; } = WheelProfileCatalog.LogitechMomoRacingId;
         public string DeviceProfileName { get; set; } = "Logitech MOMO Racing Wheel";
         public GameplayFfbSettings GameplayFfb { get; set; } = new();
     }

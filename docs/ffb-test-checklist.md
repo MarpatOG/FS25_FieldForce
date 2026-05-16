@@ -11,14 +11,15 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 ## Device Scan
 
 - Press `Scan`.
-- Logitech MOMO or another DirectInput wheel appears in the list.
+- Logitech MOMO, Driving Force GT/Pro/EX, G25/G27, G29/G920/G923, or another DirectInput wheel appears in the list.
 - Device name, stable ID, axes, and FFB capability are visible.
-- Selecting the wheel logs `Device selected`.
+- Selecting a Logitech wheel auto-detects the matching built-in profile. Unknown wheels use `Generic FFB Wheel`.
+- Confirm the recommended global force limit changes to the selected profile default: MOMO 40%, Driving Force EX 38%, Driving Force GT 45%, Driving Force Pro 42%, G25/G27 50%, G29/G920/G923 48%, Generic 35%.
 
 ## Test Effects
 
 - Confirmed baseline hardware: Logitech MOMO Racing Wheel.
-- Recommended initial limits: 40% global, 35% device.
+- Recommended initial limits: use the detected profile default global force limit; keep any driver-side gain low while testing.
 - `Spring`: wheel gently returns toward center.
 - `Damper`: wheel movement feels heavier.
 - `Constant Left`: wheel pulls left briefly.
@@ -38,7 +39,9 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Surface Feedback`: exact `field` or `wetField` surface state enables soft low-frequency vibration above minimum speed.
 - `Slip Feedback`: high `maxWheelSlip` enables slip vibration and low slip stays quiet.
 - `Wetness`: exact `wetField` telemetry increases damping/surface feel; `groundWetness` and `rainScale` should still appear in the overlay when available.
-- `Motion`: yaw rate and pitch/slope telemetry should affect stability/load behavior; the UI motion toggle is not currently a separate gated output layer.
+- `Motion`: with Motion enabled, yaw rate, pitch/slope, roll, and local acceleration can change spring, damper, and center offset within safe limits. With Motion disabled, these contributions must return to zero.
+- `Hill Standstill Load` and `Side Slope Bias`: their own toggles should work only while Motion is enabled. Turn Motion off and confirm both lamps stay off even on a slope or side slope.
+- Motion should never create a finite event pulse; Bump/Landing/Collision/Suspension Hit stay in the terrain/suspension system.
 - `Terrain Rumble`: on asphalt, small/medium suspension impulse stays quiet; large road hits may produce only weak rumble. On `field`, `wetField`, `grass`, `dirt`, `gravel`, `mud`, `snow`, or `shallowWater`, the same impulse produces stronger continuous low-frequency rumble without a finite pulse lamp.
 - `Bump Feedback`: asphalt only produces short, softened pulses for noticeable vertical hits; off-road bumps are stronger and still return to zero after the pulse.
 - `Suspension Hit`: left/right suspension impulse dominance shows a suspension-hit pulse, not a generic bump. Road side hits require a clearer imbalance than off-road side hits.
@@ -50,6 +53,15 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - Each effect can be enabled/disabled independently and each strength slider changes the live output value.
 - Stop the engine, leave the vehicle, or stop telemetry; gameplay outputs fade or stop safely.
 - `Stop All` and `Ctrl+Alt+Pause` stop test and gameplay effects. `Stop All` disables gameplay FFB until the header `FFB` status button is pressed again.
+
+## Final MVP Acceptance
+
+- Logitech profile is auto-detected or Generic fallback is shown.
+- Per-wheel profile file is stored by stable id under `effect-profiles/`.
+- Spring, Damper, and Vibration tests run safely at the selected force limit.
+- FS25 telemetry reaches `Connected` after entering a vehicle.
+- Motion off/on visibly changes Motion lamps and condition outputs without creating pulse lamps.
+- `Stop All` and Emergency Stop zero all gameplay effects and status indicators.
 
 ## FS25 Overlay
 

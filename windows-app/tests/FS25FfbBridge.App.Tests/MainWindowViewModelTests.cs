@@ -66,7 +66,7 @@ public sealed class MainWindowViewModelTests
 
         viewModel.ToggleGameplayFfbCommand.Execute(null);
 
-        var profilePath = Path.Combine(directory, "effect-profiles", "Logitech MOMO Racing Wheel.json");
+        var profilePath = Path.Combine(directory, "effect-profiles", "logitech-momo-racing.json");
         using var profileJson = JsonDocument.Parse(File.ReadAllText(profilePath));
 
         Assert.False(viewModel.GameplayFfbEnabled);
@@ -178,7 +178,7 @@ public sealed class MainWindowViewModelTests
         viewModel.SurfaceFeedbackStrengthPercent = 44;
         viewModel.CopyEffectStrengthsToAllCategoriesCommand.Execute(null);
 
-        var profilePath = Path.Combine(directory, "effect-profiles", "Logitech MOMO Racing Wheel.json");
+        var profilePath = Path.Combine(directory, "effect-profiles", "logitech-momo-racing.json");
         using var profileJson = JsonDocument.Parse(File.ReadAllText(profilePath));
         var profiles = profileJson.RootElement.GetProperty("GameplayFfb").GetProperty("VehicleCategoryEffectProfiles");
         var tractor = profiles.GetProperty(VehicleCategoryFfbProfile.TractorWheeled);
@@ -224,7 +224,7 @@ public sealed class MainWindowViewModelTests
         viewModel.SelectedSurfaceAliasTarget = "mud";
         viewModel.SaveAliasCommand.Execute(null);
 
-        var profilePath = Path.Combine(directory, "effect-profiles", "Logitech MOMO Racing Wheel.json");
+        var profilePath = Path.Combine(directory, "effect-profiles", "logitech-momo-racing.json");
         using var profileJson = JsonDocument.Parse(File.ReadAllText(profilePath));
         var tuning = profileJson.RootElement.GetProperty("GameplayFfb").GetProperty("TireSurfaceTuning");
 

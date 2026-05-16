@@ -59,7 +59,7 @@ public sealed partial class GameplayFfbCalculator
 
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings)
     {
-        return Calculate(state, settings, DeviceHapticProfile.Resolve(settings.DeviceHapticProfileName));
+        return Calculate(state, settings, WheelProfileCatalog.ResolveById(settings.WheelProfileId).Haptics);
     }
 
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings, DeviceHapticProfile deviceProfile)
@@ -262,12 +262,12 @@ public sealed partial class GameplayFfbCalculator
     private static bool CalculateHillStandstillLoadActive(TelemetryFeatures features, GameplayFfbEffectProfile profile, double fade)
     {
         var slopeDeg = features.SlopeRatio * Math.Max(0.1, profile.MotionFeedback.FullPitchDeg);
-        return profile.HillStandstillLoad.Enabled && fade > 0 && features.SpeedKmh <= MovingSpeedThresholdKmh && slopeDeg > profile.HillStandstillLoad.MinSlopeDeg;
+        return profile.MotionFeedback.Enabled && profile.HillStandstillLoad.Enabled && fade > 0 && features.SpeedKmh <= MovingSpeedThresholdKmh && slopeDeg > profile.HillStandstillLoad.MinSlopeDeg;
     }
 
     private static bool CalculateSideSlopeBiasActive(TelemetryFeatures features, GameplayFfbEffectProfile profile, double fade)
     {
-        return profile.SideSlopeBias.Enabled && fade > 0 && features.RollRatio > 0;
+        return profile.MotionFeedback.Enabled && profile.SideSlopeBias.Enabled && fade > 0 && features.RollRatio > 0;
     }
 
     private static bool CalculateImplementBiasActive(TelemetryFeatures features, GameplayFfbEffectProfile profile, double fade)

@@ -1,15 +1,14 @@
 # FS25 Real FFB Bridge
 
-Windows-first force feedback bridge for Farming Simulator 25.
-
-Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a FS25 Lua telemetry mod and a UDP/file telemetry receiver. The current MVP stage adds gameplay-driven FFB effects, a fuller in-game telemetry overlay, and Windows-side effect activation indicators.
+Windows-first force feedback bridge for Farming Simulator 25. MVP scope is complete after the Logitech wheel profile catalog and fully gated Motion layer.
 
 ## Current Status
 
-- Windows app: DirectInput FFB test baseline physically confirmed on Logitech MOMO Racing Wheel.
+- Windows app: DirectInput FFB tests and gameplay FFB pipeline are implemented.
 - FS25 Lua telemetry mod: sends file-based telemetry by default, with hidden UDP diagnostic modes.
 - Telemetry receiver: implemented in the Windows app with file, UDP, and file+UDP transport modes.
-- Gameplay-driven FFB effects: Speed Spring, Speed Damper, Mechanical Friction, Load Resistance, RPM Vibration, Surface Feedback, Slip Feedback, Wetness, Motion, and Bump Feedback are implemented with conservative Logitech MOMO defaults.
+- Wheel profiles: built-in Logitech gear-driven profiles for MOMO, Driving Force GT/Pro/EX, G25, G27, G29, G920, G923, plus Generic FFB fallback. Profiles are auto-detected from DirectInput aliases and user effect profiles are keyed by stable profile id.
+- Gameplay-driven FFB effects: Speed Spring, Speed Damper, Mechanical Friction, Load Resistance, RPM Vibration, Surface Feedback, Slip Feedback, Wetness, Motion, Bump, Suspension Hit, Landing, Collision, Terrain Rumble, and Drivetrain Pulse are implemented with conservative per-wheel caps.
 - FS25 overlay: displays a compact vertical diagnostic panel with transmitted telemetry fields and can be toggled from the in-game General Settings page.
 - Windows app overlay: displays live effect activation lamps from the actual gameplay FFB output.
 
@@ -17,7 +16,7 @@ Milestone 1 implemented the standalone Windows FFB test app. Milestone 2 added a
 
 - Windows 10/11.
 - .NET 8 SDK to build.
-- DirectInput force feedback wheel, initially tuned conservatively for Logitech MOMO Racing Wheel.
+- DirectInput force feedback wheel. Logitech gear-driven wheels use built-in profile defaults; unknown wheels use `Generic FFB Wheel`.
 
 ## Build and Run
 
@@ -36,7 +35,7 @@ dotnet run --project windows-app/src/App/FS25FfbBridge.App.csproj
 5. Test `Spring`, `Damper`, `Constant Left`, `Constant Right`, and `Vibration` one at a time.
 6. Press `Emergency Stop` or `Ctrl+Alt+Pause` if anything feels wrong.
 
-## Milestone 2 Telemetry Test
+## Telemetry Test
 
 1. Run the Windows app.
 2. Open `Telemetry`; it should show `Waiting`.
@@ -104,11 +103,15 @@ Check the active `log.txt` under `My Games/FarmingSimulator2025` when in doubt, 
 
 Do not keep both `FS25_RealFfbTelemetry.zip` and a `FS25_RealFfbTelemetry/` folder in the FS25 `mods` directory. If FS25 still shows an old version, close the game, remove the folder copy, replace the zip, and start FS25 again.
 
-## Milestone 1 Baseline
+## Closed Milestones
 
-The current DirectInput test values are calibrated as a conservative Logitech MOMO baseline:
+Milestone 1 delivered the standalone DirectInput test app. Milestone 2 delivered the FS25 Lua telemetry mod and Windows telemetry receiver. These are historical checkpoints; the normal flow is now the MVP app, telemetry mod, profile catalog, and gameplay FFB pipeline.
 
-- Default limits: 40% global, 35% device.
+## DirectInput Baseline
+
+DirectInput test values are kept conservative:
+
+- Default global force limit comes from the detected wheel profile. Unknown wheels start at 35%; Logitech MOMO starts at 40%.
 - Spring/damper/constant tests use full DirectInput test magnitude before safety caps.
 - Vibration uses a 24 Hz sine wave with high test magnitude before safety caps.
 - Directional constant force uses Cartesian directions `-10000/+10000`.
@@ -124,8 +127,8 @@ The `Effects` tab controls gameplay FFB per vehicle category. Select a category 
 - `RPM Vibration`: capped sine vibration from RPM while the engine is started.
 - `Surface Feedback`: low-frequency exact field/wet-field vibration with conservative spring/damper/friction modifiers.
 - `Slip Feedback`: sine vibration when wheel slip rises above threshold.
-- `Wetness`: increases damping and surface vibration for exact `wetField` surface telemetry; `groundWetness` and `rainScale` are transmitted for diagnostics/future tuning.
-- `Motion`: yaw rate and pitch/slope telemetry feed current stability/load calculations; the UI motion strength toggle is not yet a separate gated output layer.
+- `Wetness`: increases damping and surface vibration for exact `wetField` surface telemetry; `groundWetness` and `rainScale` are transmitted for diagnostics.
+- `Motion`: gates yaw-rate stability/load, pitch/slope load, roll center offset, and local-acceleration load. `Hill Standstill Load` and `Side Slope Bias` have their own toggles but stay inactive while Motion is disabled.
 - `Bump Feedback`: short signed constant-force pulses from bump impulse telemetry.
 
 `Emergency Stop` disables gameplay FFB until the header `FFB` status button is pressed again.
@@ -136,6 +139,7 @@ Every gameplay FFB mechanic must be documented in `docs/gameplay-ffb-mechanics.m
 
 - Config: `%APPDATA%/FS25FFBBridge/config.json`
 - Logs: `%LOCALAPPDATA%/FS25FFBBridge/logs/bridge-.log`
+- User effect profiles: `%APPDATA%/FS25FFBBridge/effect-profiles/<wheel-profile-id>.json`
 - Effect status file: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/effectStatus.json`
 
 The Windows app can show a compact topmost effect overlay window. Use borderless/windowed fullscreen in FS25 if the overlay does not appear over exclusive fullscreen. Disable `Click-through` before dragging the overlay, then enable it again before driving.

@@ -61,6 +61,7 @@ rollRatio = abs(motion.rollDeg) normalized by SideSlopeBias min/full roll thresh
 rollDirection = sign(motion.rollDeg)
 attachedMassRatio = sum(attachments[].massT) / vehicle.massT
 implementLateralOffsetRatio = mass-weighted attachments[].lateralOffsetM normalized by ImplementBias.FullLateralOffsetM
+accelerationRatio = magnitude(motion.localAccelerationMps2) normalized by MotionFeedback.FullAcceleration
 suspensionImpulse = maxValid(abs(suspension.impulse), abs(suspension.verticalImpactImpulse)), clamped 0..2
 verticalImpactImpulse = maxValid(abs(suspension.verticalImpactImpulse), abs(suspension.impulse)), clamped 0..2
 landingImpulse = normalized separately with small impulse noise rejected
@@ -100,9 +101,11 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 ## Effects
 
 - Speed spring, speed damper, mechanical friction, load resistance, motion feedback, hill standstill load, side slope bias, implement bias, contact relief, and speed stability combine into DirectInput condition effects.
+- Wheel profiles are resolved through `WheelProfileCatalog` by stable id or DirectInput aliases. Built-in profiles cover Logitech MOMO Racing Wheel, Driving Force GT/Pro/EX, G25, G27, G29, G920, G923, and Generic FFB Wheel. Each profile supplies display name, aliases, rotation, recommended mode, default global force limit, and `DeviceHapticProfile` caps. User effect profiles are saved under the stable wheel profile id, not the raw DirectInput display name.
 - Slew smoothing is a tunable dt-based rate limiter over spring, damper, friction, and center offset. It reports active only when it actually clamps a frame-to-frame change.
-- Hill standstill load activates at `speed <= 2 km/h` with pitch/slope input and adds extra spring, damper, and friction scaled by load.
-- Side slope bias uses roll direction to produce signed `CenterOffsetPercent`, plus a small damper/friction load.
+- Motion feedback is a separate gated output layer. When `MotionFeedback.Enabled=false`, yaw-rate load, pitch/slope load, roll-derived center offset, local-acceleration load, hill standstill load, and side slope bias all output zero. Motion does not create finite event pulses.
+- Hill standstill load activates at `speed <= 2 km/h` with pitch/slope input and adds extra spring, damper, and friction scaled by load. It has its own UI toggle but is still blocked by disabled Motion.
+- Side slope bias uses roll direction to produce signed `CenterOffsetPercent`, plus a small damper/friction load. It has its own UI toggle but is still blocked by disabled Motion.
 - Implement bias uses attached mass and mass-weighted lateral offset. Centered implements add load only; lateral implements also produce signed `CenterOffsetPercent`.
 - Engine vibration, surface feedback, slip feedback, and suspension terrain rumble produce continuous haptics.
 - Tire/surface tuning is stored per wheel effects profile in `GameplayFfbSettings.TireSurfaceTuning`. `SurfaceAliases` maps raw map/mod surface names to normalized surfaces. `Matrix[tireProfile][surfaceType]` is clamped to `0..200%`, defaults to `100%`, and uses `50%` for unknown tire/surface fallback.
@@ -112,6 +115,7 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 - Engine start vibration is driven primarily by `events.engineStartSeq`, so it starts during starter cranking instead of waiting for `engine.started=true`. `engine.startDurationMs` can shorten the start vibration duration within the configured start-pulse cap. RPM-rise detection remains a legacy fallback only when `engineStartSeq` is absent.
 - Brake-only standstill input is not treated as engine load or drivetrain jerk. This prevents `EL`/`LG` and clutch/brake jerk feedback from activating when the vehicle is stopped and the driver only presses the brake pedal.
 - Event priority is `Collision > Landing > Left/RightSuspensionHit > Bump > GearShift > DrivetrainJerk/EngineStartStop`.
+- `effectStatus.json` keeps `loadSlopeImplement` as an aggregate indicator for load, Motion, hill standstill, side slope, and implement-bias activity. The Windows overlay has separate lamps for Motion, Hill Standstill Load, Side Slope Bias, and Implement Bias.
 
 DirectInput outputs:
 
