@@ -811,6 +811,27 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
+    private void ReloadBridge()
+    {
+        _log.Information("Reload requested");
+        _safety.StopAll("reload");
+        OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+        _effectStatusWriter.WriteZero(ActiveVehicleCategory);
+        _telemetryReceiver.Start(
+            _config.TelemetryHost,
+            _config.TelemetryPort,
+            _config.TelemetryLostTimeoutMs,
+            _config.TelemetryFilePath,
+            ffbUpdateRateHz: _config.TelemetryFfbUpdateRateHz,
+            uiRefreshMs: _config.TelemetryUiRefreshMs,
+            transportMode: _config.TelemetryTransportMode);
+        ScanDevices();
+        GameplayFfbRuntimeStatus = GameplayFfbEnabled ? "Reloaded" : "FFB disabled";
+        BackendStatus = SelectedDevice is null ? "Reloaded; waiting for device" : BackendStatus;
+        RefreshDashboardStatusProperties();
+    }
+
+    [RelayCommand]
     private void StopAllEffects()
     {
         _gameplayFfbPausedByStopAll = true;

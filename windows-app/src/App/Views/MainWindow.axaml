@@ -266,6 +266,10 @@
                             Classes.warn="{Binding IsFfbInactive}">
                         <TextBlock Text="{Binding WheelReadyText}"/>
                     </Border>
+                    <Button Content="Reload"
+                            MinHeight="44"
+                            AutomationProperties.Name="Reload telemetry and wheel connection"
+                            Command="{Binding ReloadBridgeCommand}"/>
                     <Button Classes="danger"
                             Content="Emergency Stop"
                             MinHeight="44"

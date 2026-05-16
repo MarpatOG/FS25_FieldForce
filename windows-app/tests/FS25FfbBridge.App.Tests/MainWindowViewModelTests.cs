@@ -96,6 +96,32 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void Reload_bridge_restarts_runtime_without_disabling_gameplay_ffb()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { GameplayFfb = { Enabled = true }, TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.ReloadBridgeCommand.Execute(null);
+
+        var saved = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(configPath), new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        Assert.NotNull(saved);
+        Assert.True(saved!.GameplayFfb.Enabled);
+        Assert.True(viewModel.GameplayFfbEnabled);
+        Assert.Equal("waiting for wheel", viewModel.FfbStatus);
+    }
+
+    [Fact]
     public void Vehicle_category_display_names_are_player_readable()
     {
         Assert.Equal("Loader / telehandler", MainWindowViewModel.GetVehicleCategoryDisplayName(VehicleCategoryFfbProfile.LoaderTelehandler));
