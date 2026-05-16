@@ -122,6 +122,28 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void Reload_bridge_handles_device_scan_failure_without_crashing()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FS25FfbBridge.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { GameplayFfb = { Enabled = true }, TelemetryPort = GetFreeUdpPort() });
+        var backend = new FakeFfbBackend { ThrowOnScan = true };
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, backend, telemetry, log);
+
+        var exception = Record.Exception(() => viewModel.ReloadBridgeCommand.Execute(null));
+
+        Assert.Null(exception);
+        Assert.True(viewModel.GameplayFfbEnabled);
+        Assert.Equal("Reloaded", viewModel.GameplayFfbRuntimeStatus);
+        Assert.Contains("scan failed", viewModel.BackendStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Vehicle_category_display_names_are_player_readable()
     {
         Assert.Equal("Loader / telehandler", MainWindowViewModel.GetVehicleCategoryDisplayName(VehicleCategoryFfbProfile.LoaderTelehandler));
@@ -301,7 +323,16 @@ public sealed class MainWindowViewModelTests
         public bool HasSelectedFfbDevice => false;
         public int LastGlobalLimitPercent { get; private set; }
         public int LastDeviceLimitPercent { get; private set; }
-        public IReadOnlyList<DeviceInfo> ScanDevices() => [];
+        public bool ThrowOnScan { get; init; }
+        public IReadOnlyList<DeviceInfo> ScanDevices()
+        {
+            if (ThrowOnScan)
+            {
+                throw new InvalidOperationException("scan failed");
+            }
+
+            return [];
+        }
         public bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent) => true;
         public void UpdateForceLimits(int globalLimitPercent, int deviceLimitPercent)
         {

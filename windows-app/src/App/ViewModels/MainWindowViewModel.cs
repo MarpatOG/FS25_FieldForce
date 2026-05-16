@@ -27,6 +27,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _syncingEffectCategoryFromActiveVehicle;
     private bool _effectCategoryPinnedByUser;
     private bool _gameplayFfbPausedByStopAll;
+    private bool _gameplayFfbPausedByReload;
     private bool _disposed;
 
     [ObservableProperty]
@@ -813,22 +814,53 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void ReloadBridge()
     {
-        _log.Information("Reload requested");
-        _safety.StopAll("reload");
-        OnGameplayOutputChanged(GameplayFfbOutput.Zero);
-        _effectStatusWriter.WriteZero(ActiveVehicleCategory);
-        _telemetryReceiver.Start(
-            _config.TelemetryHost,
-            _config.TelemetryPort,
-            _config.TelemetryLostTimeoutMs,
-            _config.TelemetryFilePath,
-            ffbUpdateRateHz: _config.TelemetryFfbUpdateRateHz,
-            uiRefreshMs: _config.TelemetryUiRefreshMs,
-            transportMode: _config.TelemetryTransportMode);
-        ScanDevices();
-        GameplayFfbRuntimeStatus = GameplayFfbEnabled ? "Reloaded" : "FFB disabled";
-        BackendStatus = SelectedDevice is null ? "Reloaded; waiting for device" : BackendStatus;
-        RefreshDashboardStatusProperties();
+        try
+        {
+            _log.Information("Reload requested");
+            _gameplayFfbPausedByReload = true;
+            _safety.StopAll("reload");
+            OnGameplayOutputChanged(GameplayFfbOutput.Zero);
+            _effectStatusWriter.WriteZero(ActiveVehicleCategory);
+            _telemetryReceiver.Stop();
+            var scanFailed = false;
+            try
+            {
+                ScanDevices();
+            }
+            catch (Exception ex)
+            {
+                scanFailed = true;
+                _log.Error(ex, "Reload device scan failed");
+                SelectedDeviceStatus = "Reload scan failed";
+                BackendStatus = $"Reload scan failed: {ex.Message}";
+            }
+
+            _telemetryReceiver.Start(
+                _config.TelemetryHost,
+                _config.TelemetryPort,
+                _config.TelemetryLostTimeoutMs,
+                _config.TelemetryFilePath,
+                ffbUpdateRateHz: _config.TelemetryFfbUpdateRateHz,
+                uiRefreshMs: _config.TelemetryUiRefreshMs,
+                transportMode: _config.TelemetryTransportMode);
+            GameplayFfbRuntimeStatus = GameplayFfbEnabled ? "Reloaded" : "FFB disabled";
+            if (!scanFailed)
+            {
+                BackendStatus = SelectedDevice is null ? "Reloaded; waiting for device" : BackendStatus;
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Error(ex, "Reload failed");
+            GameplayFfbRuntimeStatus = "Reload failed";
+            BackendStatus = $"Reload failed: {ex.Message}";
+        }
+        finally
+        {
+            _gameplayFfbPausedByReload = false;
+            RefreshCommandStates();
+            RefreshDashboardStatusProperties();
+        }
     }
 
     [RelayCommand]
@@ -1505,7 +1537,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private GameplayFfbSettings GetRuntimeGameplaySettings()
     {
-        if (!_gameplayFfbPausedByStopAll)
+        if (!_gameplayFfbPausedByStopAll && !_gameplayFfbPausedByReload)
         {
             return _config.GameplayFfb;
         }
