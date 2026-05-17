@@ -16,6 +16,7 @@ public sealed class AppConfigTests
         Assert.Equal(270, config.RotationDegrees);
         Assert.Equal(40, config.GlobalForceLimitPercent);
         Assert.Equal(35, config.DeviceForceLimitPercent);
+        Assert.Null(config.PrimaryFfbAxisOffset);
         Assert.Equal("file", config.TelemetryTransportMode);
         Assert.Equal(60, config.TelemetryFfbUpdateRateHz);
         Assert.Equal(100, config.TelemetryUiRefreshMs);
@@ -96,6 +97,7 @@ public sealed class AppConfigTests
         config.GameplayFfb.SlipFeedback.MinSlip = 0.2;
         config.GameplayFfb.BumpFeedback.DurationMs = 120;
         config.GameplayFfb.SurfaceFeedback.Enabled = false;
+        config.PrimaryFfbAxisOffset = 0;
 
         var json = JsonSerializer.Serialize(config);
         var decoded = JsonSerializer.Deserialize<AppConfig>(json);
@@ -106,6 +108,7 @@ public sealed class AppConfigTests
         Assert.Equal(0.2, decoded.GameplayFfb.SlipFeedback.MinSlip);
         Assert.Equal(120, decoded.GameplayFfb.BumpFeedback.DurationMs);
         Assert.False(decoded.GameplayFfb.SurfaceFeedback.Enabled);
+        Assert.Equal(0, decoded.PrimaryFfbAxisOffset);
     }
 
     [Fact]

@@ -5,7 +5,7 @@ namespace FS25FfbBridge.App.Services;
 public interface IFfbBackend : IDisposable
 {
     IReadOnlyList<DeviceInfo> ScanDevices();
-    bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent);
+    bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent, int? primaryFfbAxisOffset);
     void UpdateForceLimits(int globalLimitPercent, int deviceLimitPercent);
     void StartTestEffect(FfbEffectKind kind);
     FfbApplyResult ApplyGameplayEffects(GameplayFfbOutput output);

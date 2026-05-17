@@ -10,6 +10,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private const int InfiniteDuration = -1;
     private const int DirectionPositive = 10000;
     private const int DirectionNegative = -10000;
+    private const int DirectInputXAxisOffset = 0;
     private const int MomoTestConditionCoefficient = 10000;
     private const int MomoTestConditionSaturation = 10000;
     private const int MomoSpringDeadBand = 100;
@@ -50,6 +51,8 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
     public DeviceInfo? SelectedDevice { get; private set; }
     public bool HasSelectedFfbDevice => _device is not null && SelectedDevice?.IsForceFeedbackCapable == true;
+
+    public sealed record PrimaryFfbAxisSelection(int Offset, string Source);
 
     public IReadOnlyList<DeviceInfo> ScanDevices()
     {
@@ -95,7 +98,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return devices;
     }
 
-    public bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent)
+    public bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent, int? primaryFfbAxisOffset)
     {
         StopAllEffects("selecting device");
         ReleaseDevice();
@@ -115,15 +118,27 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             _device.SendForceFeedbackCommand(ForceFeedbackCommand.Reset);
             _device.SendForceFeedbackCommand(ForceFeedbackCommand.SetActuatorsOn);
 
-            var actuator = _device.GetObjects(DeviceObjectTypeFlags.ForceFeedbackActuator).FirstOrDefault();
-            var axis = _device.GetObjects(DeviceObjectTypeFlags.Axis).FirstOrDefault();
-            _primaryAxisOffset = actuator is not null && actuator.Offset != 0
-                ? actuator.Offset
-                : axis?.Offset ?? 0;
+            var axisOffsets = _device.GetObjects(DeviceObjectTypeFlags.Axis)
+                .Select(axis => axis.Offset)
+                .Distinct()
+                .ToArray();
+            var actuatorOffsets = _device.GetObjects(DeviceObjectTypeFlags.ForceFeedbackActuator)
+                .Select(actuator => actuator.Offset)
+                .Distinct()
+                .ToArray();
+            var axisSelection = ResolvePrimaryFfbAxisOffset(device, axisOffsets, actuatorOffsets, primaryFfbAxisOffset);
+            _primaryAxisOffset = axisSelection.Offset;
 
             SelectedDevice = device;
             UpdateForceLimits(globalLimitPercent, deviceLimitPercent);
-            _log.Information("Device selected: {DeviceName} ({StableId}); primary FFB axis offset={AxisOffset}", device.DisplayName, device.StableId, _primaryAxisOffset);
+            _log.Information(
+                "Device selected: {DeviceName} ({StableId}); axes=[{AxisOffsets}], actuators=[{ActuatorOffsets}], primary FFB axis offset={AxisOffset}, source={AxisSource}",
+                device.DisplayName,
+                device.StableId,
+                FormatOffsets(axisOffsets),
+                FormatOffsets(actuatorOffsets),
+                _primaryAxisOffset,
+                axisSelection.Source);
             return true;
         }
         catch (Exception ex)
@@ -369,6 +384,38 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         StopAllEffects("backend disposed");
         ReleaseDevice();
         _directInput.Dispose();
+    }
+
+    public static PrimaryFfbAxisSelection ResolvePrimaryFfbAxisOffset(
+        DeviceInfo device,
+        IEnumerable<int> axisOffsets,
+        IEnumerable<int> actuatorOffsets,
+        int? primaryFfbAxisOffset)
+    {
+        var axes = axisOffsets.Distinct().ToArray();
+        var axisSet = axes.ToHashSet();
+        var actuators = actuatorOffsets.Distinct().ToArray();
+
+        if (primaryFfbAxisOffset is int configuredOffset && axisSet.Contains(configuredOffset))
+        {
+            return new PrimaryFfbAxisSelection(configuredOffset, "config");
+        }
+
+        var xAxisOffset = DirectInputXAxisOffset;
+        if (IsWheelLikeDevice(device) && axisSet.Contains(xAxisOffset))
+        {
+            return new PrimaryFfbAxisSelection(xAxisOffset, "wheel-x");
+        }
+
+        foreach (var actuatorOffset in actuators)
+        {
+            if (axisSet.Contains(actuatorOffset))
+            {
+                return new PrimaryFfbAxisSelection(actuatorOffset, "actuator");
+            }
+        }
+
+        return new PrimaryFfbAxisSelection(axes.FirstOrDefault(), "fallback");
     }
 
     private IDirectInputEffect CreateConditionEffect(Guid effectGuid, int coefficient, int saturation, int deadBand, int centerOffsetPercent)
@@ -751,6 +798,30 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         {
             return [];
         }
+    }
+
+    private static bool IsWheelLikeDevice(DeviceInfo device)
+    {
+        if (WheelProfileCatalog.Resolve(device).Id != WheelProfileCatalog.GenericId)
+        {
+            return true;
+        }
+
+        return ContainsWheelHint(device.DeviceType) ||
+               ContainsWheelHint(device.ProductName) ||
+               ContainsWheelHint(device.InstanceName) ||
+               ContainsWheelHint(device.DisplayName);
+    }
+
+    private static bool ContainsWheelHint(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.Contains("wheel", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatOffsets(IReadOnlyList<int> offsets)
+    {
+        return offsets.Count == 0 ? "none" : string.Join(", ", offsets);
     }
 
     private static string BuildStableId(DeviceInstance instance)

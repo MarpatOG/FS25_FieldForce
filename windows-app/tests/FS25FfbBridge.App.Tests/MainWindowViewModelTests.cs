@@ -333,7 +333,12 @@ public sealed class MainWindowViewModelTests
 
             return [];
         }
-        public bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent) => true;
+        public int? LastPrimaryFfbAxisOffset { get; private set; }
+        public bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent, int? primaryFfbAxisOffset)
+        {
+            LastPrimaryFfbAxisOffset = primaryFfbAxisOffset;
+            return true;
+        }
         public void UpdateForceLimits(int globalLimitPercent, int deviceLimitPercent)
         {
             LastGlobalLimitPercent = globalLimitPercent;

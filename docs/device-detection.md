@@ -15,6 +15,8 @@ The selected device stable ID and resolved wheel profile id are saved to `%APPDA
 
 Built-in wheel profiles are resolved from DirectInput product/instance aliases for Logitech Momo Racing, Driving Force GT/Pro/EX, G25, G27, G29, G920, and G923. Unknown devices use `Generic FFB Wheel`.
 
+The primary force feedback axis is auto-detected from DirectInput axis and actuator offsets. Recognized wheels prefer DirectInput X axis offset `0`; set `"PrimaryFfbAxisOffset": 0` in `config.json` to force an axis manually. `null` or an omitted field keeps auto-detection enabled.
+
 If the saved wheel is missing, the app stays idle and does not attempt to send forces.
 
 ## Safety Behavior

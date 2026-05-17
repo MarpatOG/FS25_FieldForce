@@ -1050,7 +1050,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var selected = _backend.SelectDevice(device, _windowHandle, GlobalForceLimitPercent, 100);
+        var selected = _backend.SelectDevice(device, _windowHandle, GlobalForceLimitPercent, 100, _config.PrimaryFfbAxisOffset);
         if (selected)
         {
             var wheelProfile = WheelProfileCatalog.Resolve(device);
