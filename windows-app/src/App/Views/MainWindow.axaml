@@ -470,7 +470,7 @@
                     <Border Classes="panel">
                         <StackPanel Spacing="12">
                             <TextBlock Classes="section" Text="Connection"/>
-                            <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                 <TextBlock Classes="muted" Text="Status"/>
                                 <TextBlock Grid.Column="1" Text="{Binding TelemetryStatus}" FontWeight="SemiBold"/>
                                 <TextBlock Grid.Row="1" Classes="muted" Text="Endpoint"/>
@@ -479,16 +479,34 @@
                                 <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UdpStatus}" TextWrapping="Wrap"/>
                                 <TextBlock Grid.Row="3" Classes="muted" Text="File"/>
                                 <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FileStatus}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="4" Classes="muted" Text="Last source"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastPacketSource}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="5" Classes="muted" Text="Packet rate"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding PacketRate}"/>
-                                <TextBlock Grid.Row="6" Classes="muted" Text="Last packet age"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding LastPacketAge}"/>
-                                <TextBlock Grid.Row="7" Classes="muted" Text="Parser"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding TelemetryParseStatus}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="8" Classes="muted" Text="Transport error"/>
-                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding LastTransportError}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="4" Classes="muted" Text="Telemetry file"/>
+                                <Grid Grid.Row="4" Grid.Column="1" RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                                    <TextBox Grid.ColumnSpan="3"
+                                             Text="{Binding TelemetryFilePath}"
+                                             IsReadOnly="True"
+                                             TextWrapping="NoWrap"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                    <Button Grid.Row="1"
+                                            Grid.Column="1"
+                                            MinHeight="34"
+                                            Content="Choose folder"
+                                            Click="OnChooseTelemetryFolderClick"/>
+                                    <Button Grid.Row="1"
+                                            Grid.Column="2"
+                                            MinHeight="34"
+                                            Content="Default"
+                                            Command="{Binding ResetTelemetryFolderCommand}"/>
+                                </Grid>
+                                <TextBlock Grid.Row="5" Classes="muted" Text="Last source"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LastPacketSource}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="6" Classes="muted" Text="Packet rate"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding PacketRate}"/>
+                                <TextBlock Grid.Row="7" Classes="muted" Text="Last packet age"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding LastPacketAge}"/>
+                                <TextBlock Grid.Row="8" Classes="muted" Text="Parser"/>
+                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding TelemetryParseStatus}" TextWrapping="Wrap"/>
+                                <TextBlock Grid.Row="9" Classes="muted" Text="Transport error"/>
+                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding LastTransportError}" TextWrapping="Wrap"/>
                             </Grid>
                             <Border Background="{StaticResource PanelAltBrush}"
                                     BorderBrush="{StaticResource BorderBrush}"

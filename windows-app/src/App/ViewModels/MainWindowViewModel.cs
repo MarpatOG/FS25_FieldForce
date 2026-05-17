@@ -59,6 +59,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string _telemetryEndpoint = "127.0.0.1:34325";
 
     [ObservableProperty]
+    private string _telemetryFilePath = "";
+
+    [ObservableProperty]
     private string _packetRate = "0 pkt/s";
 
     [ObservableProperty]
@@ -557,6 +560,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _loadingConfig = false;
         _configPath = _configStore.ConfigPath;
         _logPath = _log.LogPath;
+        _telemetryFilePath = GetEffectiveTelemetryFilePath();
         Logs = _log.Entries;
         LogEvents = _log.EventEntries;
         EffectCategoryOptions = VehicleCategoryFfbProfile.Categories
@@ -568,14 +572,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _backend.UpdateForceLimits(GlobalForceLimitPercent, 100);
         _telemetryReceiver.StateChanged += OnTelemetryStateChanged;
         _telemetryReceiver.FfbStateChanged += OnTelemetryFfbStateChanged;
-        _telemetryReceiver.Start(
-            _config.TelemetryHost,
-            _config.TelemetryPort,
-            _config.TelemetryLostTimeoutMs,
-            _config.TelemetryFilePath,
-            ffbUpdateRateHz: _config.TelemetryFfbUpdateRateHz,
-            uiRefreshMs: _config.TelemetryUiRefreshMs,
-            transportMode: _config.TelemetryTransportMode);
+        StartTelemetryReceiver();
         _gameplayFfb = new GameplayFfbController(
             _telemetryReceiver,
             _backend,
@@ -686,6 +683,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         _safety.OnAppClosing();
         _effectStatusWriter.WriteZero(ActiveVehicleCategory);
+    }
+
+    public void SetTelemetryFolder(string folderPath)
+    {
+        var telemetryFilePath = TelemetryReceiverService.ResolveTelemetryFilePathFromSelectedFolder(folderPath);
+        SetTelemetryFilePath(telemetryFilePath, "folder selected");
     }
 
     partial void OnSelectedDeviceChanged(DeviceInfo? value)
@@ -836,14 +839,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 BackendStatus = $"Reload scan failed: {ex.Message}";
             }
 
-            _telemetryReceiver.Start(
-                _config.TelemetryHost,
-                _config.TelemetryPort,
-                _config.TelemetryLostTimeoutMs,
-                _config.TelemetryFilePath,
-                ffbUpdateRateHz: _config.TelemetryFfbUpdateRateHz,
-                uiRefreshMs: _config.TelemetryUiRefreshMs,
-                transportMode: _config.TelemetryTransportMode);
+            StartTelemetryReceiver();
             GameplayFfbRuntimeStatus = GameplayFfbEnabled ? "Reloaded" : "FFB disabled";
             if (!scanFailed)
             {
@@ -862,6 +858,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             RefreshCommandStates();
             RefreshDashboardStatusProperties();
         }
+    }
+
+    [RelayCommand]
+    private void ResetTelemetryFolder()
+    {
+        _config.TelemetryFilePath = null;
+        TelemetryFilePath = GetEffectiveTelemetryFilePath();
+        _configStore.Save(_config);
+        RestartTelemetryReceiver("default telemetry folder restored");
     }
 
     [RelayCommand]
@@ -1085,6 +1090,41 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _backend.UpdateForceLimits(GlobalForceLimitPercent, 100);
         _configStore.Save(_config);
         _log.Information("Force limit updated: global={GlobalLimit}%", GlobalForceLimitPercent);
+    }
+
+    private void SetTelemetryFilePath(string telemetryFilePath, string reason)
+    {
+        _config.TelemetryFilePath = telemetryFilePath;
+        TelemetryFilePath = GetEffectiveTelemetryFilePath();
+        _configStore.Save(_config);
+        RestartTelemetryReceiver(reason);
+    }
+
+    private string GetEffectiveTelemetryFilePath()
+    {
+        return string.IsNullOrWhiteSpace(_config.TelemetryFilePath)
+            ? TelemetryReceiverService.GetDefaultTelemetryFilePath()
+            : _config.TelemetryFilePath;
+    }
+
+    private void RestartTelemetryReceiver(string reason)
+    {
+        _log.Information("Restarting telemetry receiver: {Reason}; file={TelemetryFilePath}", reason, GetEffectiveTelemetryFilePath());
+        _telemetryReceiver.Stop();
+        StartTelemetryReceiver();
+    }
+
+    private void StartTelemetryReceiver()
+    {
+        _telemetryReceiver.Start(
+            _config.TelemetryHost,
+            _config.TelemetryPort,
+            _config.TelemetryLostTimeoutMs,
+            _config.TelemetryFilePath,
+            ffbUpdateRateHz: _config.TelemetryFfbUpdateRateHz,
+            uiRefreshMs: _config.TelemetryUiRefreshMs,
+            transportMode: _config.TelemetryTransportMode);
+        TelemetryEndpoint = _telemetryReceiver.Endpoint;
     }
 
     partial void OnGameplayFfbEnabledChanged(bool value)

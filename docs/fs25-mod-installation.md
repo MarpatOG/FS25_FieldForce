@@ -102,11 +102,13 @@ Use `Settings` -> `General Settings` -> `FS25 Real FFB` -> `Telemetry overlay` t
 5. Enter a vehicle.
 6. Confirm the Windows app changes to `Connected`.
 
-By default, telemetry is written to the file transport at `60 Hz`. Supported file rates are `1`, `10`, `30`, and `60 Hz`; unsupported values fall back to `60 Hz`.
+By default, telemetry is written to the file transport at `60 Hz`, and the Windows app watches the normal local FS25 profile path. Supported file rates are `1`, `10`, `30`, and `60 Hz`; unsupported values fall back to `60 Hz`.
 UDP remains available as a hidden diagnostic transport through `transport = "udp"` or `transport = "file+udp"`:
 
 ```text
-Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json
+%USERPROFILE%/Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json
 ```
+
+If the active FS25 profile is elsewhere, open the app's Telemetry tab and use `Choose folder`. Selecting `Documents`, `My Games`, `FarmingSimulator2025`, `modSettings`, or `FS25_RealFfbTelemetry` is accepted; the app resolves the selected folder to `FS25_RealFfbTelemetry/telemetry.json`.
 
 If file telemetry fails, check the FS25 log for the exact missing API or filesystem failure, such as unavailable `io.open`, unavailable `getUserProfileAppPath`, folder creation failure, or atomic rename failure.

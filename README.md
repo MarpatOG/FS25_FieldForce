@@ -46,11 +46,13 @@ dotnet run --project windows-app/src/App/FS25FfbBridge.App.csproj
 7. With an acquired FFB wheel and gameplay FFB enabled, the bridge applies the enabled MVP effects from telemetry. It fades or stops them when telemetry is lost or the player leaves the vehicle.
 
 The `Telemetry` tab shows UDP status, file status, last packet source, packet age, parser status, and transport errors separately.
-By default, the mod writes telemetry JSON at 60 Hz to:
+By default, the app looks for telemetry JSON at 60 Hz under the normal local FS25 profile path:
 
 ```text
-Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json
+%USERPROFILE%/Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json
 ```
+
+If FS25 uses a different profile location, use the Telemetry tab's `Choose folder` button and select `Documents`, `My Games`, `FarmingSimulator2025`, `modSettings`, or `FS25_RealFfbTelemetry`; the app resolves that folder to the matching `telemetry.json`.
 
 Manual transport checks are documented in `docs/telemetry-protocol.md`.
 

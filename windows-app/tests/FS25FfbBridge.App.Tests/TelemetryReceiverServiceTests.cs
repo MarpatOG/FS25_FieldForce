@@ -127,6 +127,53 @@ public sealed class TelemetryReceiverServiceTests
         """;
 
     [Fact]
+    public void Default_file_path_uses_user_profile_documents_folder()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrWhiteSpace(userProfile))
+        {
+            return;
+        }
+
+        var expected = Path.Combine(
+            userProfile,
+            "Documents",
+            "My Games",
+            "FarmingSimulator2025",
+            "modSettings",
+            "FS25_RealFfbTelemetry",
+            "telemetry.json");
+
+        Assert.Equal(expected, TelemetryReceiverService.GetDefaultTelemetryFilePath());
+    }
+
+    [Fact]
+    public void Selected_folder_is_resolved_to_telemetry_file_path()
+    {
+        var documents = Path.Combine(Path.GetTempPath(), "Documents");
+        var myGames = Path.Combine(documents, "My Games");
+        var gameProfile = Path.Combine(myGames, "FarmingSimulator2025");
+        var modSettings = Path.Combine(gameProfile, "modSettings");
+        var telemetryFolder = Path.Combine(modSettings, "FS25_RealFfbTelemetry");
+
+        Assert.Equal(
+            Path.Combine(documents, "My Games", "FarmingSimulator2025", "modSettings", "FS25_RealFfbTelemetry", "telemetry.json"),
+            TelemetryReceiverService.ResolveTelemetryFilePathFromSelectedFolder(documents));
+        Assert.Equal(
+            Path.Combine(myGames, "FarmingSimulator2025", "modSettings", "FS25_RealFfbTelemetry", "telemetry.json"),
+            TelemetryReceiverService.ResolveTelemetryFilePathFromSelectedFolder(myGames));
+        Assert.Equal(
+            Path.Combine(gameProfile, "modSettings", "FS25_RealFfbTelemetry", "telemetry.json"),
+            TelemetryReceiverService.ResolveTelemetryFilePathFromSelectedFolder(gameProfile));
+        Assert.Equal(
+            Path.Combine(modSettings, "FS25_RealFfbTelemetry", "telemetry.json"),
+            TelemetryReceiverService.ResolveTelemetryFilePathFromSelectedFolder(modSettings));
+        Assert.Equal(
+            Path.Combine(telemetryFolder, "telemetry.json"),
+            TelemetryReceiverService.ResolveTelemetryFilePathFromSelectedFolder(telemetryFolder));
+    }
+
+    [Fact]
     public void Telemetry_contract_accepts_v1_2_engine_drivetrain_fields()
     {
         var json = """

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.ComponentModel;
@@ -96,6 +97,22 @@ public partial class MainWindow : Window
         {
             viewModel.HandlePanicHotkey();
             e.Handled = true;
+        }
+    }
+
+    private async void OnChooseTelemetryFolderClick(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choose FS25 telemetry folder",
+            AllowMultiple = false
+        });
+
+        var folderPath = folders.FirstOrDefault()?.TryGetLocalPath();
+        if (!string.IsNullOrWhiteSpace(folderPath) &&
+            DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.SetTelemetryFolder(folderPath);
         }
     }
 

@@ -9,6 +9,8 @@ namespace FS25FfbBridge.App.Services;
 
 public sealed class TelemetryReceiverService : IDisposable
 {
+    public const string TelemetryFileName = "telemetry.json";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -517,11 +519,61 @@ public sealed class TelemetryReceiverService : IDisposable
     public static string GetDefaultTelemetryFilePath()
     {
         return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            GetDefaultDocumentsPath(),
             "My Games",
             "FarmingSimulator2025",
             "modSettings",
             "FS25_RealFfbTelemetry",
-            "telemetry.json");
+            TelemetryFileName);
+    }
+
+    public static string ResolveTelemetryFilePathFromSelectedFolder(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath))
+        {
+            return GetDefaultTelemetryFilePath();
+        }
+
+        var normalized = Path.GetFullPath(Environment.ExpandEnvironmentVariables(folderPath.Trim()));
+        var folderName = new DirectoryInfo(normalized).Name;
+        if (EqualsAny(folderName, "FS25_RealFfbTelemetry"))
+        {
+            return Path.Combine(normalized, TelemetryFileName);
+        }
+
+        if (EqualsAny(folderName, "modSettings"))
+        {
+            return Path.Combine(normalized, "FS25_RealFfbTelemetry", TelemetryFileName);
+        }
+
+        if (EqualsAny(folderName, "FarmingSimulator2025"))
+        {
+            return Path.Combine(normalized, "modSettings", "FS25_RealFfbTelemetry", TelemetryFileName);
+        }
+
+        if (EqualsAny(folderName, "My Games"))
+        {
+            return Path.Combine(normalized, "FarmingSimulator2025", "modSettings", "FS25_RealFfbTelemetry", TelemetryFileName);
+        }
+
+        if (EqualsAny(folderName, "Documents", "Документы"))
+        {
+            return Path.Combine(normalized, "My Games", "FarmingSimulator2025", "modSettings", "FS25_RealFfbTelemetry", TelemetryFileName);
+        }
+
+        return Path.Combine(normalized, TelemetryFileName);
+    }
+
+    private static string GetDefaultDocumentsPath()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return string.IsNullOrWhiteSpace(userProfile)
+            ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+            : Path.Combine(userProfile, "Documents");
+    }
+
+    private static bool EqualsAny(string value, params string[] candidates)
+    {
+        return candidates.Any(candidate => string.Equals(value, candidate, StringComparison.OrdinalIgnoreCase));
     }
 }

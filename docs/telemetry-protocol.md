@@ -7,7 +7,8 @@ The FS25 telemetry mod writes JSON packets to a file transport by default. UDP r
 - Protocol: file JSON by default
 - Default file target rate: `60 Hz`
 - Allowed target rates: `1`, `10`, `30`, `60 Hz`
-- File path: `Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
+- Default file path watched by the Windows app: `%USERPROFILE%/Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
+- If FS25 uses another profile folder, choose it in the app's Telemetry tab. Selecting `Documents`, `My Games`, `FarmingSimulator2025`, `modSettings`, or `FS25_RealFfbTelemetry` resolves to the matching `telemetry.json`.
 - Hidden UDP host: `127.0.0.1`
 - Hidden UDP port: `34325`
 

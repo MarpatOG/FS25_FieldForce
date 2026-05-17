@@ -8,3 +8,5 @@ TestResults/
 *.log
 windows-app/src/App/bin/
 windows-app/src/App/obj/
+artifacts/FS25FfbBridge-win-x64/
+artifacts/FS25RealFfbBridge-G27-FS25-test.zip
