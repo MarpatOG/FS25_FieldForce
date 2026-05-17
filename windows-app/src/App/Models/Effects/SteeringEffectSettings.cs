@@ -47,8 +47,10 @@ public sealed class HillStandstillLoadSettings : FfbEffectSettings
 
 public sealed class SideSlopeBiasSettings : FfbEffectSettings
 {
-    public double MinRollDeg { get; set; } = 3;
-    public double FullRollDeg { get; set; } = 15;
+    public const double ConservativeMinRollDeg = 6;
+
+    public double MinRollDeg { get; set; } = ConservativeMinRollDeg;
+    public double FullRollDeg { get; set; } = 18;
 }
 
 public sealed class ImplementBiasSettings : FfbEffectSettings

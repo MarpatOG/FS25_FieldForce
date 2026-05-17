@@ -75,8 +75,8 @@ public class GameplayFfbEffectProfile
         StrengthPercent = 12,
         MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
-        MinRollDeg = 3,
-        FullRollDeg = 15
+        MinRollDeg = SideSlopeBiasSettings.ConservativeMinRollDeg,
+        FullRollDeg = 18
     };
 
     public ImplementBiasSettings ImplementBias { get; set; } = new()
@@ -464,7 +464,7 @@ public class GameplayFfbEffectProfile
         settings.HillStandstillLoad.MinSlopeDeg = Math.Clamp(settings.HillStandstillLoad.MinSlopeDeg, 0, 45);
         settings.HillStandstillLoad.FullSlopeDeg = Math.Clamp(settings.HillStandstillLoad.FullSlopeDeg, Math.Max(0.1, settings.HillStandstillLoad.MinSlopeDeg), 60);
         settings.SideSlopeBias ??= new SideSlopeBiasSettings();
-        settings.SideSlopeBias.MinRollDeg = Math.Clamp(settings.SideSlopeBias.MinRollDeg, 0, 45);
+        settings.SideSlopeBias.MinRollDeg = Math.Clamp(settings.SideSlopeBias.MinRollDeg, SideSlopeBiasSettings.ConservativeMinRollDeg, 45);
         settings.SideSlopeBias.FullRollDeg = Math.Clamp(settings.SideSlopeBias.FullRollDeg, Math.Max(0.1, settings.SideSlopeBias.MinRollDeg), 60);
         settings.ImplementBias ??= new ImplementBiasSettings();
         settings.ImplementBias.MinAttachedMassRatio = Math.Clamp(settings.ImplementBias.MinAttachedMassRatio, 0, 4);

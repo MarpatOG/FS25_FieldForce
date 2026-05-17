@@ -944,6 +944,21 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Side_slope_bias_ignores_low_roll_from_heavy_centered_trailer_load()
+    {
+        var packet = Packet(speedKmh: 18, rollDeg: 5, mass: 6000, totalMass: 26000, steeringAngle: 0, yawRateDegPerSec: 0);
+        packet.Attachments =
+        [
+            new TelemetryAttachmentV1 { Name = "Header trailer", MassT = 20, TotalMassT = 20, LateralOffsetM = 0, Depth = 1 }
+        ];
+
+        var output = new GameplayFfbCalculator().Calculate(State(packet), new GameplayFfbSettings());
+
+        Assert.False(output.SideSlopeBiasActive);
+        Assert.Equal(0, output.CenterOffsetPercent);
+    }
+
+    [Fact]
     public void Implement_bias_centered_attachment_adds_load_without_offset()
     {
         var packet = Packet(speedKmh: 8, mass: 6000, totalMass: 9000);
