@@ -1,9 +1,9 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using FS25FfbBridge.App.ViewModels;
+using FieldForce.App.ViewModels;
 
-namespace FS25FfbBridge.App;
+namespace FieldForce.App;
 
 public class ViewLocator : IDataTemplate
 {

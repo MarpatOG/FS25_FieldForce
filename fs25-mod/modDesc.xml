@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <modDesc descVersion="98">
-    <author>FS25 Real FFB Bridge</author>
-    <version>1.6.2.0</version>
+    <author>FieldForce</author>
+    <version>2.0.0.0</version>
     <title>
-        <en>FS25 Real FFB Telemetry</en>
+        <en>FieldForce Telemetry</en>
     </title>
     <description>
-        <en>Sends active vehicle telemetry to the FS25 FFB Bridge Windows app through a file-based telemetry stream. Does not modify vehicle physics or steering.</en>
+        <en>Sends active vehicle telemetry to FieldForce App through a file-based telemetry stream. Does not modify vehicle physics or steering.</en>
     </description>
-    <iconFilename>icon_realFfbTelemetry.png</iconFilename>
+    <iconFilename>icon_fieldForceTelemetry.png</iconFilename>
     <multiplayer supported="true"/>
     <l10n filenamePrefix="languages/l10n"/>
     <extraSourceFiles>
         <sourceFile filename="config/TelemetryConfig.lua"/>
-        <sourceFile filename="src/FS25RealFfbTelemetry.lua"/>
+        <sourceFile filename="src/FieldForceTelemetry.lua"/>
     </extraSourceFiles>
 </modDesc>

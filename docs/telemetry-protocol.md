@@ -7,15 +7,15 @@ The FS25 telemetry mod writes JSON packets to a file transport by default. UDP r
 - Protocol: file JSON by default
 - Default file target rate: `60 Hz`
 - Allowed target rates: `1`, `10`, `30`, `60 Hz`
-- Default file path watched by the Windows app: `%USERPROFILE%/Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json`
-- If FS25 uses another profile folder, choose it in the app's Telemetry tab. Selecting `Documents`, `My Games`, `FarmingSimulator2025`, `modSettings`, or `FS25_RealFfbTelemetry` resolves to the matching `telemetry.json`.
+- Default file path watched by the Windows app: `%USERPROFILE%/Documents/My Games/FarmingSimulator2025/modSettings/FS25_FieldForceTelemetry/telemetry.json`
+- If FS25 uses another profile folder, choose it in the app's Telemetry tab. Selecting `Documents`, `My Games`, `FarmingSimulator2025`, `modSettings`, or `FS25_FieldForceTelemetry` resolves to the matching `telemetry.json`.
 - Hidden UDP host: `127.0.0.1`
 - Hidden UDP port: `34325`
 
-The Windows receiver accepts the current `1.4.0` packet and legacy `1.3.0` / `1.2.0` packets:
+The Windows receiver accepts the current `FIELDFORCE_TELEMETRY` protocol name and legacy `FS25_REAL_FFB_TELEMETRY` protocol name. It accepts current `1.4.0` packets and legacy `1.3.0` / `1.2.0` packets:
 
 ```json
-{ "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.4.0" } }
+{ "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.4.0" } }
 ```
 
 Flat legacy JSON is rejected and does not replace the last valid packet.
@@ -34,7 +34,7 @@ Example:
 
 ```json
 {
-  "protocol": { "name": "FS25_REAL_FFB_TELEMETRY", "version": "1.4.0" },
+  "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.4.0" },
   "frame": {
     "sequence": 1,
     "dtMs": 8,
@@ -137,7 +137,7 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 - `massT`, `totalMassT`: metric tonnes.
 - `attachments[]`: recursively attached implements. `lateralOffsetM` is measured in the active vehicle local coordinate system; negative/positive sign follows the local X axis.
 - `attachments[].depth`: attachment-tree depth where direct implements are `1`.
-- `vehicle.isArticulated`: true for articulated-frame vehicles, used by the Windows bridge to avoid treating articulation suspension movement as a sharp left/right suspension hit.
+- `vehicle.isArticulated`: true for articulated-frame vehicles, used by the FieldForce App to avoid treating articulation suspension movement as a sharp left/right suspension hit.
 - `speedMps`: meters per second.
 - `speedKmh`: stable FS25 vehicle speed in kilometers per hour for UI and profile thresholds. The Lua mod may calculate a root-node position-delta speed for fallback/diagnostics, but position spikes are not the primary wire value.
 - `localAccelerationMps2`: vehicle-local acceleration in meters per second squared.
@@ -189,7 +189,7 @@ $udp.Dispose()
 ## Manual File Test
 
 ```powershell
-$path = "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\modSettings\FS25_RealFfbTelemetry\telemetry.json"
+$path = "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\modSettings\FS25_FieldForceTelemetry\telemetry.json"
 New-Item -ItemType Directory -Force -Path (Split-Path $path) | Out-Null
 Get-Content samples/telemetry-packets/milestone2-valid.json -Raw | Set-Content -Encoding UTF8 $path
 ```

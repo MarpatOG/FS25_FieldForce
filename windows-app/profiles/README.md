@@ -18,7 +18,7 @@ MVP built-ins:
 Runtime user effect profiles are saved outside the repository under:
 
 ```text
-%APPDATA%/FS25FFBBridge/effect-profiles/<wheel-profile-id>.json
+%APPDATA%/FieldForce/effect-profiles/<wheel-profile-id>.json
 ```
 
 The stable wheel profile id is used for filenames, so DirectInput display-name changes do not create a new tuning file.

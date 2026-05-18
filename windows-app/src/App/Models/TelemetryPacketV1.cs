@@ -1,10 +1,11 @@
 using System.Text.Json.Serialization;
 
-namespace FS25FfbBridge.App.Models;
+namespace FieldForce.App.Models;
 
 public sealed class TelemetryPacketV1
 {
-    public const string ExpectedProtocolName = "FS25_REAL_FFB_TELEMETRY";
+    public const string ExpectedProtocolName = "FIELDFORCE_TELEMETRY";
+    public const string LegacyProtocolName = "FS25_REAL_FFB_TELEMETRY";
     public const string ExpectedProtocolVersion = "1.4.0";
     public const string LegacyProtocolVersion = "1.3.0";
     public const string LegacyProtocolVersionV1_2 = "1.2.0";
@@ -65,7 +66,8 @@ public sealed class TelemetryPacketV1
 
     [JsonIgnore]
     public bool IsProtocolValid =>
-        string.Equals(Protocol?.Name, ExpectedProtocolName, StringComparison.Ordinal) &&
+        (string.Equals(Protocol?.Name, ExpectedProtocolName, StringComparison.Ordinal) ||
+         string.Equals(Protocol?.Name, LegacyProtocolName, StringComparison.Ordinal)) &&
         (string.Equals(Protocol?.Version, ExpectedProtocolVersion, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersion, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersionV1_2, StringComparison.Ordinal));

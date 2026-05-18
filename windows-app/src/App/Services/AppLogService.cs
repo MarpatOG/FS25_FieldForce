@@ -5,7 +5,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class AppLogService : ILogEventSink, IDisposable
 {
@@ -18,9 +18,9 @@ public sealed class AppLogService : ILogEventSink, IDisposable
     {
         LogPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FS25FFBBridge",
+            "FieldForce",
             "logs",
-            "bridge-.log");
+            "fieldforce-.log");
 
         Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
 

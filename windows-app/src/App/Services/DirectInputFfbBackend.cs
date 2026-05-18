@@ -1,8 +1,8 @@
-using FS25FfbBridge.App.Models;
+using FieldForce.App.Models;
 using SharpGen.Runtime;
 using Vortice.DirectInput;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class DirectInputFfbBackend : IFfbBackend
 {
@@ -11,6 +11,8 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private const int DirectionPositive = 10000;
     private const int DirectionNegative = -10000;
     private const int DirectInputXAxisOffset = 0;
+    private const int LogitechVendorId = 0x046D;
+    private const int DierrInvalidParam = unchecked((int)0x80070057);
     private const int MomoTestConditionCoefficient = 10000;
     private const int MomoTestConditionSaturation = 10000;
     private const int MomoSpringDeadBand = 100;
@@ -53,6 +55,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     public bool HasSelectedFfbDevice => _device is not null && SelectedDevice?.IsForceFeedbackCapable == true;
 
     public sealed record PrimaryFfbAxisSelection(int Offset, string Source);
+    public enum EffectAxisParameterMode
+    {
+        ExplicitPrimaryAxis,
+        ImplicitDeviceAxis
+    }
 
     public IReadOnlyList<DeviceInfo> ScanDevices()
     {
@@ -69,8 +76,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                     .Distinct()
                     .ToArray();
                 var effects = SafeGetEffects(candidate);
-                var supportsFfb = capabilities.Flags.HasFlag(DeviceFlags.ForceFeedback) || effects.Count > 0 || instance.ForceFeedbackDriverGuid != Guid.Empty;
                 var stableId = BuildStableId(instance);
+                var supportsFfb = capabilities.Flags.HasFlag(DeviceFlags.ForceFeedback) ||
+                                  effects.Count > 0 ||
+                                  instance.ForceFeedbackDriverGuid != Guid.Empty ||
+                                  IsLogitechDirectInputHid(instance.ProductGuid);
 
                 devices.Add(new DeviceInfo(
                     stableId,
@@ -402,6 +412,11 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         }
 
         var xAxisOffset = DirectInputXAxisOffset;
+        if (IsLogitechDirectInputHid(device.ProductGuid))
+        {
+            return new PrimaryFfbAxisSelection(xAxisOffset, "logitech-vid-x");
+        }
+
         if (IsWheelLikeDevice(device) && axisSet.Contains(xAxisOffset))
         {
             return new PrimaryFfbAxisSelection(xAxisOffset, "wheel-x");
@@ -424,24 +439,29 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         var cappedSaturation = ScaleMagnitude(saturation);
         var offset = PercentToSignedDirectInputOffset(centerOffsetPercent);
         _log.Information("Preparing condition effect: guid={EffectGuid}, axis={AxisOffset}, coefficient={Coefficient}, saturation={Saturation}, offset={Offset}", effectGuid, _primaryAxisOffset, cappedCoefficient, cappedSaturation, offset);
-        var parameters = BaseParameters(TimeSpan.FromMilliseconds(-1));
-        parameters.Parameters = new ConditionSet
+        IDirectInputEffect Create(EffectAxisParameterMode axisMode)
         {
-            Conditions =
-            [
-                new Condition
-                {
-                    Offset = offset,
-                    PositiveCoefficient = cappedCoefficient,
-                    NegativeCoefficient = cappedCoefficient,
-                    PositiveSaturation = cappedSaturation,
-                    NegativeSaturation = cappedSaturation,
-                    DeadBand = deadBand
-                }
-            ]
-        };
+            var parameters = BaseParameters(TimeSpan.FromMilliseconds(-1), axisMode: axisMode);
+            parameters.Parameters = new ConditionSet
+            {
+                Conditions =
+                [
+                    new Condition
+                    {
+                        Offset = offset,
+                        PositiveCoefficient = cappedCoefficient,
+                        NegativeCoefficient = cappedCoefficient,
+                        PositiveSaturation = cappedSaturation,
+                        NegativeSaturation = cappedSaturation,
+                        DeadBand = deadBand
+                    }
+                ]
+            };
 
-        return _device!.CreateEffect(effectGuid, parameters);
+            return _device!.CreateEffect(effectGuid, parameters);
+        }
+
+        return CreateEffectWithImplicitAxisFallback(effectGuid, Create, "condition effect");
     }
 
     private IDirectInputEffect CreateConstantEffect(int magnitude, int direction, TimeSpan duration, int minimumScaledMagnitude = 0)
@@ -450,29 +470,77 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             ? ScaleMagnitudeForLimitsWithFloor(magnitude, _globalLimitPercent, _deviceLimitPercent, minimumScaledMagnitude)
             : ScaleMagnitude(magnitude);
         _log.Information("Preparing constant effect: axis={AxisOffset}, magnitude={Magnitude}, direction={Direction}", _primaryAxisOffset, scaledMagnitude, direction);
-        var parameters = BaseParameters(duration, direction);
-        parameters.Parameters = new ConstantForce
+        IDirectInputEffect Create(EffectAxisParameterMode axisMode)
         {
-            Magnitude = scaledMagnitude
-        };
+            var parameters = BaseParameters(duration, direction, axisMode);
+            parameters.Parameters = new ConstantForce
+            {
+                Magnitude = scaledMagnitude
+            };
 
-        return _device!.CreateEffect(EffectGuid.ConstantForce, parameters);
+            return _device!.CreateEffect(EffectGuid.ConstantForce, parameters);
+        }
+
+        return CreateEffectWithImplicitAxisFallback(EffectGuid.ConstantForce, Create, "constant effect");
     }
 
     private IDirectInputEffect CreatePeriodicEffect(Guid effectGuid, int magnitude, int hz, TimeSpan duration)
     {
         var scaledMagnitude = ScaleMagnitude(magnitude);
         _log.Information("Preparing periodic effect: guid={EffectGuid}, axis={AxisOffset}, magnitude={Magnitude}, hz={Hz}", effectGuid, _primaryAxisOffset, scaledMagnitude, hz);
-        var parameters = BaseParameters(duration);
-        parameters.Parameters = new PeriodicForce
+        IDirectInputEffect Create(EffectAxisParameterMode axisMode)
         {
-            Magnitude = scaledMagnitude,
-            Offset = 0,
-            Phase = 0,
-            Period = Math.Max(1, 1_000_000 / Math.Max(1, hz))
-        };
+            var parameters = BaseParameters(duration, axisMode: axisMode);
+            parameters.Parameters = new PeriodicForce
+            {
+                Magnitude = scaledMagnitude,
+                Offset = 0,
+                Phase = 0,
+                Period = Math.Max(1, 1_000_000 / Math.Max(1, hz))
+            };
 
-        return _device!.CreateEffect(effectGuid, parameters);
+            return _device!.CreateEffect(effectGuid, parameters);
+        }
+
+        return CreateEffectWithImplicitAxisFallback(effectGuid, Create, "periodic effect");
+    }
+
+    private IDirectInputEffect CreateEffectWithImplicitAxisFallback(Guid effectGuid, Func<EffectAxisParameterMode, IDirectInputEffect> create, string label)
+    {
+        try
+        {
+            var effect = create(EffectAxisParameterMode.ExplicitPrimaryAxis);
+            _log.Information("DirectInput CreateEffect succeeded: guid={EffectGuid}, label={EffectLabel}, axisMode=explicit", effectGuid, label);
+            return effect;
+        }
+        catch (SharpGenException ex) when (IsInvalidParameter(ex))
+        {
+            _log.Warning(
+                "DirectInput CreateEffect rejected explicit axis parameters: guid={EffectGuid}, label={EffectLabel}, axis={AxisOffset}, device={DeviceName}, hid={HidId}. Retrying with implicit device axis.",
+                effectGuid,
+                label,
+                _primaryAxisOffset,
+                SelectedDevice?.DisplayName ?? "unknown",
+                FormatHidId(SelectedDevice?.ProductGuid));
+
+            try
+            {
+                var effect = create(EffectAxisParameterMode.ImplicitDeviceAxis);
+                _log.Information("DirectInput CreateEffect succeeded: guid={EffectGuid}, label={EffectLabel}, axisMode=implicit", effectGuid, label);
+                return effect;
+            }
+            catch (SharpGenException retryEx) when (IsInvalidParameter(retryEx))
+            {
+                _log.Error(
+                    retryEx,
+                    "DirectInput CreateEffect failed with explicit and implicit axes: guid={EffectGuid}, label={EffectLabel}, device={DeviceName}, hid={HidId}. Raw HID fallback is not implemented in this build.",
+                    effectGuid,
+                    label,
+                    SelectedDevice?.DisplayName ?? "unknown",
+                    FormatHidId(SelectedDevice?.ProductGuid));
+                throw;
+            }
+        }
     }
 
     private FfbApplyResult? ApplyConditionEffect(ref IDirectInputEffect? effect, Guid effectGuid, int percent, int deadBand, string label, int centerOffsetPercent = 0)
@@ -641,11 +709,34 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         }
     }
 
-    private EffectParameters BaseParameters(TimeSpan duration, int direction = DirectionPositive)
+    private EffectParameters BaseParameters(
+        TimeSpan duration,
+        int direction = DirectionPositive,
+        EffectAxisParameterMode axisMode = EffectAxisParameterMode.ExplicitPrimaryAxis)
+    {
+        return CreateBaseParameters(_primaryAxisOffset, duration, direction, axisMode);
+    }
+
+    public static EffectParameters CreateBaseParametersForTesting(
+        int primaryAxisOffset,
+        TimeSpan duration,
+        int direction,
+        EffectAxisParameterMode axisMode)
+    {
+        return CreateBaseParameters(primaryAxisOffset, duration, direction, axisMode);
+    }
+
+    private static EffectParameters CreateBaseParameters(
+        int primaryAxisOffset,
+        TimeSpan duration,
+        int direction,
+        EffectAxisParameterMode axisMode)
     {
         var parameters = new EffectParameters
         {
-            Flags = EffectFlags.ObjectOffsets | EffectFlags.Cartesian,
+            Flags = axisMode == EffectAxisParameterMode.ExplicitPrimaryAxis
+                ? EffectFlags.ObjectOffsets | EffectFlags.Cartesian
+                : 0,
             Duration = duration == TimeSpan.MaxValue || duration.TotalMilliseconds < 0
                 ? InfiniteDuration
                 : Math.Max(1, (int)(duration.TotalMilliseconds * 1000)),
@@ -653,10 +744,19 @@ public sealed class DirectInputFfbBackend : IFfbBackend
             TriggerButton = -1,
             TriggerRepeatInterval = 0,
             SamplePeriod = 0,
-            StartDelay = 0,
-            Axes = [_primaryAxisOffset],
-            Directions = [direction]
+            StartDelay = 0
         };
+
+        if (axisMode == EffectAxisParameterMode.ExplicitPrimaryAxis)
+        {
+            parameters.Axes = [primaryAxisOffset];
+            parameters.Directions = [direction];
+        }
+        else
+        {
+            parameters.Axes = [];
+            parameters.Directions = [];
+        }
 
         return parameters;
     }
@@ -824,6 +924,35 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         return offsets.Count == 0 ? "none" : string.Join(", ", offsets);
     }
 
+    public static bool IsLogitechDirectInputHid(Guid productGuid)
+    {
+        return TryGetDirectInputHidVidPid(productGuid, out var vendorId, out _) &&
+               vendorId == LogitechVendorId;
+    }
+
+    public static bool TryGetDirectInputHidVidPid(Guid productGuid, out int vendorId, out int productId)
+    {
+        var value = productGuid.ToString("N");
+        productId = 0;
+        vendorId = 0;
+
+        if (value.Length < 8 ||
+            !int.TryParse(value[..4], System.Globalization.NumberStyles.HexNumber, null, out productId) ||
+            !int.TryParse(value.Substring(4, 4), System.Globalization.NumberStyles.HexNumber, null, out vendorId))
+        {
+            return false;
+        }
+
+        return vendorId != 0 || productId != 0;
+    }
+
+    private static string FormatHidId(Guid? productGuid)
+    {
+        return productGuid is Guid value && TryGetDirectInputHidVidPid(value, out var vendorId, out var productId)
+            ? $"VID_{vendorId:X4}&PID_{productId:X4}"
+            : "unknown";
+    }
+
     private static string BuildStableId(DeviceInstance instance)
     {
         var product = string.IsNullOrWhiteSpace(instance.ProductName) ? "unknown" : instance.ProductName.Trim();
@@ -843,5 +972,13 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                ex.Message.Contains("InputLost", StringComparison.OrdinalIgnoreCase) ||
                ex.Message.Contains("DIERR_NOTACQUIRED", StringComparison.OrdinalIgnoreCase) ||
                ex.Message.Contains("NotAcquired", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsInvalidParameter(SharpGenException ex)
+    {
+        return ex.HResult == DierrInvalidParam ||
+               ex.Message.Contains("DIERR_INVALIDPARAM", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("INVALIDPARAM", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("0x80070057", StringComparison.OrdinalIgnoreCase);
     }
 }

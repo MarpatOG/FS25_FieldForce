@@ -1,4 +1,4 @@
-FS25RealFfbTelemetryConfig = {
+FieldForceTelemetryConfig = {
     transport = "file",
     host = "127.0.0.1",
     port = 34325,

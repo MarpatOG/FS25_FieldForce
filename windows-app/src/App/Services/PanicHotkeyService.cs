@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class PanicHotkeyService : NativeWindow, IDisposable
 {

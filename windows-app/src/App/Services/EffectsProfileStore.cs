@@ -1,10 +1,13 @@
 using System.Text.Json;
-using FS25FfbBridge.App.Models;
+using FieldForce.App.Models;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class EffectsProfileStore
 {
+    private const string CurrentAppDataFolder = "FieldForce";
+    private const string LegacyAppDataFolder = "FS25FFBBridge";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -12,19 +15,23 @@ public sealed class EffectsProfileStore
     };
 
     public EffectsProfileStore()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "FS25FFBBridge",
-            "effect-profiles"))
+        : this(GetDefaultProfilesDirectory(CurrentAppDataFolder), GetDefaultProfilesDirectory(LegacyAppDataFolder))
     {
     }
 
     public EffectsProfileStore(string profilesDirectory)
+        : this(profilesDirectory, null)
+    {
+    }
+
+    public EffectsProfileStore(string profilesDirectory, string? legacyProfilesDirectory)
     {
         ProfilesDirectory = profilesDirectory;
+        LegacyProfilesDirectory = legacyProfilesDirectory;
     }
 
     public string ProfilesDirectory { get; }
+    public string? LegacyProfilesDirectory { get; }
 
     public string GetProfilePath(string? wheelProfileId)
     {
@@ -39,24 +46,32 @@ public sealed class EffectsProfileStore
         var path = GetProfilePath(wheelProfile.Id);
         try
         {
-            if (File.Exists(path))
+            if (TryLoadProfile(path, wheelProfile, out var loaded))
             {
-                var profile = JsonSerializer.Deserialize<WheelEffectsProfile>(File.ReadAllText(path), JsonOptions);
-                if (profile?.GameplayFfb is not null)
-                {
-                    return Normalize(profile.GameplayFfb, wheelProfile, profile.EffectsProfileVersion);
-                }
+                return loaded;
             }
 
             var legacyPath = GetLegacyProfilePath(fallback.DeviceHapticProfileName);
-            if (legacyPath != path && File.Exists(legacyPath))
+            if (legacyPath != path && TryLoadProfile(legacyPath, wheelProfile, out loaded))
             {
-                var profile = JsonSerializer.Deserialize<WheelEffectsProfile>(File.ReadAllText(legacyPath), JsonOptions);
-                if (profile?.GameplayFfb is not null)
+                Save(wheelProfile.Id, loaded);
+                return loaded;
+            }
+
+            if (!string.IsNullOrWhiteSpace(LegacyProfilesDirectory))
+            {
+                var legacyDirectoryProfilePath = Path.Combine(LegacyProfilesDirectory, Path.GetFileName(path));
+                if (TryLoadProfile(legacyDirectoryProfilePath, wheelProfile, out loaded))
                 {
-                    var migrated = Normalize(profile.GameplayFfb, wheelProfile, profile.EffectsProfileVersion);
-                    Save(wheelProfile.Id, migrated);
-                    return migrated;
+                    Save(wheelProfile.Id, loaded);
+                    return loaded;
+                }
+
+                legacyPath = GetLegacyProfilePath(LegacyProfilesDirectory, fallback.DeviceHapticProfileName);
+                if (TryLoadProfile(legacyPath, wheelProfile, out loaded))
+                {
+                    Save(wheelProfile.Id, loaded);
+                    return loaded;
                 }
             }
         }
@@ -120,10 +135,41 @@ public sealed class EffectsProfileStore
 
     private string GetLegacyProfilePath(string? deviceProfileName)
     {
+        return GetLegacyProfilePath(ProfilesDirectory, deviceProfileName);
+    }
+
+    private static string GetLegacyProfilePath(string profilesDirectory, string? deviceProfileName)
+    {
         var fileName = SanitizeFileName(string.IsNullOrWhiteSpace(deviceProfileName)
             ? "Unknown FFB Wheel"
             : deviceProfileName);
-        return Path.Combine(ProfilesDirectory, $"{fileName}.json");
+        return Path.Combine(profilesDirectory, $"{fileName}.json");
+    }
+
+    private static bool TryLoadProfile(string path, WheelProfile wheelProfile, out GameplayFfbSettings settings)
+    {
+        settings = new GameplayFfbSettings();
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        var profile = JsonSerializer.Deserialize<WheelEffectsProfile>(File.ReadAllText(path), JsonOptions);
+        if (profile?.GameplayFfb is null)
+        {
+            return false;
+        }
+
+        settings = Normalize(profile.GameplayFfb, wheelProfile, profile.EffectsProfileVersion);
+        return true;
+    }
+
+    private static string GetDefaultProfilesDirectory(string appDataFolder)
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            appDataFolder,
+            "effect-profiles");
     }
 
     private static WheelProfile ResolveWheelProfile(string? wheelProfileId, GameplayFfbSettings fallback)

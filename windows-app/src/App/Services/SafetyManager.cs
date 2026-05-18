@@ -1,6 +1,6 @@
-using FS25FfbBridge.App.Models;
+using FieldForce.App.Models;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class SafetyManager
 {

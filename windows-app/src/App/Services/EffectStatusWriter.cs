@@ -1,8 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using FS25FfbBridge.App.Models;
+using FieldForce.App.Models;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class EffectStatusWriter
 {
@@ -24,7 +24,7 @@ public sealed class EffectStatusWriter
             "My Games",
             "FarmingSimulator2025",
             "modSettings",
-            "FS25_RealFfbTelemetry",
+            "FS25_FieldForceTelemetry",
             "effectStatus.json");
     }
 

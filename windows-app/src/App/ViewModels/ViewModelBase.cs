@@ -1,4 +1,4 @@
-namespace FS25FfbBridge.App.ViewModels;
+namespace FieldForce.App.ViewModels;
 
 public class ViewModelBase : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {

@@ -4,11 +4,11 @@ using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using System.Linq;
 using Avalonia.Markup.Xaml;
-using FS25FfbBridge.App.Services;
-using FS25FfbBridge.App.ViewModels;
-using FS25FfbBridge.App.Views;
+using FieldForce.App.Services;
+using FieldForce.App.ViewModels;
+using FieldForce.App.Views;
 
-namespace FS25FfbBridge.App;
+namespace FieldForce.App;
 
 public partial class App : Avalonia.Application
 {

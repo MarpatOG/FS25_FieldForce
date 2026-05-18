@@ -1,4 +1,4 @@
-namespace FS25FfbBridge.App.Models;
+namespace FieldForce.App.Models;
 
 public class GameplayFfbEffectProfile
 {

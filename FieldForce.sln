@@ -1,0 +1,40 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "windows-app", "windows-app", "{495EDD6B-5845-4B2C-ACD0-4EA3E71BB15C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{6D87690E-0480-4EDE-9526-39CC45509644}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FieldForce.App", "windows-app\src\App\FieldForce.App.csproj", "{2170046C-5DD7-4D2D-A904-215998F09F02}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{D822CD44-0F1D-4B74-A757-ABC9B700885B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FieldForce.App.Tests", "windows-app\tests\FieldForce.App.Tests\FieldForce.App.Tests.csproj", "{D233403D-FC7A-44D9-B614-FA758551B8EA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2170046C-5DD7-4D2D-A904-215998F09F02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2170046C-5DD7-4D2D-A904-215998F09F02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2170046C-5DD7-4D2D-A904-215998F09F02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2170046C-5DD7-4D2D-A904-215998F09F02}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D233403D-FC7A-44D9-B614-FA758551B8EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D233403D-FC7A-44D9-B614-FA758551B8EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D233403D-FC7A-44D9-B614-FA758551B8EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D233403D-FC7A-44D9-B614-FA758551B8EA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6D87690E-0480-4EDE-9526-39CC45509644} = {495EDD6B-5845-4B2C-ACD0-4EA3E71BB15C}
+		{2170046C-5DD7-4D2D-A904-215998F09F02} = {6D87690E-0480-4EDE-9526-39CC45509644}
+		{D822CD44-0F1D-4B74-A757-ABC9B700885B} = {495EDD6B-5845-4B2C-ACD0-4EA3E71BB15C}
+		{D233403D-FC7A-44D9-B614-FA758551B8EA} = {D822CD44-0F1D-4B74-A757-ABC9B700885B}
+	EndGlobalSection
+EndGlobal

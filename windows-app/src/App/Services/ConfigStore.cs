@@ -1,10 +1,13 @@
 using System.Text.Json;
-using FS25FfbBridge.App.Models;
+using FieldForce.App.Models;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class ConfigStore
 {
+    private const string CurrentAppDataFolder = "FieldForce";
+    private const string LegacyAppDataFolder = "FS25FFBBridge";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -12,34 +15,40 @@ public sealed class ConfigStore
     };
 
     public ConfigStore()
-        : this(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "FS25FFBBridge",
-            "config.json"))
+        : this(GetDefaultConfigPath(CurrentAppDataFolder), GetDefaultConfigPath(LegacyAppDataFolder))
     {
     }
 
     public ConfigStore(string configPath)
+        : this(configPath, null)
+    {
+    }
+
+    public ConfigStore(string configPath, string? legacyConfigPath)
     {
         ConfigPath = configPath;
+        LegacyConfigPath = legacyConfigPath;
     }
 
     public string ConfigPath { get; }
+    public string? LegacyConfigPath { get; }
 
     public AppConfig Load()
     {
         try
         {
-            if (!File.Exists(ConfigPath))
+            var path = File.Exists(ConfigPath) ? ConfigPath : LegacyConfigPath;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
                 return new AppConfig();
             }
 
-            var json = File.ReadAllText(ConfigPath);
+            var json = File.ReadAllText(path);
             var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig();
             var previousEffectsProfileVersion = config.EffectsProfileVersion;
             config = Normalize(config);
-            if (previousEffectsProfileVersion < config.EffectsProfileVersion)
+            if (previousEffectsProfileVersion < config.EffectsProfileVersion ||
+                !string.Equals(path, ConfigPath, StringComparison.OrdinalIgnoreCase))
             {
                 Save(config);
             }
@@ -252,6 +261,14 @@ public sealed class ConfigStore
     private static int NormalizeTelemetryRate(int value)
     {
         return value is 1 or 10 or 30 or 60 ? value : 60;
+    }
+
+    private static string GetDefaultConfigPath(string appDataFolder)
+    {
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            appDataFolder,
+            "config.json");
     }
 
     private static Dictionary<string, VehicleCategoryFfbProfile> NormalizeVehicleCategoryProfiles(

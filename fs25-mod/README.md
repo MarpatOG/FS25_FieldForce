@@ -1,4 +1,4 @@
-# FS25 Real FFB Telemetry Mod
+# FieldForce Telemetry Mod
 
 Milestone 2 telemetry sender for Farming Simulator 25.
 
@@ -7,7 +7,7 @@ Milestone 2 telemetry sender for Farming Simulator 25.
 Package this `fs25-mod` folder as:
 
 ```text
-FS25_RealFfbTelemetry.zip
+FS25_FieldForceTelemetry.zip
 ```
 
 Place that zip in:
@@ -27,23 +27,23 @@ Use the `mods` directory beside the active FS25 `log.txt`.
 The zip contents should have `modDesc.xml` at the archive root:
 
 ```text
-FS25_RealFfbTelemetry.zip
+FS25_FieldForceTelemetry.zip
   modDesc.xml
   VERSION.md
   config/
   src/
 ```
 
-Enable `FS25 Real FFB Telemetry` in a savegame. Start the Windows bridge before or after FS25; if the bridge is not running, the mod must not crash the game.
+Enable `FieldForce Telemetry` in a savegame. Start FieldForce App before or after FS25; if the app is not running, the mod must not crash the game.
 
-The in-game telemetry overlay can be toggled from `Settings` -> `General Settings` -> `FS25 Real FFB` -> `Telemetry overlay`.
+The in-game telemetry overlay can be toggled from `Settings` -> `General Settings` -> `FieldForce` -> `Telemetry overlay`.
 
 ## Update Installed Mod
 
 Rebuild the zip after any shipped Lua/config/version change:
 
 ```powershell
-$artifact = "artifacts/FS25_RealFfbTelemetry.zip"
+$artifact = "artifacts/FS25_FieldForceTelemetry.zip"
 Remove-Item -Force $artifact -ErrorAction SilentlyContinue
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -59,8 +59,8 @@ try {
 } finally {
     $zip.Dispose()
 }
-Copy-Item -Force artifacts/FS25_RealFfbTelemetry.zip "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry.zip"
-Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_RealFfbTelemetry" -ErrorAction SilentlyContinue
+Copy-Item -Force artifacts/FS25_FieldForceTelemetry.zip "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_FieldForceTelemetry.zip"
+Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_FieldForceTelemetry" -ErrorAction SilentlyContinue
 ```
 
 Do not use `Compress-Archive`; FS25 expects forward slash paths inside the zip.
@@ -91,7 +91,7 @@ Edit `config/TelemetryConfig.lua`:
 The mod writes file telemetry by default. UDP is still available as a hidden diagnostic transport through `transport = "udp"` or `transport = "file+udp"`.
 
 ```text
-Documents/My Games/FarmingSimulator2025/modSettings/FS25_RealFfbTelemetry/telemetry.json
+Documents/My Games/FarmingSimulator2025/modSettings/FS25_FieldForceTelemetry/telemetry.json
 ```
 
 If file telemetry cannot start, the log reports the exact missing API or filesystem step, such as `io.open`, `getUserProfileAppPath`, `createFolder`, or `os.rename`.

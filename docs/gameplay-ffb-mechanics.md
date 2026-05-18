@@ -1,17 +1,17 @@
 # Gameplay FFB Mechanics
 
-This document is the implementation reference for gameplay-driven force feedback in the Windows bridge. Keep it in sync with telemetry inputs, calculation formulas, DirectInput output mapping, defaults, and stop/safety behavior.
+This document is the implementation reference for gameplay-driven force feedback in the FieldForce App. Keep it in sync with telemetry inputs, calculation formulas, DirectInput output mapping, defaults, and stop/safety behavior.
 
 Entry points:
 
 - Calculator: `windows-app/src/App/Services/GameplayFfbCalculator.cs`
 - Pipeline models: `windows-app/src/App/Models/FfbPipelineModels.cs`
 - Telemetry packet: `windows-app/src/App/Models/TelemetryPacketV1.cs`
-- FS25 sender: `fs25-mod/src/FS25RealFfbTelemetry.lua`
+- FS25 sender: `fs25-mod/src/FieldForceTelemetry.lua`
 
 ## Telemetry Input
 
-The Lua mod sends nested `FS25_REAL_FFB_TELEMETRY` v1.4 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.3.0` and `1.2.0` packets.
+The Lua mod sends nested `FIELDFORCE_TELEMETRY` v1.4 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.3.0` and `1.2.0` packets.
 
 Core blocks:
 

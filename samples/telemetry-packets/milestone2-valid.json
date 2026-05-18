@@ -1,6 +1,6 @@
-﻿{
+{
     "protocol":  {
-                     "name":  "FS25_REAL_FFB_TELEMETRY",
+                     "name":  "FIELDFORCE_TELEMETRY",
                      "version":  "1.3.0"
                  },
     "frame":  {

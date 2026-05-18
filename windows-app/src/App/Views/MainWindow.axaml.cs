@@ -6,9 +6,9 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.ComponentModel;
-using FS25FfbBridge.App.ViewModels;
+using FieldForce.App.ViewModels;
 
-namespace FS25FfbBridge.App.Views;
+namespace FieldForce.App.Views;
 
 public partial class MainWindow : Window
 {

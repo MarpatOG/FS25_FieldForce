@@ -3,9 +3,9 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using FS25FfbBridge.App.ViewModels;
+using FieldForce.App.ViewModels;
 
-namespace FS25FfbBridge.App.Views;
+namespace FieldForce.App.Views;
 
 public partial class EffectOverlayWindow : Window
 {

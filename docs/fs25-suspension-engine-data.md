@@ -4,7 +4,7 @@ Source: GIANTS Developer Network FS25 LuaDoc v1.15.0.0.
 
 Legend:
 
-- `[used]` Used by the current telemetry mod or Windows bridge.
+- `[used]` Used by the current telemetry mod or FieldForce App.
 - `[partial]` Available and used indirectly or as a derived value.
 - `[unused]` Available in FS25 scripting data, but not used by the current implementation.
 
@@ -36,7 +36,7 @@ FS25 does not expose suspension as a separate high-level specialization. Most us
 - `[used]` `spec_motorized.consumersByFillTypeName`, `spec_motorized.consumers`, `spec_motorized.consumerConfigurations`, and fill-unit supported fill types: used to derive `engine.energySources` and normalized `engine.powertrainType`.
 - `[used]` `getGear`, `getSelectedGear`, `getCurrentGear`, and fallback fields `gear`, `currentGear`, `selectedGear`: used for transmission telemetry and gear-shift FFB pulses.
 - `[unused]` `Motorized:getMotorRpmReal()`: available, but not used.
-- `[unused]` `Motorized:getMotorRpmPercentage()`: available, but the bridge normalizes RPM from profile settings instead of game `min/max`.
+- `[unused]` `Motorized:getMotorRpmPercentage()`: available, but FieldForce App normalizes RPM from profile settings instead of game `min/max`.
 - `[unused]` `VehicleMotor:getMinRpm()`, `VehicleMotor:getMaxRpm()`: not read from the game.
 - `[unused]` `VehicleMotor:getTorque(acceleration)`, `getTorqueCurve()`, `getTorqueCurveValue(rpm)`, `getTorqueAndSpeedValues()`: torque curve data is available, but not used.
 - `[unused]` `VehicleMotor:getMotorAppliedTorque()`, `getMotorAvailableTorque()`, `getMotorExternalTorque()`, `getPeakTorque()`: available torque/load data, not used.
@@ -44,11 +44,11 @@ FS25 does not expose suspension as a separate high-level specialization. Most us
 - `[unused]` `VehicleMotor:getPtoMotorRpmRatio()`, `getRequiredMotorRpmRange()`: PTO and required RPM range data, not used.
 - `[unused]` `spec_motorized.actualLoadPercentage`, `motorTemperature`, `lastAirUsage`, motor damping/inertia parameters: visible through `Motorized`, but not used.
 
-`events.engineStartSeq` now means starter cranking began. The Windows bridge still keeps an RPM-rise detector, but only as a fallback for legacy or broken packets where `events.engineStartSeq` is absent.
+`events.engineStartSeq` now means starter cranking began. The FieldForce App still keeps an RPM-rise detector, but only as a fallback for legacy or broken packets where `events.engineStartSeq` is absent.
 
 ## Current Implementation References
 
-- `fs25-mod/src/FS25RealFfbTelemetry.lua`: builds `engine`, `transmission`, `wheels`, and `suspension` telemetry.
+- `fs25-mod/src/FieldForceTelemetry.lua`: builds `engine`, `transmission`, `wheels`, and `suspension` telemetry.
 - `windows-app/src/App/Models/TelemetryPacketV1.cs`: receives and exposes the telemetry fields.
 - `windows-app/src/App/Services/GameplayFfbCalculator.cs`: uses RPM, engine state, gear, contact, slip, and suspension impulses for gameplay FFB.
 

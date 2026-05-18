@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using FS25FfbBridge.App.Models;
+using FieldForce.App.Models;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class TelemetryCaptureLogService : IDisposable
 {
@@ -18,7 +18,7 @@ public sealed class TelemetryCaptureLogService : IDisposable
         _log = log;
         CaptureDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FS25FFBBridge",
+            "FieldForce",
             "captures");
     }
 

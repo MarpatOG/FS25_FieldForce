@@ -3,13 +3,15 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using FS25FfbBridge.App.Models;
+using FieldForce.App.Models;
 
-namespace FS25FfbBridge.App.Services;
+namespace FieldForce.App.Services;
 
 public sealed class TelemetryReceiverService : IDisposable
 {
     public const string TelemetryFileName = "telemetry.json";
+    private const string CurrentModSettingsFolder = "FS25_FieldForceTelemetry";
+    private const string LegacyModSettingsFolder = "FS25_RealFfbTelemetry";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -508,6 +510,12 @@ public sealed class TelemetryReceiverService : IDisposable
             paths.Add(defaultPath);
         }
 
+        var legacyPath = GetLegacyTelemetryFilePath();
+        if (!paths.Any(path => string.Equals(path, legacyPath, StringComparison.OrdinalIgnoreCase)))
+        {
+            paths.Add(legacyPath);
+        }
+
         return paths;
     }
 
@@ -523,7 +531,18 @@ public sealed class TelemetryReceiverService : IDisposable
             "My Games",
             "FarmingSimulator2025",
             "modSettings",
-            "FS25_RealFfbTelemetry",
+            CurrentModSettingsFolder,
+            TelemetryFileName);
+    }
+
+    public static string GetLegacyTelemetryFilePath()
+    {
+        return Path.Combine(
+            GetDefaultDocumentsPath(),
+            "My Games",
+            "FarmingSimulator2025",
+            "modSettings",
+            LegacyModSettingsFolder,
             TelemetryFileName);
     }
 
@@ -536,29 +555,29 @@ public sealed class TelemetryReceiverService : IDisposable
 
         var normalized = Path.GetFullPath(Environment.ExpandEnvironmentVariables(folderPath.Trim()));
         var folderName = new DirectoryInfo(normalized).Name;
-        if (EqualsAny(folderName, "FS25_RealFfbTelemetry"))
+        if (EqualsAny(folderName, CurrentModSettingsFolder, LegacyModSettingsFolder))
         {
             return Path.Combine(normalized, TelemetryFileName);
         }
 
         if (EqualsAny(folderName, "modSettings"))
         {
-            return Path.Combine(normalized, "FS25_RealFfbTelemetry", TelemetryFileName);
+            return Path.Combine(normalized, CurrentModSettingsFolder, TelemetryFileName);
         }
 
         if (EqualsAny(folderName, "FarmingSimulator2025"))
         {
-            return Path.Combine(normalized, "modSettings", "FS25_RealFfbTelemetry", TelemetryFileName);
+            return Path.Combine(normalized, "modSettings", CurrentModSettingsFolder, TelemetryFileName);
         }
 
         if (EqualsAny(folderName, "My Games"))
         {
-            return Path.Combine(normalized, "FarmingSimulator2025", "modSettings", "FS25_RealFfbTelemetry", TelemetryFileName);
+            return Path.Combine(normalized, "FarmingSimulator2025", "modSettings", CurrentModSettingsFolder, TelemetryFileName);
         }
 
         if (EqualsAny(folderName, "Documents", "Документы"))
         {
-            return Path.Combine(normalized, "My Games", "FarmingSimulator2025", "modSettings", "FS25_RealFfbTelemetry", TelemetryFileName);
+            return Path.Combine(normalized, "My Games", "FarmingSimulator2025", "modSettings", CurrentModSettingsFolder, TelemetryFileName);
         }
 
         return Path.Combine(normalized, TelemetryFileName);

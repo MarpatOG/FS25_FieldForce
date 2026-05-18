@@ -3,10 +3,10 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using FS25FfbBridge.App.Models;
-using FS25FfbBridge.App.Services;
+using FieldForce.App.Models;
+using FieldForce.App.Services;
 
-namespace FS25FfbBridge.App.ViewModels;
+namespace FieldForce.App.ViewModels;
 
 public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
@@ -816,7 +816,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
-    private void ReloadBridge()
+    private void ReloadFieldForce()
     {
         try
         {

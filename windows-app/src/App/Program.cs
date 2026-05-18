@@ -1,7 +1,7 @@
-﻿using Avalonia;
+using Avalonia;
 using System;
 
-namespace FS25FfbBridge.App;
+namespace FieldForce.App;
 
 sealed class Program
 {
