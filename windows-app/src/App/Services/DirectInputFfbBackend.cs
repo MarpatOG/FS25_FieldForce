@@ -16,7 +16,12 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private const int MomoTestConditionCoefficient = 10000;
     private const int MomoTestConditionSaturation = 10000;
     private const int MomoSpringDeadBand = 100;
-    private const int GameplaySpringDeadBand = 0;
+    // Geared Logitech wheels (G27/G29/G920) buzz at center if the spring
+    // condition has zero deadband: any potentiometer micro-noise or motor
+    // friction causes the spring to over-correct around the zero-position
+    // setpoint, producing audible motor chatter. A small deadband absorbs that
+    // noise without affecting the spring force on real wheel movement.
+    private const int GameplaySpringDeadBand = 150;
     private const int MomoConstantMagnitude = 10000;
     private const int MomoVibrationMagnitude = 9000;
     private const int MomoVibrationHz = 24;
