@@ -550,15 +550,67 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
     private FfbApplyResult? ApplyConditionEffect(ref IDirectInputEffect? effect, Guid effectGuid, int percent, int deadBand, string label, int centerOffsetPercent = 0)
     {
-        StopAndDisposeEffect(ref effect, label);
         if (percent <= 0)
         {
+            StopAndDisposeEffect(ref effect, label);
             return null;
         }
 
+        var magnitude = PercentToDirectInputMagnitude(percent);
+        var cappedCoefficient = ScaleMagnitude(magnitude);
+        var cappedSaturation = ScaleMagnitude(magnitude);
+        var offset = PercentToSignedDirectInputOffset(centerOffsetPercent);
+
+        // Fast path: a live effect already exists — update only the type-specific
+        // parameters in place. This avoids Stop/Dispose/Create/Download/Start on
+        // every gameplay tick. Each rebuild causes the wheel firmware to briefly
+        // reset the FFB queue, which on geared Logitech wheels (G27/G29/G920)
+        // manifests as audible motor micro-clicks at the update rate. With
+        // SetParameters we change only the condition coefficient/saturation in
+        // the live effect and avoid the rebuild entirely.
+        if (effect is not null)
+        {
+            try
+            {
+                var updateParams = new EffectParameters
+                {
+                    Parameters = new ConditionSet
+                    {
+                        Conditions =
+                        [
+                            new Condition
+                            {
+                                Offset = offset,
+                                PositiveCoefficient = cappedCoefficient,
+                                NegativeCoefficient = cappedCoefficient,
+                                PositiveSaturation = cappedSaturation,
+                                NegativeSaturation = cappedSaturation,
+                                DeadBand = deadBand
+                            }
+                        ]
+                    }
+                };
+                effect.SetParameters(updateParams, EffectParameterFlags.TypeSpecificParameters | EffectParameterFlags.NoRestart);
+                return null;
+            }
+            catch (SharpGenException ex) when (IsAcquireFailure(ex))
+            {
+                var result = LogAcquireFailure(ex, $"gameplay {label}");
+                StopAndDisposeEffect(ref effect, label);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _log.Warning("SetParameters failed for {EffectLabel}; falling back to recreate. {Error}", label, ex.Message);
+                StopAndDisposeEffect(ref effect, label);
+                // fall through to slow path
+            }
+        }
+
+        // Slow path: no live effect (first call, after a stop, or after a
+        // SetParameters failure). Create, download, start.
         try
         {
-            var magnitude = PercentToDirectInputMagnitude(percent);
             effect = CreateEffectWithAcquireRetry(() => CreateConditionEffect(effectGuid, magnitude, magnitude, deadBand, centerOffsetPercent), label);
             effect.Download().CheckError();
             effect.Start(1).CheckError();
@@ -580,12 +632,49 @@ public sealed class DirectInputFfbBackend : IFfbBackend
 
     private FfbApplyResult? ApplyPeriodicEffect(ref IDirectInputEffect? effect, int percent, int hz, string label)
     {
-        StopAndDisposeEffect(ref effect, label);
         if (percent <= 0 || hz <= 0)
         {
+            StopAndDisposeEffect(ref effect, label);
             return null;
         }
 
+        var scaledMagnitude = ScaleMagnitude(PercentToDirectInputMagnitude(percent));
+        var period = Math.Max(1, 1_000_000 / Math.Max(1, hz));
+
+        // Fast path: live effect → SetParameters with new magnitude/period.
+        // See ApplyConditionEffect for why we avoid rebuild on every update.
+        if (effect is not null)
+        {
+            try
+            {
+                var updateParams = new EffectParameters
+                {
+                    Parameters = new PeriodicForce
+                    {
+                        Magnitude = scaledMagnitude,
+                        Offset = 0,
+                        Phase = 0,
+                        Period = period
+                    }
+                };
+                effect.SetParameters(updateParams, EffectParameterFlags.TypeSpecificParameters | EffectParameterFlags.NoRestart);
+                return null;
+            }
+            catch (SharpGenException ex) when (IsAcquireFailure(ex))
+            {
+                var result = LogAcquireFailure(ex, $"gameplay {label}");
+                StopAndDisposeEffect(ref effect, label);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _log.Warning("SetParameters failed for {EffectLabel}; falling back to recreate. {Error}", label, ex.Message);
+                StopAndDisposeEffect(ref effect, label);
+                // fall through to slow path
+            }
+        }
+
+        // Slow path: create, download, start.
         try
         {
             effect = CreateEffectWithAcquireRetry(() => CreatePeriodicEffect(EffectGuid.Sine, PercentToDirectInputMagnitude(percent), hz, TimeSpan.MaxValue), label);
