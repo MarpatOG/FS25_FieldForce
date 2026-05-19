@@ -24,28 +24,22 @@ dotnet build FieldForce.sln
 dotnet run --project windows-app/src/App/FieldForce.App.csproj
 ```
 
-## Install FieldForce Telemetry
+## Build Release Artifacts
 
-Build the FS25 mod zip with `modDesc.xml` at the archive root:
+Build the compiled Windows app zip and the FS25 mod zip into `artifacts/`:
 
 ```powershell
-$artifact = "artifacts/FS25_FieldForceTelemetry.zip"
-Remove-Item -Force $artifact -ErrorAction SilentlyContinue
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$source = (Resolve-Path fs25-mod).Path
-$zip = [System.IO.Compression.ZipArchive]::new(
-    [System.IO.File]::Open($artifact, [System.IO.FileMode]::CreateNew),
-    [System.IO.Compression.ZipArchiveMode]::Create)
-try {
-    Get-ChildItem $source -Recurse -File | ForEach-Object {
-        $entry = $_.FullName.Substring($source.Length + 1).Replace('\', '/')
-        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entry) | Out-Null
-    }
-} finally {
-    $zip.Dispose()
-}
+.\scripts\Build-Artifacts.ps1
 ```
+
+The script creates:
+
+- `artifacts/FieldForceApp-win-x64.zip`: self-contained Windows app publish output.
+- `artifacts/FS25_FieldForceTelemetry.zip`: FS25 mod package with `modDesc.xml` at the archive root.
+
+Use `.\scripts\Build-Artifacts.ps1 -Runtime win-x64 -NoRestore` after a successful restore if you want to skip package restore.
+
+## Install FieldForce Telemetry
 
 Copy `artifacts/FS25_FieldForceTelemetry.zip` to:
 

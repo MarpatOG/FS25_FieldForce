@@ -43,27 +43,12 @@ The in-game telemetry overlay can be toggled from `Settings` -> `General Setting
 Rebuild the zip after any shipped Lua/config/version change:
 
 ```powershell
-$artifact = "artifacts/FS25_FieldForceTelemetry.zip"
-Remove-Item -Force $artifact -ErrorAction SilentlyContinue
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$source = (Resolve-Path fs25-mod).Path
-$zip = [System.IO.Compression.ZipArchive]::new(
-    [System.IO.File]::Open($artifact, [System.IO.FileMode]::CreateNew),
-    [System.IO.Compression.ZipArchiveMode]::Create)
-try {
-    Get-ChildItem $source -Recurse -File | ForEach-Object {
-        $entry = $_.FullName.Substring($source.Length + 1).Replace('\', '/')
-        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $_.FullName, $entry) | Out-Null
-    }
-} finally {
-    $zip.Dispose()
-}
+.\scripts\Build-Artifacts.ps1
 Copy-Item -Force artifacts/FS25_FieldForceTelemetry.zip "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_FieldForceTelemetry.zip"
 Remove-Item -Recurse -Force "$env:USERPROFILE\Documents\My Games\FarmingSimulator2025\mods\FS25_FieldForceTelemetry" -ErrorAction SilentlyContinue
 ```
 
-Do not use `Compress-Archive`; FS25 expects forward slash paths inside the zip.
+The build script avoids `Compress-Archive`; FS25 expects forward slash paths inside the zip.
 
 Keep only the zip in the FS25 `mods` directory. A stale folder copy can make FS25 display or load an older mod version.
 
