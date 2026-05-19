@@ -932,15 +932,15 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
-    public void Side_slope_bias_outputs_signed_center_offset()
+    public void Side_slope_bias_outputs_downhill_center_offset()
     {
-        var left = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 8, rollDeg: -12)), new GameplayFfbSettings());
-        var right = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 8, rollDeg: 12)), new GameplayFfbSettings());
+        var leftSideHigher = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 8, rollDeg: -12)), new GameplayFfbSettings());
+        var rightSideHigher = new GameplayFfbCalculator().Calculate(State(Packet(speedKmh: 8, rollDeg: 12)), new GameplayFfbSettings());
 
-        Assert.True(left.SideSlopeBiasActive);
-        Assert.True(right.SideSlopeBiasActive);
-        Assert.True(left.CenterOffsetPercent < 0);
-        Assert.True(right.CenterOffsetPercent > 0);
+        Assert.True(leftSideHigher.SideSlopeBiasActive);
+        Assert.True(rightSideHigher.SideSlopeBiasActive);
+        Assert.True(leftSideHigher.CenterOffsetPercent > 0);
+        Assert.True(rightSideHigher.CenterOffsetPercent < 0);
     }
 
     [Fact]

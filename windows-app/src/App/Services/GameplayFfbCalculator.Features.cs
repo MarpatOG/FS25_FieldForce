@@ -182,6 +182,7 @@ public sealed partial class GameplayFfbCalculator
             var rollRatio = rollAbs <= profile.SideSlopeBias.MinRollDeg
                 ? 0
                 : Math.Clamp((rollAbs - profile.SideSlopeBias.MinRollDeg) / Math.Max(0.1, profile.SideSlopeBias.FullRollDeg - profile.SideSlopeBias.MinRollDeg), 0, 1);
+            var downhillRollDirection = -Math.Sign(rollDeg);
             var accelerationRatio = NormalizeVector(packet.LocalAccelerationX, packet.LocalAccelerationY, packet.LocalAccelerationZ, profile.MotionFeedback.FullAcceleration);
             var ownMassT = IsValidFinite(packet.MassT) && packet.MassT > 0 ? packet.MassT!.Value : 0;
             var attachedMassT = packet.Attachments
@@ -228,7 +229,7 @@ public sealed partial class GameplayFfbCalculator
                 tireProfile,
                 multiplier,
                 rollRatio,
-                Math.Sign(rollDeg),
+                downhillRollDirection,
                 accelerationRatio,
                 attachedMassRatio,
                 implementLateralOffsetRatio);

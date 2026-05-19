@@ -58,7 +58,7 @@ rpmRatio = clamp((engine.rpm - MinRpm) / (MaxRpm - MinRpm), 0, 1)
 yawRateRatio = clamp(abs(motion.yawRateRadPerSec converted to deg/s) / FullYawRateDegPerSec, 0, 1)
 slopeRatio = abs(motion.slopeDeg ?? motion.pitchDeg) normalized by FullPitchDeg
 rollRatio = abs(motion.rollDeg) normalized by SideSlopeBias min/full roll thresholds
-rollDirection = sign(motion.rollDeg)
+rollDirection = -sign(motion.rollDeg), so steering bias points downhill on side slopes
 attachedMassRatio = sum(attachments[].massT) / vehicle.massT
 implementLateralOffsetRatio = mass-weighted attachments[].lateralOffsetM normalized by ImplementBias.FullLateralOffsetM
 accelerationRatio = magnitude(motion.localAccelerationMps2) normalized by MotionFeedback.FullAcceleration
@@ -105,7 +105,7 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 - Slew smoothing is a tunable dt-based rate limiter over spring, damper, friction, and center offset. It reports active only when it actually clamps a frame-to-frame change.
 - Motion feedback is a separate gated output layer. When `MotionFeedback.Enabled=false`, yaw-rate load, pitch/slope load, roll-derived center offset, local-acceleration load, hill standstill load, and side slope bias all output zero. Motion does not create finite event pulses.
 - Hill standstill load activates at `speed <= 2 km/h` with pitch/slope input and adds extra spring, damper, and friction scaled by load. It has its own UI toggle but is still blocked by disabled Motion.
-- Side slope bias uses roll direction to produce signed `CenterOffsetPercent`, plus a small damper/friction load. It has its own UI toggle but is still blocked by disabled Motion. The roll threshold is kept conservative (`6 deg` minimum) so heavy centered trailer loads that report 3-5 degrees of body roll on straight roads do not pull the wheel sideways.
+- Side slope bias uses downhill roll direction to produce signed `CenterOffsetPercent`, plus a small damper/friction load. If the right side is higher, the offset is left; if the left side is higher, the offset is right. It has its own UI toggle but is still blocked by disabled Motion. The roll threshold is kept conservative (`6 deg` minimum) so heavy centered trailer loads that report 3-5 degrees of body roll on straight roads do not pull the wheel sideways.
 - Implement bias uses attached mass and mass-weighted lateral offset. Centered implements add load only; lateral implements also produce signed `CenterOffsetPercent`.
 - Engine vibration, surface feedback, slip feedback, and suspension terrain rumble produce continuous haptics.
 - Tire/surface tuning is stored per wheel effects profile in `GameplayFfbSettings.TireSurfaceTuning`. `SurfaceAliases` maps raw map/mod surface names to normalized surfaces. `Matrix[tireProfile][surfaceType]` is clamped to `0..200%`, defaults to `100%`, and uses `50%` for unknown tire/surface fallback.
