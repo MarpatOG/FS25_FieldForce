@@ -481,9 +481,10 @@ function FieldForceTelemetry:addPayloadDiagnostics(packet, payloadBytes)
 end
 
 function FieldForceTelemetry:getActiveVehicle()
-    if g_localPlayer ~= nil and g_localPlayer.getCurrentVehicle ~= nil then
+    local localPlayer = self:getLocalPlayer()
+    if localPlayer ~= nil and localPlayer.getCurrentVehicle ~= nil then
         local ok, vehicle = pcall(function()
-            return g_localPlayer:getCurrentVehicle()
+            return localPlayer:getCurrentVehicle()
         end)
         if ok and vehicle ~= nil then
             return self:getForceFeedbackVehicle(vehicle)
@@ -524,6 +525,10 @@ function FieldForceTelemetry:getIsDriver(vehicle)
         return false
     end
 
+    if self:getIsLocalPlayerPassenger(vehicle) then
+        return false
+    end
+
     if vehicle.getIsVehicleControlledByPlayer ~= nil then
         local ok, controlled = pcall(function()
             return vehicle:getIsVehicleControlledByPlayer()
@@ -551,6 +556,61 @@ function FieldForceTelemetry:getIsDriver(vehicle)
     end
 
     return false
+end
+
+function FieldForceTelemetry:getLocalPlayer()
+    if g_localPlayer ~= nil then
+        return g_localPlayer
+    end
+
+    local mission = g_currentMission
+    if mission ~= nil and mission.player ~= nil then
+        return mission.player
+    end
+
+    return nil
+end
+
+function FieldForceTelemetry:getIsLocalPlayerPassenger(vehicle)
+    local player = self:getLocalPlayer()
+    if player == nil or player.getCurrentVehicle == nil then
+        return false
+    end
+
+    local ok, currentVehicle = pcall(function()
+        return player:getCurrentVehicle()
+    end)
+    if not ok or currentVehicle == nil then
+        return false
+    end
+
+    local currentForceFeedbackVehicle = self:getForceFeedbackVehicle(currentVehicle)
+    if not self:isSameForceFeedbackVehicle(vehicle, currentForceFeedbackVehicle) then
+        return false
+    end
+
+    local userId = player.userId
+    if userId == nil then
+        return false
+    end
+
+    return self:getPassengerSeatIndex(currentVehicle, userId) ~= nil or
+        self:getPassengerSeatIndex(currentForceFeedbackVehicle, userId) ~= nil
+end
+
+function FieldForceTelemetry:getPassengerSeatIndex(vehicle, userId)
+    if vehicle == nil or userId == nil or vehicle.getPassengerSeatIndexByPlayer == nil then
+        return nil
+    end
+
+    local ok, seatIndex = pcall(function()
+        return vehicle:getPassengerSeatIndexByPlayer(userId)
+    end)
+    if ok then
+        return seatIndex
+    end
+
+    return nil
 end
 
 function FieldForceTelemetry:isSameForceFeedbackVehicle(vehicle, candidate)
