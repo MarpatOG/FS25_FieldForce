@@ -20,6 +20,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly SafetyManager _safety;
     private readonly AppLogService _log;
     private readonly KeybindDispatcherService _keybindDispatcher;
+    private readonly DirectInputButtonRecordingService _directInputButtonRecording;
     private readonly TelemetryCaptureLogService _telemetryCapture;
     private readonly TelemetryCaptureHotkeyService _telemetryCaptureHotkey;
     private AppConfig _config;
@@ -30,7 +31,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _gameplayFfbPausedByStopAll;
     private bool _gameplayFfbPausedByReload;
     private KeybindAction? _recordingKeybindAction;
-    private bool[] _recordingPreviousSelectedButtons = [];
     private System.Threading.Timer? _keybindRecordingTimer;
     private bool _disposed;
 
@@ -559,6 +559,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _keybindDispatcher = new KeybindDispatcherService(_log, _backend);
         _keybindDispatcher.Pressed += HandleKeybindPressed;
         _keybindDispatcher.StatusChanged += OnKeybindStatusChanged;
+        _directInputButtonRecording = new DirectInputButtonRecordingService(_log, _backend);
         _config.GameplayFfb = _effectsProfileStore.Load(_config.GameplayFfb.WheelProfileId, _config.GameplayFfb);
         UseGlobalForceLimitOnly(_config.GameplayFfb);
         _loadingConfig = true;
@@ -720,7 +721,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void StartKeybindRecording(KeybindAction action)
     {
         _recordingKeybindAction = action;
-        _recordingPreviousSelectedButtons = _backend.TryGetSelectedDeviceButtons(out var buttons) ? buttons : [];
+        if (Devices.Count == 0)
+        {
+            ScanDevices();
+        }
+
+        _directInputButtonRecording.Start(Devices);
         _keybindRecordingTimer?.Dispose();
         _keybindRecordingTimer = new System.Threading.Timer(_ => PollKeybindRecordingButtons(), null, TimeSpan.FromMilliseconds(25), TimeSpan.FromMilliseconds(25));
         RefreshKeybindRows();
@@ -729,7 +735,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void CancelKeybindRecording()
     {
         _recordingKeybindAction = null;
-        _recordingPreviousSelectedButtons = [];
+        _directInputButtonRecording.Stop();
         _keybindRecordingTimer?.Dispose();
         _keybindRecordingTimer = null;
         RefreshKeybindRows();
@@ -750,7 +756,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         _config.Keybinds.Set(action, binding);
         _recordingKeybindAction = null;
-        _recordingPreviousSelectedButtons = [];
+        _directInputButtonRecording.Stop();
         _keybindRecordingTimer?.Dispose();
         _keybindRecordingTimer = null;
         _configStore.Save(_config);
@@ -760,24 +766,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void PollKeybindRecordingButtons()
     {
-        if (_recordingKeybindAction is not KeybindAction action ||
-            SelectedDevice is null ||
-            !_backend.TryGetSelectedDeviceButtons(out var current))
+        if (_recordingKeybindAction is not KeybindAction ||
+            _directInputButtonRecording.Poll() is not { } press)
         {
             return;
         }
 
-        var previous = _recordingPreviousSelectedButtons;
-        _recordingPreviousSelectedButtons = current;
-        for (var index = 0; index < current.Length; index++)
-        {
-            var wasPressed = index < previous.Length && previous[index];
-            if (current[index] && !wasPressed)
-            {
-                Dispatcher.UIThread.Post(() => HandleKeybindRecordingDirectInputButton(SelectedDevice, index));
-                return;
-            }
-        }
+        Dispatcher.UIThread.Post(() => HandleKeybindRecordingDirectInputButton(press.Device, press.ButtonIndex));
     }
 
     private void HandleKeybindPressed(KeybindAction action)
@@ -2121,6 +2116,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _telemetryCaptureHotkey.Dispose();
         _telemetryCapture.Dispose();
         _keybindRecordingTimer?.Dispose();
+        _directInputButtonRecording.Dispose();
         _keybindDispatcher.Pressed -= HandleKeybindPressed;
         _keybindDispatcher.StatusChanged -= OnKeybindStatusChanged;
         _keybindDispatcher.Dispose();
