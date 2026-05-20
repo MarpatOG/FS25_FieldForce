@@ -209,6 +209,56 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void Effect_level_zero_saves_disabled_with_zero_percent()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FieldForce.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.SpeedSpringStrengthLevel = 0;
+
+        var saved = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(configPath), new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        var spring = saved!.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring;
+        Assert.False(spring.Enabled);
+        Assert.Equal(0, spring.StrengthPercent);
+    }
+
+    [Fact]
+    public void Effect_level_seven_point_five_saves_enabled_with_75_percent()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FieldForce.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.SpeedSpringStrengthLevel = 7.5;
+
+        var saved = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(configPath), new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        var spring = saved!.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled].SpeedSpring;
+        Assert.True(spring.Enabled);
+        Assert.Equal(75, spring.StrengthPercent);
+    }
+
+    [Fact]
     public void Copy_effect_strengths_to_all_categories_persists_to_wheel_profile_file()
     {
         var directory = Path.Combine(Path.GetTempPath(), "FieldForce.Tests", Guid.NewGuid().ToString("N"));

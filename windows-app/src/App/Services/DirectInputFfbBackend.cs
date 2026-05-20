@@ -27,8 +27,7 @@ public sealed class DirectInputFfbBackend : IFfbBackend
     private const int MomoVibrationHz = 24;
     private const int MinimumGameplayPulseMagnitude = 5000;
     private const int MinimumEngineDrivetrainPulseMagnitude = 1600;
-    private static readonly TimeSpan ConstantTestDuration = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan VibrationTestDuration = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan BasicTestDuration = TimeSpan.FromSeconds(7);
 
     private readonly AppLogService _log;
     private readonly IDirectInput8 _directInput;
@@ -189,9 +188,9 @@ public sealed class DirectInputFfbBackend : IFfbBackend
                 {
                     FfbEffectKind.Spring => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Spring, MomoTestConditionCoefficient, MomoTestConditionSaturation, MomoSpringDeadBand, centerOffsetPercent: 0), "test spring"),
                     FfbEffectKind.Damper => CreateEffectWithAcquireRetry(() => CreateConditionEffect(EffectGuid.Damper, MomoTestConditionCoefficient, MomoTestConditionSaturation, deadBand: 0, centerOffsetPercent: 0), "test damper"),
-                    FfbEffectKind.ConstantLeft => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionForLogicalForce(-1), ConstantTestDuration), "test constant left"),
-                    FfbEffectKind.ConstantRight => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionForLogicalForce(1), ConstantTestDuration), "test constant right"),
-                    FfbEffectKind.LowVibration => CreateEffectWithAcquireRetry(() => CreatePeriodicEffect(EffectGuid.Sine, MomoVibrationMagnitude, MomoVibrationHz, VibrationTestDuration), "test vibration"),
+                    FfbEffectKind.ConstantLeft => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionForLogicalForce(-1), BasicTestDuration), "test constant left"),
+                    FfbEffectKind.ConstantRight => CreateEffectWithAcquireRetry(() => CreateConstantEffect(MomoConstantMagnitude, DirectionForLogicalForce(1), BasicTestDuration), "test constant right"),
+                    FfbEffectKind.LowVibration => CreateEffectWithAcquireRetry(() => CreatePeriodicEffect(EffectGuid.Sine, MomoVibrationMagnitude, MomoVibrationHz, BasicTestDuration), "test vibration"),
                     _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
                 };
 

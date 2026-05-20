@@ -16,6 +16,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly IFfbBackend _backend;
     private readonly TelemetryReceiverService _telemetryReceiver;
     private readonly GameplayFfbController _gameplayFfb;
+    private readonly TestEffectPlaybackService _testEffectPlayback;
     private readonly EffectStatusWriter _effectStatusWriter;
     private readonly SafetyManager _safety;
     private readonly AppLogService _log;
@@ -30,6 +31,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _effectCategoryPinnedByUser;
     private bool _gameplayFfbPausedByStopAll;
     private bool _gameplayFfbPausedByReload;
+    private bool _gameplayFfbPausedByTest;
     private KeybindAction? _recordingKeybindAction;
     private System.Threading.Timer? _keybindRecordingTimer;
     private bool _disposed;
@@ -205,6 +207,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _speedSpringStrengthPercent;
 
     [ObservableProperty]
+    private double _speedSpringStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _speedSpringCurve;
 
     [ObservableProperty]
@@ -212,6 +217,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _speedDamperStrengthPercent;
+
+    [ObservableProperty]
+    private double _speedDamperStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _speedDamperCurve;
@@ -223,6 +231,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _mechanicalFrictionStrengthPercent;
 
     [ObservableProperty]
+    private double _mechanicalFrictionStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _mechanicalFrictionCurve;
 
     [ObservableProperty]
@@ -230,6 +241,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _loadResistanceStrengthPercent;
+
+    [ObservableProperty]
+    private double _loadResistanceStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _loadResistanceCurve;
@@ -241,10 +255,16 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _slewSmoothingStrengthPercent;
 
     [ObservableProperty]
+    private double _slewSmoothingStrengthLevel;
+
+    [ObservableProperty]
     private bool _hillStandstillLoadEnabled;
 
     [ObservableProperty]
     private int _hillStandstillLoadStrengthPercent;
+
+    [ObservableProperty]
+    private double _hillStandstillLoadStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _hillStandstillLoadCurve;
@@ -256,6 +276,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _sideSlopeBiasStrengthPercent;
 
     [ObservableProperty]
+    private double _sideSlopeBiasStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _sideSlopeBiasCurve;
 
     [ObservableProperty]
@@ -263,6 +286,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _implementBiasStrengthPercent;
+
+    [ObservableProperty]
+    private double _implementBiasStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _implementBiasCurve;
@@ -274,10 +300,19 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _engineVibrationStrengthPercent;
 
     [ObservableProperty]
+    private double _engineVibrationStrengthLevel;
+
+    [ObservableProperty]
     private int _engineIdleStrengthPercent;
 
     [ObservableProperty]
+    private double _engineIdleStrengthLevel;
+
+    [ObservableProperty]
     private int _engineLoadStrengthPercent;
+
+    [ObservableProperty]
+    private double _engineLoadStrengthLevel;
 
     [ObservableProperty]
     private int _engineLuggingBoostPercent;
@@ -292,6 +327,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _gearShiftPulseStrengthPercent;
 
     [ObservableProperty]
+    private double _gearShiftPulseStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _gearShiftPulseCurve;
 
     [ObservableProperty]
@@ -302,6 +340,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _engineStartStopPulseStrengthPercent;
+
+    [ObservableProperty]
+    private double _engineStartStopPulseStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _engineStartStopPulseCurve;
@@ -316,6 +357,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _surfaceFeedbackStrengthPercent;
 
     [ObservableProperty]
+    private double _surfaceFeedbackStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _surfaceFeedbackCurve;
 
     [ObservableProperty]
@@ -323,6 +367,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _slipFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private double _slipFeedbackStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _slipFeedbackCurve;
@@ -334,6 +381,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _wetnessFeedbackStrengthPercent;
 
     [ObservableProperty]
+    private double _wetnessFeedbackStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _wetnessFeedbackCurve;
 
     [ObservableProperty]
@@ -341,6 +391,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _motionFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private double _motionFeedbackStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _motionFeedbackCurve;
@@ -352,6 +405,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _bumpFeedbackStrengthPercent;
 
     [ObservableProperty]
+    private double _bumpFeedbackStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _bumpFeedbackCurve;
 
     [ObservableProperty]
@@ -359,6 +415,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _suspensionHitFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private double _suspensionHitFeedbackStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _suspensionHitFeedbackCurve;
@@ -370,6 +429,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _landingFeedbackStrengthPercent;
 
     [ObservableProperty]
+    private double _landingFeedbackStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _landingFeedbackCurve;
 
     [ObservableProperty]
@@ -377,6 +439,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _collisionFeedbackStrengthPercent;
+
+    [ObservableProperty]
+    private double _collisionFeedbackStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _collisionFeedbackCurve;
@@ -388,6 +453,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private int _terrainRumbleStrengthPercent;
 
     [ObservableProperty]
+    private double _terrainRumbleStrengthLevel;
+
+    [ObservableProperty]
     private FfbCurveKind _terrainRumbleCurve;
 
     [ObservableProperty]
@@ -395,6 +463,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private int _drivetrainPulseStrengthPercent;
+
+    [ObservableProperty]
+    private double _drivetrainPulseStrengthLevel;
 
     [ObservableProperty]
     private FfbCurveKind _drivetrainPulseCurve;
@@ -598,6 +669,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             OnGameplayApplyResultChanged,
             _effectStatusWriter,
             _config.TelemetryFfbUpdateRateHz);
+        _testEffectPlayback = new TestEffectPlaybackService(
+            _backend,
+            _log,
+            () => GetSelectedCategoryProfile(SelectedEffectCategory),
+            () => SelectedEffectCategory,
+            OnGameplayOutputChanged);
         _log.Information("Application initialized. Config={ConfigPath}", ConfigPath);
     }
 
@@ -610,6 +687,23 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public IReadOnlyList<string> TireSurfaceTargets => TireSurfaceTuningSettings.SurfaceTypes;
     public IReadOnlyList<string> EffectCategories => VehicleCategoryFfbProfile.Categories;
     public IReadOnlyList<EffectCategoryOption> EffectCategoryOptions { get; }
+    public IReadOnlyList<TestFfbEffectDescriptor> ModEffectTests { get; } =
+    [
+        new("Steering spring", "Steering", TestFfbEffectKind.SpeedSpring),
+        new("Road damping", "Steering", TestFfbEffectKind.SpeedDamper),
+        new("Mechanical friction", "Steering", TestFfbEffectKind.MechanicalFriction),
+        new("RPM vibration", "Engine", TestFfbEffectKind.EngineRpmVibration),
+        new("Surface feedback", "Surface", TestFfbEffectKind.SurfaceFeedback),
+        new("Slip feedback", "Surface", TestFfbEffectKind.SlipFeedback),
+        new("Bump", "Terrain", TestFfbEffectKind.BumpFeedback),
+        new("Suspension hit", "Terrain", TestFfbEffectKind.SuspensionHitFeedback),
+        new("Collision pulse", "Terrain", TestFfbEffectKind.CollisionFeedback),
+        new("Landing pulse", "Terrain", TestFfbEffectKind.LandingFeedback),
+        new("Terrain rumble", "Terrain", TestFfbEffectKind.TerrainRumble),
+        new("Gear shift pulse", "Engine", TestFfbEffectKind.GearShiftPulse),
+        new("Clutch/brake jerk", "Engine", TestFfbEffectKind.DrivetrainPulse),
+        new("Engine start/stop", "Engine", TestFfbEffectKind.EngineStartStopPulse)
+    ];
     public IReadOnlyList<FfbCurveKind> CurveKinds { get; } =
     [
         FfbCurveKind.Smooth,
@@ -976,19 +1070,22 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand(CanExecute = nameof(CanRunEffects))]
-    private void SpringTest() => StartEffect(FfbEffectKind.Spring);
+    private Task SpringTest() => StartEffectAsync(FfbEffectKind.Spring);
 
     [RelayCommand(CanExecute = nameof(CanRunEffects))]
-    private void DamperTest() => StartEffect(FfbEffectKind.Damper);
+    private Task DamperTest() => StartEffectAsync(FfbEffectKind.Damper);
 
     [RelayCommand(CanExecute = nameof(CanRunEffects))]
-    private void ConstantLeft() => StartEffect(FfbEffectKind.ConstantLeft);
+    private Task ConstantLeft() => StartEffectAsync(FfbEffectKind.ConstantLeft);
 
     [RelayCommand(CanExecute = nameof(CanRunEffects))]
-    private void ConstantRight() => StartEffect(FfbEffectKind.ConstantRight);
+    private Task ConstantRight() => StartEffectAsync(FfbEffectKind.ConstantRight);
 
     [RelayCommand(CanExecute = nameof(CanRunEffects))]
-    private void LowVibration() => StartEffect(FfbEffectKind.LowVibration);
+    private Task LowVibration() => StartEffectAsync(FfbEffectKind.LowVibration);
+
+    [RelayCommand(CanExecute = nameof(CanRunEffects))]
+    private Task RunModEffectTest(TestFfbEffectKind kind) => StartModEffectAsync(kind);
 
     [RelayCommand]
     private void PreviousEffectCategory() => MoveEffectCategory(-1);
@@ -1070,8 +1167,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void StopAllEffects()
     {
         _gameplayFfbPausedByStopAll = true;
+        _gameplayFfbPausedByTest = false;
         _log.Information("Stop All requested: reason={Reason}, persistentGameplayConfigChanged={PersistentConfigChanged}", "user stop", false);
-        _safety.StopAll("user stop");
+        _testEffectPlayback.StopAll("user stop");
         OnGameplayOutputChanged(GameplayFfbOutput.Zero);
         _effectStatusWriter.WriteZero(ActiveVehicleCategory);
         GameplayFfbRuntimeStatus = "Paused by Stop All";
@@ -1157,10 +1255,36 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(TelemetryCaptureButtonText));
     }
 
-    private void StartEffect(FfbEffectKind kind)
+    private async Task StartEffectAsync(FfbEffectKind kind)
     {
-        _safety.StartTestEffect(kind);
         BackendStatus = $"{kind} test running";
+        await _testEffectPlayback.StartBasicAsync(kind, SetTestPlaybackState);
+        if (!_gameplayFfbPausedByStopAll)
+        {
+            BackendStatus = $"{kind} test finished";
+        }
+    }
+
+    private async Task StartModEffectAsync(TestFfbEffectKind kind)
+    {
+        SaveGameplaySettingsToProfile(GetSelectedCategoryProfile(SelectedEffectCategory));
+        BackendStatus = $"{kind} test running";
+        await _testEffectPlayback.StartModAsync(kind, SetTestPlaybackState);
+        if (!_gameplayFfbPausedByStopAll)
+        {
+            BackendStatus = $"{kind} test finished";
+        }
+    }
+
+    private void SetTestPlaybackState(bool isActive)
+    {
+        _gameplayFfbPausedByTest = isActive;
+        if (!isActive && !_gameplayFfbPausedByStopAll)
+        {
+            GameplayFfbRuntimeStatus = GameplayFfbEnabled ? "FFB enabled" : "FFB disabled";
+        }
+
+        RefreshDashboardStatusProperties();
     }
 
     private void MoveEffectCategory(int direction)
@@ -1373,72 +1497,122 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
     }
     partial void OnSpeedSpringEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnSpeedSpringStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedSpringStrengthPercentChanged(int value) => SpeedSpringStrengthLevel = PercentToLevel(value);
     partial void OnSpeedSpringCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnSpeedDamperEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnSpeedDamperStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedDamperStrengthPercentChanged(int value) => SpeedDamperStrengthLevel = PercentToLevel(value);
     partial void OnSpeedDamperCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnMechanicalFrictionEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnMechanicalFrictionStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnMechanicalFrictionStrengthPercentChanged(int value) => MechanicalFrictionStrengthLevel = PercentToLevel(value);
     partial void OnMechanicalFrictionCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnLoadResistanceEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnLoadResistanceStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnLoadResistanceStrengthPercentChanged(int value) => LoadResistanceStrengthLevel = PercentToLevel(value);
     partial void OnLoadResistanceCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnSlewSmoothingEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnSlewSmoothingStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSlewSmoothingStrengthPercentChanged(int value) => SlewSmoothingStrengthLevel = PercentToLevel(value);
     partial void OnHillStandstillLoadEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnHillStandstillLoadStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnHillStandstillLoadStrengthPercentChanged(int value) => HillStandstillLoadStrengthLevel = PercentToLevel(value);
     partial void OnHillStandstillLoadCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnSideSlopeBiasEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnSideSlopeBiasStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSideSlopeBiasStrengthPercentChanged(int value) => SideSlopeBiasStrengthLevel = PercentToLevel(value);
     partial void OnSideSlopeBiasCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnImplementBiasEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnImplementBiasStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnImplementBiasStrengthPercentChanged(int value) => ImplementBiasStrengthLevel = PercentToLevel(value);
     partial void OnImplementBiasCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnEngineVibrationStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnEngineIdleStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
-    partial void OnEngineLoadStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineVibrationStrengthPercentChanged(int value) => EngineVibrationStrengthLevel = PercentToLevel(value);
+    partial void OnEngineIdleStrengthPercentChanged(int value) => EngineIdleStrengthLevel = PercentToLevel(value);
+    partial void OnEngineLoadStrengthPercentChanged(int value) => EngineLoadStrengthLevel = PercentToLevel(value);
     partial void OnEngineLuggingBoostPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnEngineVibrationCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnGearShiftPulseEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnGearShiftPulseStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnGearShiftPulseStrengthPercentChanged(int value) => GearShiftPulseStrengthLevel = PercentToLevel(value);
     partial void OnGearShiftPulseCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnGearShiftPulseCooldownMsChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnEngineStartStopPulseEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnEngineStartStopPulseStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineStartStopPulseStrengthPercentChanged(int value) => EngineStartStopPulseStrengthLevel = PercentToLevel(value);
     partial void OnEngineStartStopPulseCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnEngineDrivetrainMaxPercentChanged(int value) => SaveGameplaySettingsFromUi();
     partial void OnSurfaceFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnSurfaceFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSurfaceFeedbackStrengthPercentChanged(int value) => SurfaceFeedbackStrengthLevel = PercentToLevel(value);
     partial void OnSurfaceFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnSlipFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnSlipFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSlipFeedbackStrengthPercentChanged(int value) => SlipFeedbackStrengthLevel = PercentToLevel(value);
     partial void OnSlipFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnWetnessFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnWetnessFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnWetnessFeedbackStrengthPercentChanged(int value) => WetnessFeedbackStrengthLevel = PercentToLevel(value);
     partial void OnWetnessFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnMotionFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnMotionFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnMotionFeedbackStrengthPercentChanged(int value) => MotionFeedbackStrengthLevel = PercentToLevel(value);
     partial void OnMotionFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnBumpFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnBumpFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnBumpFeedbackStrengthPercentChanged(int value) => BumpFeedbackStrengthLevel = PercentToLevel(value);
     partial void OnBumpFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnSuspensionHitFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnSuspensionHitFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnSuspensionHitFeedbackStrengthPercentChanged(int value) => SuspensionHitFeedbackStrengthLevel = PercentToLevel(value);
     partial void OnSuspensionHitFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnLandingFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnLandingFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnLandingFeedbackStrengthPercentChanged(int value) => LandingFeedbackStrengthLevel = PercentToLevel(value);
     partial void OnLandingFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnCollisionFeedbackEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnCollisionFeedbackStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnCollisionFeedbackStrengthPercentChanged(int value) => CollisionFeedbackStrengthLevel = PercentToLevel(value);
     partial void OnCollisionFeedbackCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
-    partial void OnTerrainRumbleEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnTerrainRumbleStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnTerrainRumbleEnabledChanged(bool value)
+    {
+        if (!value)
+        {
+            TerrainRumbleStrengthLevel = 0;
+            return;
+        }
+
+        SaveGameplaySettingsFromUi();
+    }
+    partial void OnTerrainRumbleStrengthPercentChanged(int value) => TerrainRumbleStrengthLevel = PercentToLevel(value);
     partial void OnTerrainRumbleCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
     partial void OnDrivetrainPulseEnabledChanged(bool value) => SaveGameplaySettingsFromUi();
-    partial void OnDrivetrainPulseStrengthPercentChanged(int value) => SaveGameplaySettingsFromUi();
+    partial void OnDrivetrainPulseStrengthPercentChanged(int value) => DrivetrainPulseStrengthLevel = PercentToLevel(value);
+    partial void OnSpeedSpringStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnSpeedDamperStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnMechanicalFrictionStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnLoadResistanceStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnSlewSmoothingStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnHillStandstillLoadStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnSideSlopeBiasStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnImplementBiasStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineIdleStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineLoadStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnGearShiftPulseStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnEngineStartStopPulseStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnSurfaceFeedbackStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnSlipFeedbackStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnWetnessFeedbackStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnMotionFeedbackStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnBumpFeedbackStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnSuspensionHitFeedbackStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnLandingFeedbackStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnCollisionFeedbackStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnTerrainRumbleStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
+    partial void OnDrivetrainPulseStrengthLevelChanged(double value) => SaveGameplaySettingsFromUi();
     partial void OnDrivetrainPulseCurveChanged(FfbCurveKind value) => SaveGameplaySettingsFromUi();
+
+    public static double PercentToLevel(int percent) => Math.Clamp(percent, 0, 100) / 10.0;
+
+    public static int LevelToPercent(double level) => Math.Clamp((int)Math.Round(Math.Clamp(level, 0, 10) * 10), 0, 100);
+
+    private static void ApplyLevel(FfbEffectSettings settings, double level, bool enabled = true)
+    {
+        var percent = LevelToPercent(level);
+        settings.Enabled = enabled && percent > 0;
+        settings.StrengthPercent = percent;
+        settings.MaxOutputPercent = 100;
+    }
+
+    private static void ApplyLevel(SlewSmoothingSettings settings, double level, bool enabled = true)
+    {
+        var percent = LevelToPercent(level);
+        settings.Enabled = enabled && percent > 0;
+        settings.StrengthPercent = percent;
+    }
 
     private void LoadGameplaySettingsIntoUi(GameplayFfbSettings settings)
     {
@@ -1450,70 +1624,93 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         SpeedSpringEnabled = settings.SpeedSpring.Enabled;
         SpeedSpringStrengthPercent = settings.SpeedSpring.StrengthPercent;
+        SpeedSpringStrengthLevel = PercentToLevel(settings.SpeedSpring.StrengthPercent);
         SpeedSpringCurve = settings.SpeedSpring.Curve;
         SpeedDamperEnabled = settings.SpeedDamper.Enabled;
         SpeedDamperStrengthPercent = settings.SpeedDamper.StrengthPercent;
+        SpeedDamperStrengthLevel = PercentToLevel(settings.SpeedDamper.StrengthPercent);
         SpeedDamperCurve = settings.SpeedDamper.Curve;
         MechanicalFrictionEnabled = settings.MechanicalFriction.Enabled;
         MechanicalFrictionStrengthPercent = settings.MechanicalFriction.StrengthPercent;
+        MechanicalFrictionStrengthLevel = PercentToLevel(settings.MechanicalFriction.StrengthPercent);
         MechanicalFrictionCurve = settings.MechanicalFriction.Curve;
         LoadResistanceEnabled = settings.LoadResistance.Enabled;
         LoadResistanceStrengthPercent = settings.LoadResistance.StrengthPercent;
+        LoadResistanceStrengthLevel = PercentToLevel(settings.LoadResistance.StrengthPercent);
         LoadResistanceCurve = settings.LoadResistance.Curve;
         SlewSmoothingEnabled = settings.SlewSmoothing.Enabled;
         SlewSmoothingStrengthPercent = settings.SlewSmoothing.StrengthPercent;
+        SlewSmoothingStrengthLevel = PercentToLevel(settings.SlewSmoothing.StrengthPercent);
         HillStandstillLoadEnabled = settings.HillStandstillLoad.Enabled;
         HillStandstillLoadStrengthPercent = settings.HillStandstillLoad.StrengthPercent;
+        HillStandstillLoadStrengthLevel = PercentToLevel(settings.HillStandstillLoad.StrengthPercent);
         HillStandstillLoadCurve = settings.HillStandstillLoad.Curve;
         SideSlopeBiasEnabled = settings.SideSlopeBias.Enabled;
         SideSlopeBiasStrengthPercent = settings.SideSlopeBias.StrengthPercent;
+        SideSlopeBiasStrengthLevel = PercentToLevel(settings.SideSlopeBias.StrengthPercent);
         SideSlopeBiasCurve = settings.SideSlopeBias.Curve;
         ImplementBiasEnabled = settings.ImplementBias.Enabled;
         ImplementBiasStrengthPercent = settings.ImplementBias.StrengthPercent;
+        ImplementBiasStrengthLevel = PercentToLevel(settings.ImplementBias.StrengthPercent);
         ImplementBiasCurve = settings.ImplementBias.Curve;
         EngineVibrationEnabled = settings.EngineVibration.Enabled;
         EngineVibrationStrengthPercent = settings.EngineVibration.StrengthPercent;
+        EngineVibrationStrengthLevel = PercentToLevel(settings.EngineVibration.StrengthPercent);
         EngineIdleStrengthPercent = settings.EngineVibration.IdleStrengthPercent;
+        EngineIdleStrengthLevel = PercentToLevel(settings.EngineVibration.IdleStrengthPercent);
         EngineLoadStrengthPercent = settings.EngineVibration.LoadStrengthPercent;
+        EngineLoadStrengthLevel = PercentToLevel(settings.EngineVibration.LoadStrengthPercent);
         EngineLuggingBoostPercent = settings.EngineVibration.LuggingBoostPercent;
         EngineVibrationCurve = settings.EngineVibration.Curve;
         GearShiftPulseEnabled = settings.GearShiftPulse.Enabled;
         GearShiftPulseStrengthPercent = settings.GearShiftPulse.StrengthPercent;
+        GearShiftPulseStrengthLevel = PercentToLevel(settings.GearShiftPulse.StrengthPercent);
         GearShiftPulseCurve = settings.GearShiftPulse.Curve;
         GearShiftPulseCooldownMs = settings.GearShiftPulse.CooldownMs;
         EngineStartStopPulseEnabled = settings.EngineStartStopPulse.Enabled;
         EngineStartStopPulseStrengthPercent = settings.EngineStartStopPulse.StrengthPercent;
+        EngineStartStopPulseStrengthLevel = PercentToLevel(settings.EngineStartStopPulse.StrengthPercent);
         EngineStartStopPulseCurve = settings.EngineStartStopPulse.Curve;
         EngineDrivetrainMaxPercent = settings.EngineDrivetrainMaxPercent;
         SurfaceFeedbackEnabled = settings.SurfaceFeedback.Enabled;
         SurfaceFeedbackStrengthPercent = settings.SurfaceFeedback.StrengthPercent;
+        SurfaceFeedbackStrengthLevel = PercentToLevel(settings.SurfaceFeedback.StrengthPercent);
         SurfaceFeedbackCurve = settings.SurfaceFeedback.Curve;
         SlipFeedbackEnabled = settings.SlipFeedback.Enabled;
         SlipFeedbackStrengthPercent = settings.SlipFeedback.StrengthPercent;
+        SlipFeedbackStrengthLevel = PercentToLevel(settings.SlipFeedback.StrengthPercent);
         SlipFeedbackCurve = settings.SlipFeedback.Curve;
         WetnessFeedbackEnabled = settings.WetnessFeedback.Enabled;
         WetnessFeedbackStrengthPercent = settings.WetnessFeedback.StrengthPercent;
+        WetnessFeedbackStrengthLevel = PercentToLevel(settings.WetnessFeedback.StrengthPercent);
         WetnessFeedbackCurve = settings.WetnessFeedback.Curve;
         MotionFeedbackEnabled = settings.MotionFeedback.Enabled;
         MotionFeedbackStrengthPercent = settings.MotionFeedback.StrengthPercent;
+        MotionFeedbackStrengthLevel = PercentToLevel(settings.MotionFeedback.StrengthPercent);
         MotionFeedbackCurve = settings.MotionFeedback.Curve;
         BumpFeedbackEnabled = settings.BumpFeedback.Enabled;
         BumpFeedbackStrengthPercent = settings.BumpFeedback.StrengthPercent;
+        BumpFeedbackStrengthLevel = PercentToLevel(settings.BumpFeedback.StrengthPercent);
         BumpFeedbackCurve = settings.BumpFeedback.Curve;
         SuspensionHitFeedbackEnabled = settings.SuspensionHitFeedback.Enabled;
         SuspensionHitFeedbackStrengthPercent = settings.SuspensionHitFeedback.StrengthPercent;
+        SuspensionHitFeedbackStrengthLevel = PercentToLevel(settings.SuspensionHitFeedback.StrengthPercent);
         SuspensionHitFeedbackCurve = settings.SuspensionHitFeedback.Curve;
         LandingFeedbackEnabled = settings.LandingFeedback.Enabled;
         LandingFeedbackStrengthPercent = settings.LandingFeedback.StrengthPercent;
+        LandingFeedbackStrengthLevel = PercentToLevel(settings.LandingFeedback.StrengthPercent);
         LandingFeedbackCurve = settings.LandingFeedback.Curve;
         CollisionFeedbackEnabled = settings.CollisionFeedback.Enabled;
         CollisionFeedbackStrengthPercent = settings.CollisionFeedback.StrengthPercent;
+        CollisionFeedbackStrengthLevel = PercentToLevel(settings.CollisionFeedback.StrengthPercent);
         CollisionFeedbackCurve = settings.CollisionFeedback.Curve;
         TerrainRumbleEnabled = settings.TerrainRumble.Enabled;
         TerrainRumbleStrengthPercent = settings.TerrainRumble.StrengthPercent;
+        TerrainRumbleStrengthLevel = PercentToLevel(settings.TerrainRumble.StrengthPercent);
         TerrainRumbleCurve = settings.TerrainRumble.Curve;
         DrivetrainPulseEnabled = settings.DrivetrainPulse.Enabled;
         DrivetrainPulseStrengthPercent = settings.DrivetrainPulse.StrengthPercent;
+        DrivetrainPulseStrengthLevel = PercentToLevel(settings.DrivetrainPulse.StrengthPercent);
         DrivetrainPulseCurve = settings.DrivetrainPulse.Curve;
     }
 
@@ -1651,92 +1848,53 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void SaveGameplaySettingsToProfile(GameplayFfbEffectProfile profile)
     {
-        profile.SpeedSpring.Enabled = SpeedSpringEnabled;
-        profile.SpeedSpring.StrengthPercent = Math.Clamp(SpeedSpringStrengthPercent, 0, 100);
-        profile.SpeedSpring.MaxOutputPercent = 100;
+        ApplyLevel(profile.SpeedSpring, SpeedSpringStrengthLevel);
         profile.SpeedSpring.Curve = SpeedSpringCurve;
-        profile.SpeedDamper.Enabled = SpeedDamperEnabled;
-        profile.SpeedDamper.StrengthPercent = Math.Clamp(SpeedDamperStrengthPercent, 0, 100);
-        profile.SpeedDamper.MaxOutputPercent = 100;
+        ApplyLevel(profile.SpeedDamper, SpeedDamperStrengthLevel);
         profile.SpeedDamper.Curve = SpeedDamperCurve;
-        profile.MechanicalFriction.Enabled = MechanicalFrictionEnabled;
-        profile.MechanicalFriction.StrengthPercent = Math.Clamp(MechanicalFrictionStrengthPercent, 0, 100);
-        profile.MechanicalFriction.MaxOutputPercent = 100;
+        ApplyLevel(profile.MechanicalFriction, MechanicalFrictionStrengthLevel);
         profile.MechanicalFriction.Curve = MechanicalFrictionCurve;
-        profile.LoadResistance.Enabled = LoadResistanceEnabled;
-        profile.LoadResistance.StrengthPercent = Math.Clamp(LoadResistanceStrengthPercent, 0, 100);
-        profile.LoadResistance.MaxOutputPercent = 100;
+        ApplyLevel(profile.LoadResistance, LoadResistanceStrengthLevel, LoadResistanceEnabled);
         profile.LoadResistance.Curve = LoadResistanceCurve;
-        profile.SlewSmoothing.Enabled = SlewSmoothingEnabled;
-        profile.SlewSmoothing.StrengthPercent = Math.Clamp(SlewSmoothingStrengthPercent, 0, 100);
-        profile.HillStandstillLoad.Enabled = HillStandstillLoadEnabled;
-        profile.HillStandstillLoad.StrengthPercent = Math.Clamp(HillStandstillLoadStrengthPercent, 0, 100);
-        profile.HillStandstillLoad.MaxOutputPercent = 100;
+        ApplyLevel(profile.SlewSmoothing, SlewSmoothingStrengthLevel, SlewSmoothingEnabled);
+        ApplyLevel(profile.HillStandstillLoad, HillStandstillLoadStrengthLevel, HillStandstillLoadEnabled);
         profile.HillStandstillLoad.Curve = HillStandstillLoadCurve;
-        profile.SideSlopeBias.Enabled = SideSlopeBiasEnabled;
-        profile.SideSlopeBias.StrengthPercent = Math.Clamp(SideSlopeBiasStrengthPercent, 0, 100);
-        profile.SideSlopeBias.MaxOutputPercent = 100;
+        ApplyLevel(profile.SideSlopeBias, SideSlopeBiasStrengthLevel, SideSlopeBiasEnabled);
         profile.SideSlopeBias.Curve = SideSlopeBiasCurve;
-        profile.ImplementBias.Enabled = ImplementBiasEnabled;
-        profile.ImplementBias.StrengthPercent = Math.Clamp(ImplementBiasStrengthPercent, 0, 100);
-        profile.ImplementBias.MaxOutputPercent = 100;
+        ApplyLevel(profile.ImplementBias, ImplementBiasStrengthLevel, ImplementBiasEnabled);
         profile.ImplementBias.Curve = ImplementBiasCurve;
-        profile.EngineVibration.Enabled = EngineVibrationEnabled;
-        profile.EngineVibration.IdleStrengthPercent = Math.Clamp(EngineIdleStrengthPercent, 0, 100);
-        profile.EngineVibration.LoadStrengthPercent = Math.Clamp(EngineLoadStrengthPercent, 0, 100);
+        profile.EngineVibration.IdleStrengthPercent = LevelToPercent(EngineIdleStrengthLevel);
+        profile.EngineVibration.LoadStrengthPercent = LevelToPercent(EngineLoadStrengthLevel);
         profile.EngineVibration.LuggingBoostPercent = Math.Clamp(EngineLuggingBoostPercent, 0, 100);
         profile.EngineVibration.StrengthPercent = Math.Clamp(Math.Max(profile.EngineVibration.IdleStrengthPercent, profile.EngineVibration.LoadStrengthPercent), 0, 100);
+        profile.EngineVibration.Enabled = profile.EngineVibration.StrengthPercent > 0;
         profile.EngineVibration.MaxOutputPercent = 100;
         profile.EngineVibration.Curve = EngineVibrationCurve;
-        profile.GearShiftPulse.Enabled = GearShiftPulseEnabled;
-        profile.GearShiftPulse.StrengthPercent = Math.Clamp(GearShiftPulseStrengthPercent, 0, 100);
-        profile.GearShiftPulse.MaxOutputPercent = 100;
+        ApplyLevel(profile.GearShiftPulse, GearShiftPulseStrengthLevel);
         profile.GearShiftPulse.Curve = GearShiftPulseCurve;
         profile.GearShiftPulse.CooldownMs = Math.Clamp(GearShiftPulseCooldownMs, 100, 700);
-        profile.EngineStartStopPulse.Enabled = EngineStartStopPulseEnabled;
-        profile.EngineStartStopPulse.StrengthPercent = Math.Clamp(EngineStartStopPulseStrengthPercent, 0, 100);
-        profile.EngineStartStopPulse.MaxOutputPercent = 100;
+        ApplyLevel(profile.EngineStartStopPulse, EngineStartStopPulseStrengthLevel);
         profile.EngineStartStopPulse.Curve = EngineStartStopPulseCurve;
         profile.EngineDrivetrainMaxPercent = Math.Clamp(EngineDrivetrainMaxPercent, 0, 100);
-        profile.SurfaceFeedback.Enabled = SurfaceFeedbackEnabled;
-        profile.SurfaceFeedback.StrengthPercent = Math.Clamp(SurfaceFeedbackStrengthPercent, 0, 100);
-        profile.SurfaceFeedback.MaxOutputPercent = 100;
+        ApplyLevel(profile.SurfaceFeedback, SurfaceFeedbackStrengthLevel);
         profile.SurfaceFeedback.Curve = SurfaceFeedbackCurve;
-        profile.SlipFeedback.Enabled = SlipFeedbackEnabled;
-        profile.SlipFeedback.StrengthPercent = Math.Clamp(SlipFeedbackStrengthPercent, 0, 100);
-        profile.SlipFeedback.MaxOutputPercent = 100;
+        ApplyLevel(profile.SlipFeedback, SlipFeedbackStrengthLevel);
         profile.SlipFeedback.Curve = SlipFeedbackCurve;
-        profile.WetnessFeedback.Enabled = WetnessFeedbackEnabled;
-        profile.WetnessFeedback.StrengthPercent = Math.Clamp(WetnessFeedbackStrengthPercent, 0, 100);
-        profile.WetnessFeedback.MaxOutputPercent = 100;
+        ApplyLevel(profile.WetnessFeedback, WetnessFeedbackStrengthLevel, WetnessFeedbackEnabled);
         profile.WetnessFeedback.Curve = WetnessFeedbackCurve;
-        profile.MotionFeedback.Enabled = MotionFeedbackEnabled;
-        profile.MotionFeedback.StrengthPercent = Math.Clamp(MotionFeedbackStrengthPercent, 0, 100);
-        profile.MotionFeedback.MaxOutputPercent = 100;
+        ApplyLevel(profile.MotionFeedback, MotionFeedbackStrengthLevel, MotionFeedbackEnabled);
         profile.MotionFeedback.Curve = MotionFeedbackCurve;
-        profile.BumpFeedback.Enabled = BumpFeedbackEnabled;
-        profile.BumpFeedback.StrengthPercent = Math.Clamp(BumpFeedbackStrengthPercent, 0, 100);
-        profile.BumpFeedback.MaxOutputPercent = 100;
+        ApplyLevel(profile.BumpFeedback, BumpFeedbackStrengthLevel);
         profile.BumpFeedback.Curve = BumpFeedbackCurve;
-        profile.SuspensionHitFeedback.Enabled = SuspensionHitFeedbackEnabled;
-        profile.SuspensionHitFeedback.StrengthPercent = Math.Clamp(SuspensionHitFeedbackStrengthPercent, 0, 100);
-        profile.SuspensionHitFeedback.MaxOutputPercent = 100;
+        ApplyLevel(profile.SuspensionHitFeedback, SuspensionHitFeedbackStrengthLevel);
         profile.SuspensionHitFeedback.Curve = SuspensionHitFeedbackCurve;
-        profile.LandingFeedback.Enabled = LandingFeedbackEnabled;
-        profile.LandingFeedback.StrengthPercent = Math.Clamp(LandingFeedbackStrengthPercent, 0, 100);
-        profile.LandingFeedback.MaxOutputPercent = 100;
+        ApplyLevel(profile.LandingFeedback, LandingFeedbackStrengthLevel);
         profile.LandingFeedback.Curve = LandingFeedbackCurve;
-        profile.CollisionFeedback.Enabled = CollisionFeedbackEnabled;
-        profile.CollisionFeedback.StrengthPercent = Math.Clamp(CollisionFeedbackStrengthPercent, 0, 100);
-        profile.CollisionFeedback.MaxOutputPercent = 100;
+        ApplyLevel(profile.CollisionFeedback, CollisionFeedbackStrengthLevel);
         profile.CollisionFeedback.Curve = CollisionFeedbackCurve;
-        profile.TerrainRumble.Enabled = TerrainRumbleEnabled;
-        profile.TerrainRumble.StrengthPercent = Math.Clamp(TerrainRumbleStrengthPercent, 0, 100);
-        profile.TerrainRumble.MaxOutputPercent = 100;
+        ApplyLevel(profile.TerrainRumble, TerrainRumbleStrengthLevel);
         profile.TerrainRumble.Curve = TerrainRumbleCurve;
-        profile.DrivetrainPulse.Enabled = DrivetrainPulseEnabled;
-        profile.DrivetrainPulse.StrengthPercent = Math.Clamp(DrivetrainPulseStrengthPercent, 0, 100);
-        profile.DrivetrainPulse.MaxOutputPercent = 100;
+        ApplyLevel(profile.DrivetrainPulse, DrivetrainPulseStrengthLevel);
         profile.DrivetrainPulse.Curve = DrivetrainPulseCurve;
     }
 
@@ -1775,7 +1933,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private GameplayFfbSettings GetRuntimeGameplaySettings()
     {
-        if (!_gameplayFfbPausedByStopAll && !_gameplayFfbPausedByReload)
+        if (!_gameplayFfbPausedByStopAll && !_gameplayFfbPausedByReload && !_gameplayFfbPausedByTest)
         {
             return _config.GameplayFfb;
         }
@@ -1918,6 +2076,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ConstantLeftCommand.NotifyCanExecuteChanged();
         ConstantRightCommand.NotifyCanExecuteChanged();
         LowVibrationCommand.NotifyCanExecuteChanged();
+        RunModEffectTestCommand.NotifyCanExecuteChanged();
     }
 
     private void OnTelemetryStateChanged(TelemetryReceiverState state)
@@ -2140,6 +2299,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _disposed = true;
         _safety.StopAll("view model disposed");
         _effectStatusWriter.WriteZero(ActiveVehicleCategory);
+        _testEffectPlayback.Dispose();
         _gameplayFfb.Dispose();
         _telemetryReceiver.StateChanged -= OnTelemetryStateChanged;
         _telemetryReceiver.FfbStateChanged -= OnTelemetryFfbStateChanged;
