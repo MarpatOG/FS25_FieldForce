@@ -139,8 +139,8 @@ public class GameplayFfbEffectProfile
         MaxOutputPercent = DefaultMaxOutputPercent,
         Curve = FfbCurveKind.Smooth,
         MinSpeedKmh = 0.2,
-        FieldFrequencyMinHz = 8,
-        FieldFrequencyMaxHz = 24,
+        FieldFrequencyMinHz = 22,
+        FieldFrequencyMaxHz = 42,
         FieldSpringModifierPercent = -10,
         FieldDamperModifierPercent = 10,
         FieldFrictionModifierPercent = 15
@@ -210,8 +210,8 @@ public class GameplayFfbEffectProfile
         Curve = FfbCurveKind.Smooth,
         MinImpulse = 0.08,
         FullImpulse = 0.60,
-        MinFrequencyHz = 8,
-        MaxFrequencyHz = 14
+        MinFrequencyHz = 6,
+        MaxFrequencyHz = 12
     };
 
     public DrivetrainPulseSettings DrivetrainPulse { get; set; } = new()
@@ -528,8 +528,67 @@ public class GameplayFfbEffectProfile
         settings.TerrainRumble.Curve = FfbCurveKind.Smooth;
         settings.TerrainRumble.MinImpulse = 0.08;
         settings.TerrainRumble.FullImpulse = 0.60;
-        settings.TerrainRumble.MinFrequencyHz = 8;
-        settings.TerrainRumble.MaxFrequencyHz = 14;
+        settings.TerrainRumble.MinFrequencyHz = 6;
+        settings.TerrainRumble.MaxFrequencyHz = 12;
+    }
+
+    public static void ApplySurfaceTerrainSplitDefaultsForStandardValues(GameplayFfbEffectProfile settings)
+    {
+        NormalizeEffectSettings(settings);
+
+        var surfaceHadOldDefaultFrequency =
+            settings.SurfaceFeedback.FieldFrequencyMinHz == 8 &&
+            settings.SurfaceFeedback.FieldFrequencyMaxHz == 24;
+        var terrainHadOldDefaultFrequency =
+            settings.TerrainRumble.MinFrequencyHz == 8 &&
+            settings.TerrainRumble.MaxFrequencyHz == 14;
+
+        if (surfaceHadOldDefaultFrequency)
+        {
+            settings.SurfaceFeedback.StrengthPercent = settings.SurfaceFeedback.StrengthPercent switch
+            {
+                22 => 24,
+                25 => 27,
+                28 => 30,
+                30 => 32,
+                32 => 34,
+                35 => 37,
+                _ => settings.SurfaceFeedback.StrengthPercent
+            };
+        }
+
+        if (terrainHadOldDefaultFrequency)
+        {
+            settings.TerrainRumble.StrengthPercent = settings.TerrainRumble.StrengthPercent switch
+            {
+                22 => 24,
+                28 => 30,
+                30 => 32,
+                36 => 38,
+                38 => 40,
+                _ => settings.TerrainRumble.StrengthPercent
+            };
+        }
+
+        if (settings.SurfaceFeedback.FieldFrequencyMinHz == 8)
+        {
+            settings.SurfaceFeedback.FieldFrequencyMinHz = 22;
+        }
+
+        if (settings.SurfaceFeedback.FieldFrequencyMaxHz == 24)
+        {
+            settings.SurfaceFeedback.FieldFrequencyMaxHz = 42;
+        }
+
+        if (settings.TerrainRumble.MinFrequencyHz == 8)
+        {
+            settings.TerrainRumble.MinFrequencyHz = 6;
+        }
+
+        if (settings.TerrainRumble.MaxFrequencyHz == 14)
+        {
+            settings.TerrainRumble.MaxFrequencyHz = 12;
+        }
     }
 
     private static void ApplyLogitechMomoCategoryDefaults(GameplayFfbEffectProfile settings, string category)
@@ -752,25 +811,25 @@ internal sealed record LogitechMomoCategoryValues(
         return category switch
         {
             VehicleCategoryFfbProfile.TractorTracked => new(
-                42, S, 38, S, 45, L, 28, S, 18, S, 24, S, 20, S, 24, S, 42, A, 28, A, 38, S, 48, S,
+                42, S, 38, S, 45, L, 30, S, 18, S, 24, S, 20, S, 24, S, 42, A, 28, A, 40, S, 48, S,
                 18, S, 38, S, 22, S, 36, S, 16, 28, 28, 18, A, 16, A, 24, A, 42, 550),
             VehicleCategoryFfbProfile.Harvester => new(
-                48, S, 34, S, 42, L, 25, S, 18, S, 22, S, 18, S, 24, S, 40, A, 26, A, 30, S, 42, S,
+                48, S, 34, S, 42, L, 27, S, 18, S, 22, S, 18, S, 24, S, 40, A, 26, A, 32, S, 42, S,
                 22, S, 30, S, 28, S, 26, S, 20, 32, 24, 16, A, 14, A, 26, A, 45, 650),
             VehicleCategoryFfbProfile.Truck => new(
-                45, S, 24, L, 38, L, 22, S, 24, A, 24, S, 22, S, 28, A, 45, A, 30, A, 22, S, 30, S,
+                45, S, 24, L, 38, L, 24, S, 24, A, 24, S, 22, S, 28, A, 45, A, 30, A, 24, S, 30, S,
                 22, S, 24, S, 18, S, 18, S, 16, 24, 20, 26, A, 26, A, 22, A, 38, 400),
             VehicleCategoryFfbProfile.LoaderTelehandler => new(
-                50, S, 36, S, 34, L, 35, S, 30, A, 30, S, 28, A, 36, A, 48, A, 36, A, 36, S, 45, S,
+                50, S, 36, S, 34, L, 37, S, 30, A, 30, S, 28, A, 36, A, 48, A, 36, A, 38, S, 45, S,
                 28, S, 34, S, 30, S, 32, S, 18, 30, 28, 22, A, 24, A, 26, A, 45, 450),
             VehicleCategoryFfbProfile.LightVehicle => new(
-                38, S, 18, L, 28, L, 30, S, 34, A, 28, S, 30, A, 34, A, 40, A, 34, A, 28, S, 18, S,
+                38, S, 18, L, 28, L, 32, S, 34, A, 28, S, 30, A, 34, A, 40, A, 34, A, 30, S, 18, S,
                 30, S, 16, S, 22, S, 10, S, 14, 20, 16, 24, A, 24, A, 18, A, 35, 350),
             VehicleCategoryFfbProfile.Unknown => new(
-                45, S, 25, S, 32, L, 28, S, 24, A, 25, S, 22, S, 28, A, 40, A, 30, A, 28, S, 32, S,
+                45, S, 25, S, 32, L, 30, S, 24, A, 25, S, 22, S, 28, A, 40, A, 30, A, 30, S, 32, S,
                 22, S, 25, S, 22, S, 24, S, 16, 25, 22, 20, A, 20, A, 22, A, 40, 500),
             _ => new(
-                55, S, 28, S, 35, L, 32, S, 26, A, 30, S, 24, S, 32, A, 45, A, 34, A, 30, S, 40, S,
+                55, S, 28, S, 35, L, 34, S, 26, A, 30, S, 24, S, 32, A, 45, A, 34, A, 32, S, 40, S,
                 24, S, 34, S, 26, S, 34, S, 18, 30, 30, 24, A, 22, A, 26, A, 45, 450)
         };
     }

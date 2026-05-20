@@ -33,7 +33,7 @@ public sealed partial class GameplayFfbCalculator
 
     private static bool IsOffRoadSurface(string surfaceType, bool? isOnField)
     {
-        return surfaceType is "field" or "wetField" or "grass" or "dirt" or "gravel" or "mud" or "snow" or "shallowWater" ||
+        return surfaceType is "field" or "wetField" or "plowedField" or "cultivatedField" or "grass" or "dirt" or "gravel" or "mud" or "snow" or "shallowWater" ||
                (surfaceType == "unknown" && isOnField == true);
     }
 
@@ -152,8 +152,8 @@ public sealed partial class GameplayFfbCalculator
             var loadFactor = CalculateLoadFactor(packet.MassKg, packet.TotalMassKg);
             var steeringContact = FirstValid(packet.SteeringGroundContactRatio, packet.GroundContactRatio);
             var contactConfidence = IsValidFinite(packet.SteeringGroundContactRatio) ? 1.0 : IsValidFinite(packet.GroundContactRatio) ? 0.55 : 0.0;
-            var suspension = MaxValidImpulse(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse);
-            var suspensionConfidence = CountValidImpulses(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse) > 0 ? 1.0 : 0.0;
+            var suspension = MaxValidImpulse(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse);
+            var suspensionConfidence = CountValidImpulses(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse) > 0 ? 1.0 : 0.0;
             var verticalImpact = MaxValidImpulse(packet.VerticalImpactImpulse, packet.BumpImpulse, packet.SuspensionImpulse);
             var landing = NormalizeImpulse(packet.LandingImpulse);
             var collision = NormalizeImpulse(packet.CollisionImpulse);

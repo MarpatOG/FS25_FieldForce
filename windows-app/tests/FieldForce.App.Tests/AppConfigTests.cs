@@ -45,11 +45,11 @@ public sealed class AppConfigTests
         Assert.Equal(18, config.GameplayFfb.EngineVibration.IdleStrengthPercent);
         Assert.Equal(30, config.GameplayFfb.EngineVibration.LoadStrengthPercent);
         Assert.Equal(30, config.GameplayFfb.EngineVibration.LuggingBoostPercent);
-        Assert.Equal(32, config.GameplayFfb.SurfaceFeedback.StrengthPercent);
+        Assert.Equal(34, config.GameplayFfb.SurfaceFeedback.StrengthPercent);
         Assert.Equal(65, config.GameplayFfb.SurfaceFeedback.MaxOutputPercent);
         Assert.Equal(0.2, config.GameplayFfb.SurfaceFeedback.MinSpeedKmh);
-        Assert.Equal(8, config.GameplayFfb.SurfaceFeedback.FieldFrequencyMinHz);
-        Assert.Equal(24, config.GameplayFfb.SurfaceFeedback.FieldFrequencyMaxHz);
+        Assert.Equal(22, config.GameplayFfb.SurfaceFeedback.FieldFrequencyMinHz);
+        Assert.Equal(42, config.GameplayFfb.SurfaceFeedback.FieldFrequencyMaxHz);
         Assert.True(config.GameplayFfb.SlipFeedback.Enabled);
         Assert.Equal(26, config.GameplayFfb.SlipFeedback.StrengthPercent);
         Assert.Equal(65, config.GameplayFfb.SlipFeedback.MaxOutputPercent);
@@ -72,7 +72,9 @@ public sealed class AppConfigTests
         Assert.Equal(85, config.GameplayFfb.SuspensionHitFeedback.CooldownMs);
         Assert.Equal(34, config.GameplayFfb.LandingFeedback.StrengthPercent);
         Assert.Equal(45, config.GameplayFfb.CollisionFeedback.StrengthPercent);
-        Assert.Equal(30, config.GameplayFfb.TerrainRumble.StrengthPercent);
+        Assert.Equal(32, config.GameplayFfb.TerrainRumble.StrengthPercent);
+        Assert.Equal(6, config.GameplayFfb.TerrainRumble.MinFrequencyHz);
+        Assert.Equal(12, config.GameplayFfb.TerrainRumble.MaxFrequencyHz);
         Assert.Equal(22, config.GameplayFfb.DrivetrainPulse.StrengthPercent);
         Assert.Equal(45, config.GameplayFfb.EngineDrivetrainMaxPercent);
         Assert.Equal(450, config.GameplayFfb.GearShiftPulse.CooldownMs);
@@ -256,7 +258,7 @@ public sealed class AppConfigTests
 
         Assert.Equal(AppConfig.CurrentEffectsProfileVersion, migrated.EffectsProfileVersion);
         Assert.Equal(24, migrated.GameplayFfb.BumpFeedback.StrengthPercent);
-        Assert.Equal(30, migrated.GameplayFfb.TerrainRumble.StrengthPercent);
+        Assert.Equal(32, migrated.GameplayFfb.TerrainRumble.StrengthPercent);
         Assert.Equal(22, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].BumpFeedback.StrengthPercent);
         Assert.Equal(28, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.LoaderTelehandler].BumpFeedback.StrengthPercent);
     }
@@ -281,5 +283,41 @@ public sealed class AppConfigTests
         Assert.Equal(60, migrated.GameplayFfb.TireSurfaceTuning.Matrix["street"]["asphalt"]);
         Assert.Equal(140, migrated.GameplayFfb.TireSurfaceTuning.Matrix["agricultural"]["field"]);
         Assert.Equal(45, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SpeedSpring.StrengthPercent);
+    }
+
+    [Fact]
+    public void Config_v17_migration_updates_surface_terrain_split_defaults_without_replacing_custom_values()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "FieldForce.Tests", Guid.NewGuid().ToString("N"), "config.json");
+        var store = new ConfigStore(path);
+        var oldConfig = new AppConfig
+        {
+            EffectsProfileVersion = 17
+        };
+        oldConfig.GameplayFfb.SurfaceFeedback.StrengthPercent = 32;
+        oldConfig.GameplayFfb.SurfaceFeedback.FieldFrequencyMinHz = 8;
+        oldConfig.GameplayFfb.SurfaceFeedback.FieldFrequencyMaxHz = 24;
+        oldConfig.GameplayFfb.TerrainRumble.StrengthPercent = 30;
+        oldConfig.GameplayFfb.TerrainRumble.MinFrequencyHz = 8;
+        oldConfig.GameplayFfb.TerrainRumble.MaxFrequencyHz = 14;
+        oldConfig.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SurfaceFeedback.StrengthPercent = 41;
+        oldConfig.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SurfaceFeedback.FieldFrequencyMinHz = 11;
+        oldConfig.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SurfaceFeedback.FieldFrequencyMaxHz = 31;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, JsonSerializer.Serialize(oldConfig));
+
+        var migrated = store.Load();
+
+        Assert.Equal(AppConfig.CurrentEffectsProfileVersion, migrated.EffectsProfileVersion);
+        Assert.Equal(34, migrated.GameplayFfb.SurfaceFeedback.StrengthPercent);
+        Assert.Equal(22, migrated.GameplayFfb.SurfaceFeedback.FieldFrequencyMinHz);
+        Assert.Equal(42, migrated.GameplayFfb.SurfaceFeedback.FieldFrequencyMaxHz);
+        Assert.Equal(32, migrated.GameplayFfb.TerrainRumble.StrengthPercent);
+        Assert.Equal(6, migrated.GameplayFfb.TerrainRumble.MinFrequencyHz);
+        Assert.Equal(12, migrated.GameplayFfb.TerrainRumble.MaxFrequencyHz);
+        Assert.Equal(41, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SurfaceFeedback.StrengthPercent);
+        Assert.Equal(11, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SurfaceFeedback.FieldFrequencyMinHz);
+        Assert.Equal(31, migrated.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.Truck].SurfaceFeedback.FieldFrequencyMaxHz);
     }
 }

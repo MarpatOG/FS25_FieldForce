@@ -577,13 +577,14 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
-    public void Exact_asphalt_surface_does_not_enable_field_surface_feedback()
+    public void Exact_asphalt_surface_emits_weak_surface_texture_without_terrain()
     {
         var settings = new GameplayFfbSettings();
         var output = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: false, surfaceType: "asphalt")), settings);
 
-        Assert.Equal(0, output.SurfaceVibrationPercent);
-        Assert.Equal(0, output.SurfaceVibrationHz);
+        Assert.True(output.SurfaceVibrationPercent > 0);
+        Assert.InRange(output.SurfaceVibrationHz, 22, 42);
+        Assert.Equal(0, output.TerrainRumblePercent);
     }
 
     [Fact]
@@ -601,8 +602,8 @@ public sealed class GameplayFfbCalculatorTests
         var settings = new GameplayFfbSettings();
         var output = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: false, surfaceType: "unknown", surfaceAttribute: 7)), settings);
 
-        Assert.Equal(0, output.SurfaceVibrationPercent);
-        Assert.Equal(0, output.SurfaceVibrationHz);
+        Assert.True(output.SurfaceVibrationPercent > 0);
+        Assert.InRange(output.SurfaceVibrationHz, 22, 42);
     }
 
     [Fact]
@@ -1058,8 +1059,34 @@ public sealed class GameplayFfbCalculatorTests
 
         Assert.True(output.TerrainRumblePercent > 0);
         Assert.True(output.TerrainRumbleHz > 0);
+        Assert.InRange(output.TerrainRumbleHz, 6, 12);
         Assert.True(output.TerrainRumbleActive);
         Assert.Contains("Terrain", output.ActiveEffectsText);
+    }
+
+    [Fact]
+    public void Surface_texture_is_stronger_on_field_than_asphalt_without_suspension_impulse()
+    {
+        var settings = new GameplayFfbSettings();
+        var asphalt = _calculator.Calculate(State(Packet(speedKmh: 25, surfaceType: "asphalt", groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+        var field = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field", groundContactRatio: 1)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(asphalt.SurfaceVibrationPercent > 0);
+        Assert.True(field.SurfaceVibrationPercent > asphalt.SurfaceVibrationPercent);
+        Assert.Equal(0, asphalt.TerrainRumblePercent);
+        Assert.Equal(0, field.TerrainRumblePercent);
+    }
+
+    [Fact]
+    public void Surface_frequency_increases_with_speed_and_stays_above_terrain_range()
+    {
+        var settings = new GameplayFfbSettings();
+        var slow = _calculator.Calculate(State(Packet(speedKmh: 8, surfaceType: "asphalt")), settings, DeviceHapticProfile.Generic);
+        var fast = _calculator.Calculate(State(Packet(speedKmh: 45, surfaceType: "asphalt")), settings, DeviceHapticProfile.Generic);
+
+        Assert.InRange(slow.SurfaceVibrationHz, 22, 42);
+        Assert.InRange(fast.SurfaceVibrationHz, 22, 42);
+        Assert.True(fast.SurfaceVibrationHz >= slow.SurfaceVibrationHz);
     }
 
     [Fact]
@@ -1482,6 +1509,33 @@ public sealed class GameplayFfbCalculatorTests
 
         Assert.True(output.TerrainRumblePercent > 0);
         Assert.False(output.EventPulseActive);
+    }
+
+    [Fact]
+    public void Terrain_rumble_frequency_stays_below_surface_when_both_are_active()
+    {
+        var output = _calculator.Calculate(
+            State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field", suspensionImpulse: 0.6, verticalImpactImpulse: 0.2, groundContactRatio: 1)),
+            new GameplayFfbSettings(),
+            DeviceHapticProfile.Generic);
+
+        Assert.True(output.SurfaceVibrationPercent > 0);
+        Assert.True(output.TerrainRumblePercent > 0);
+        Assert.InRange(output.TerrainRumbleHz, 6, 12);
+        Assert.InRange(output.SurfaceVibrationHz, 22, 42);
+        Assert.True(output.TerrainRumbleHz < output.SurfaceVibrationHz);
+    }
+
+    [Fact]
+    public void Wetness_increases_surface_texture_without_creating_terrain()
+    {
+        var settings = new GameplayFfbSettings();
+        var dry = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field", groundWetness: 0)), settings, DeviceHapticProfile.Generic);
+        var wet = _calculator.Calculate(State(Packet(speedKmh: 25, isOnField: true, surfaceType: "field", groundWetness: 0.8)), settings, DeviceHapticProfile.Generic);
+
+        Assert.True(wet.SurfaceVibrationPercent > dry.SurfaceVibrationPercent);
+        Assert.Equal(0, dry.TerrainRumblePercent);
+        Assert.Equal(0, wet.TerrainRumblePercent);
     }
 
     [Fact]

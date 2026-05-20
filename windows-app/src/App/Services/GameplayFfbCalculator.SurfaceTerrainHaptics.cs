@@ -9,16 +9,21 @@ public sealed partial class GameplayFfbCalculator
         public static LayerContribution<ContinuousHaptics> CalculateContinuous(TelemetryFeatures features, GameplayFfbEffectProfile profile, FfbFrameContext context)
         {
             var slip = CalculateSlipFeedback(features.Slip, features.SpeedKmh, profile.SlipFeedback, context.TelemetryFade, out var slipHz);
-            if (!IsOffRoadSurface(features) || !profile.SurfaceFeedback.Enabled || features.SpeedKmh < Math.Max(0, profile.SurfaceFeedback.MinSpeedKmh))
+            if (!profile.SurfaceFeedback.Enabled || features.SpeedKmh < Math.Max(0, profile.SurfaceFeedback.MinSpeedKmh))
             {
                 return new(new ContinuousHaptics(0, 0, slip, slipHz, 0, 0, 0, 0), Math.Max(features.SurfaceConfidence, slip > 0 ? 1.0 : 0.0));
             }
 
-            var surface = CalculateMaxCapped(profile.SurfaceFeedback, context.TelemetryFade) * Math.Clamp(features.TireSurfaceMultiplier, 0, 2);
+            var speedRatio = Math.Clamp(features.SpeedKmh / Math.Max(1, profile.SpeedDamper.SpeedReferenceKmh), 0, 1);
+            var speedScale = ApplyCurve(speedRatio, profile.SurfaceFeedback.Curve);
+            var surface = CalculateMaxCapped(profile.SurfaceFeedback, context.TelemetryFade) *
+                          speedScale *
+                          CalculateSurfaceTextureScale(features) *
+                          Math.Clamp(features.TireSurfaceMultiplier, 0, 2);
             var wetnessEffect = CalculateWetnessEffect(profile.WetnessFeedback, features.Wetness, context.TelemetryFade);
             if (wetnessEffect > 0)
             {
-                surface *= 1 + (wetnessEffect * profile.WetnessFeedback.SurfaceVibrationModifierPercent / 100.0);
+                surface *= 1 + (wetnessEffect * (0.20 + profile.WetnessFeedback.SurfaceVibrationModifierPercent / 100.0));
             }
 
             var hz = CalculateSurfaceFrequency(profile.SurfaceFeedback, features.SpeedKmh, profile.SpeedDamper.SpeedReferenceKmh);
@@ -55,6 +60,23 @@ public sealed partial class GameplayFfbCalculator
             var ratio = Math.Clamp(speedKmh / Math.Max(1, speedReferenceKmh), 0, 1);
             return Quantize((int)Math.Round(minHz + ((maxHz - minHz) * ApplyCurve(ratio, settings.Curve))), 2);
         }
+
+        private static double CalculateSurfaceTextureScale(TelemetryFeatures features)
+        {
+            if (IsOffRoadSurface(features))
+            {
+                return features.SurfaceClass switch
+                {
+                    "wetField" or "mud" or "shallowWater" => 1.15,
+                    "plowedField" or "cultivatedField" or "field" => 1.00,
+                    "gravel" or "snow" => 0.85,
+                    "dirt" or "grass" => 0.75,
+                    _ => 0.80
+                };
+            }
+
+            return IsUnknownMixedSurface(features) ? 0.55 : 0.20;
+        }
     }
 
     public static class SuspensionTerrainLayer
@@ -77,8 +99,8 @@ public sealed partial class GameplayFfbCalculator
 
             var ratio = Math.Clamp((impulse - minImpulse) / (fullImpulse - minImpulse), 0, 1);
             var curve = ApplyCurve(ratio, settings.Curve);
-            var minHz = Math.Clamp(settings.MinFrequencyHz, 4, 60);
-            var maxHz = Math.Clamp(settings.MaxFrequencyHz, minHz, 60);
+            var minHz = Math.Clamp(settings.MinFrequencyHz, 4, 20);
+            var maxHz = Math.Clamp(settings.MaxFrequencyHz, minHz, 20);
             var hz = Quantize((int)Math.Round(minHz + ((maxHz - minHz) * curve)), 2);
             var surfaceScale = CalculateTerrainSurfaceScale(features) * Math.Clamp(features.TireSurfaceMultiplier, 0, 2);
             var rumble = CalculateMaxCapped(settings, context.TelemetryFade) * curve * surfaceScale * CalculateHapticLoadScale(features);
@@ -231,7 +253,7 @@ public sealed partial class GameplayFfbCalculator
 
             return IsUnknownMixedSurface(features)
                 ? Math.Max(configured, 0.18)
-                : Math.Max(configured, 0.24);
+                : Math.Max(configured, 0.38);
         }
 
         private static double CalculateTerrainFullImpulse(TelemetryFeatures features, TerrainRumbleSettings settings, double minImpulse)

@@ -60,6 +60,6 @@ public sealed class TerrainRumbleSettings : FfbEffectSettings
 {
     public double MinImpulse { get; set; } = 0.08;
     public double FullImpulse { get; set; } = 0.60;
-    public int MinFrequencyHz { get; set; } = 8;
-    public int MaxFrequencyHz { get; set; } = 14;
+    public int MinFrequencyHz { get; set; } = 6;
+    public int MaxFrequencyHz { get; set; } = 12;
 }

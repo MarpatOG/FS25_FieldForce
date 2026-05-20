@@ -2,7 +2,7 @@ namespace FieldForce.App.Models;
 
 public sealed class AppConfig
 {
-    public const int CurrentEffectsProfileVersion = 17;
+    public const int CurrentEffectsProfileVersion = 18;
 
     public int EffectsProfileVersion { get; set; } = CurrentEffectsProfileVersion;
     public string? SelectedDeviceStableId { get; set; }

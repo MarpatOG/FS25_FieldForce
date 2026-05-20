@@ -237,6 +237,17 @@ public sealed class ConfigStore
             config.EffectsProfileVersion = 17;
         }
 
+        if (config.EffectsProfileVersion < 18)
+        {
+            GameplayFfbEffectProfile.ApplySurfaceTerrainSplitDefaultsForStandardValues(config.GameplayFfb);
+            foreach (var profile in config.GameplayFfb.VehicleCategoryEffectProfiles.Values)
+            {
+                GameplayFfbEffectProfile.ApplySurfaceTerrainSplitDefaultsForStandardValues(profile);
+            }
+
+            config.EffectsProfileVersion = 18;
+        }
+
         return config;
     }
 

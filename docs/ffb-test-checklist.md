@@ -32,17 +32,18 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - Select and acquire the FFB wheel before starting FS25 telemetry verification.
 - Confirm the header `FFB` status button shows `ready` after selecting the wheel.
 - Enter a vehicle and start driving slowly.
+- `Steering & Stability`: the UI groups speed spring, mechanical friction, contact relief, road damping, anti-oscillation, and slew smoothing together because they all feed the steering condition output.
 - `Speed Spring`: centering is very weak at standstill, soft at low speed, and stronger around 20-30 km/h.
 - `Speed Damper`: wheel movement gets less twitchy as speed increases, without becoming stiff at standstill.
 - `Load Resistance`: attaching heavier equipment increases the displayed load factor and resistance if enabled.
 - `RPM Vibration`: no vibration when the engine is off; vibration appears when RPM rises.
-- `Surface Feedback`: exact `field` or `wetField` surface state enables soft low-frequency vibration above minimum speed.
+- `Surface Feedback`: all surfaces above minimum speed can emit high-frequency texture. Asphalt should be weak, `unknownMixed` should be intermediate, and field/off-road should be stronger through the tire/surface matrix.
 - `Slip Feedback`: high `maxWheelSlip` enables slip vibration and low slip stays quiet.
 - `Wetness`: exact `wetField` telemetry increases damping/surface feel; `groundWetness` and `rainScale` should still appear in the overlay when available.
 - `Motion`: with Motion enabled, yaw rate, pitch/slope, roll, and local acceleration can change spring, damper, and center offset within safe limits. With Motion disabled, these contributions must return to zero.
 - `Hill Standstill Load` and `Side Slope Bias`: their own toggles should work only while Motion is enabled. Turn Motion off and confirm both lamps stay off even on a slope or side slope.
 - Motion should never create a finite event pulse; Bump/Landing/Collision/Suspension Hit stay in the terrain/suspension system.
-- `Terrain Rumble`: on asphalt, small/medium suspension impulse stays quiet; large road hits may produce only weak rumble. On `field`, `wetField`, `grass`, `dirt`, `gravel`, `mud`, `snow`, or `shallowWater`, the same impulse produces stronger continuous low-frequency rumble without a finite pulse lamp.
+- `Terrain Rumble`: surface type alone must not create rumble. Asphalt at speed with no suspension/vertical impulse should have weak Surface Feedback and near-zero Terrain Rumble; field at the same speed should have stronger Surface Feedback and still zero Terrain Rumble until a suspension/vertical/wheel impulse arrives.
 - `Bump Feedback`: asphalt only produces short, softened pulses for noticeable vertical hits; off-road bumps are stronger and still return to zero after the pulse.
 - `Suspension Hit`: left/right suspension impulse dominance shows a suspension-hit pulse, not a generic bump. Road side hits require a clearer imbalance than off-road side hits.
 - `Implement/trailer load`: when `totalMass > mass`, off-road Terrain Rumble, Bump Feedback, and Suspension Hit increase moderately; asphalt should not turn into constant vibration.

@@ -3,8 +3,8 @@ namespace FieldForce.App.Models;
 public sealed class SurfaceFeedbackSettings : FfbEffectSettings
 {
     public double MinSpeedKmh { get; set; } = 0.2;
-    public int FieldFrequencyMinHz { get; set; } = 8;
-    public int FieldFrequencyMaxHz { get; set; } = 24;
+    public int FieldFrequencyMinHz { get; set; } = 22;
+    public int FieldFrequencyMaxHz { get; set; } = 42;
     public int FieldSpringModifierPercent { get; set; } = -10;
     public int FieldDamperModifierPercent { get; set; } = 10;
     public int FieldFrictionModifierPercent { get; set; } = 15;
