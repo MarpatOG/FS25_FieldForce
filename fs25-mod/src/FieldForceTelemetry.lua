@@ -260,6 +260,9 @@ end
 function FieldForceTelemetry:collectTelemetry()
     local vehicle = self:getActiveVehicle()
     local inVehicle = vehicle ~= nil
+    local isDriver = inVehicle and self:getIsDriver(vehicle) or false
+    local isPassenger = inVehicle and not isDriver or false
+    local aiWorkerActive = inVehicle and self:getIsAiWorkerActive(vehicle) or false
     local surface = inVehicle and self:getSurfaceTelemetry(vehicle) or {}
     local wheel = inVehicle and self:getWheelTelemetry(vehicle) or {}
     local stableSpeedKmh = inVehicle and self:getSpeedKmh(vehicle) or nil
@@ -278,7 +281,7 @@ function FieldForceTelemetry:collectTelemetry()
     local packet = {
         protocol = {
             name = "FIELDFORCE_TELEMETRY",
-            version = "1.4.0"
+            version = "1.5.0"
         },
         frame = {
             sequence = self.frameSequence,
@@ -292,7 +295,9 @@ function FieldForceTelemetry:collectTelemetry()
             state = self:getGameState()
         },
         player = {
-            isInVehicle = inVehicle
+            isInVehicle = inVehicle,
+            isDriver = isDriver,
+            isPassenger = isPassenger
         },
         vehicle = nil,
         controls = nil,
@@ -331,7 +336,8 @@ function FieldForceTelemetry:collectTelemetry()
         wheelTireProfile = wheel.wheelTireProfile,
         isArticulated = self:getIsArticulatedVehicle(vehicle),
         massT = self:kgToTons(self:getMass(vehicle)),
-        totalMassT = self:kgToTons(self:getTotalMass(vehicle))
+        totalMassT = self:kgToTons(self:getTotalMass(vehicle)),
+        aiWorkerActive = aiWorkerActive
     }
     packet.attachments = self:jsonArray(self:getAttachmentTelemetry(vehicle))
     packet.controls = {
@@ -511,6 +517,69 @@ function FieldForceTelemetry:getActiveVehicle()
     end
 
     return nil
+end
+
+function FieldForceTelemetry:getIsDriver(vehicle)
+    if vehicle == nil then
+        return false
+    end
+
+    if vehicle.getIsVehicleControlledByPlayer ~= nil then
+        local ok, controlled = pcall(function()
+            return vehicle:getIsVehicleControlledByPlayer()
+        end)
+        if ok and controlled ~= nil then
+            return controlled == true
+        end
+    end
+
+    local mission = g_currentMission
+    if mission == nil then
+        return false
+    end
+
+    if self:isSameForceFeedbackVehicle(vehicle, mission.controlledVehicle) then
+        return true
+    end
+
+    if mission.controlledVehicles ~= nil then
+        for _, controlledVehicle in pairs(mission.controlledVehicles) do
+            if self:isSameForceFeedbackVehicle(vehicle, controlledVehicle) then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+function FieldForceTelemetry:isSameForceFeedbackVehicle(vehicle, candidate)
+    if vehicle == nil or candidate == nil then
+        return false
+    end
+
+    if vehicle == candidate then
+        return true
+    end
+
+    return self:getForceFeedbackVehicle(candidate) == vehicle
+end
+
+function FieldForceTelemetry:getIsAiWorkerActive(vehicle)
+    if vehicle == nil then
+        return false
+    end
+
+    if vehicle.getIsAIActive ~= nil then
+        local ok, active = pcall(function()
+            return vehicle:getIsAIActive()
+        end)
+        if ok and active ~= nil then
+            return active == true
+        end
+    end
+
+    return vehicle.spec_aiJobVehicle ~= nil and vehicle.spec_aiJobVehicle.job ~= nil
 end
 
 function FieldForceTelemetry:getForceFeedbackVehicle(vehicle)
@@ -2606,6 +2675,8 @@ function FieldForceTelemetry:getOverlayLines(packet)
         table.insert(lines, "timestamp: -")
         table.insert(lines, "gameState: -")
         table.insert(lines, "isPlayerInVehicle: -")
+        table.insert(lines, "isDriver/passenger: - / -")
+        table.insert(lines, "aiWorkerActive: -")
         table.insert(lines, "vehicleName: -")
         table.insert(lines, "vehicleType: -")
         table.insert(lines, "vehicleCategory: -")
@@ -2637,10 +2708,13 @@ function FieldForceTelemetry:getOverlayLines(packet)
     local environment = packet.environment or {}
     local suspension = packet.suspension or {}
     local accel = motion.localAccelerationMps2 or {}
+    local player = packet.player or {}
 
     table.insert(lines, "timestamp: " .. self:formatNumber(packet.frame ~= nil and packet.frame.timestampMs or nil, "", 0))
     table.insert(lines, "gameState: " .. tostring(packet.game ~= nil and packet.game.state or "-"))
-    table.insert(lines, "isPlayerInVehicle: " .. self:boolText(packet.player ~= nil and packet.player.isInVehicle or nil))
+    table.insert(lines, "isPlayerInVehicle: " .. self:boolText(player.isInVehicle))
+    table.insert(lines, "isDriver/passenger: " .. self:boolText(player.isDriver) .. " / " .. self:boolText(player.isPassenger))
+    table.insert(lines, "aiWorkerActive: " .. self:boolText(vehicle.aiWorkerActive))
     table.insert(lines, "vehicleName: " .. tostring(vehicle.name or "-"))
     table.insert(lines, "vehicleType: " .. tostring(vehicle.type or "-"))
     table.insert(lines, "vehicleCategory: " .. tostring(vehicle.category or "-"))

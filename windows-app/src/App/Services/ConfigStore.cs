@@ -76,6 +76,8 @@ public sealed class ConfigStore
     {
         config.TelemetryTransportMode = NormalizeTelemetryTransportMode(config.TelemetryTransportMode);
         config.TelemetryFfbUpdateRateHz = NormalizeTelemetryRate(config.TelemetryFfbUpdateRateHz);
+        config.Keybinds ??= new KeybindsConfig();
+        NormalizeKeybinds(config.Keybinds);
         config.GameplayFfb ??= new GameplayFfbSettings();
         GameplayFfbEffectProfile.NormalizeEffectSettings(config.GameplayFfb);
         config.GameplayFfb.VehicleCategoryProfiles = NormalizeVehicleCategoryProfiles(config.GameplayFfb.VehicleCategoryProfiles);
@@ -261,6 +263,22 @@ public sealed class ConfigStore
     private static int NormalizeTelemetryRate(int value)
     {
         return value is 1 or 10 or 30 or 60 ? value : 60;
+    }
+
+    private static void NormalizeKeybinds(KeybindsConfig keybinds)
+    {
+        foreach (var action in KeybindsConfig.Actions)
+        {
+            var binding = keybinds.Get(action);
+            if (binding is null ||
+                binding.Kind == InputBindingKind.None ||
+                binding.Kind == InputBindingKind.Keyboard && binding.VirtualKey is null ||
+                binding.Kind == InputBindingKind.DirectInputButton &&
+                    (string.IsNullOrWhiteSpace(binding.DeviceStableId) || binding.ButtonIndex is null or < 0))
+            {
+                keybinds.Set(action, InputBinding.None());
+            }
+        }
     }
 
     private static string GetDefaultConfigPath(string appDataFolder)

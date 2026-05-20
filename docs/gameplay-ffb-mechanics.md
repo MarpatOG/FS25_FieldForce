@@ -11,7 +11,7 @@ Entry points:
 
 ## Telemetry Input
 
-The Lua mod sends nested `FIELDFORCE_TELEMETRY` v1.4 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.3.0` and `1.2.0` packets.
+The Lua mod sends nested `FIELDFORCE_TELEMETRY` v1.5 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.4.0`, `1.3.0`, and `1.2.0` packets.
 
 Core blocks:
 
@@ -133,4 +133,4 @@ BumpImpulsePercent      -> ConstantForce finite pulse
 
 ## Stop Behavior
 
-Gameplay FFB outputs zero when gameplay FFB is disabled, no valid packet exists, `vehicle=null`, telemetry fade reaches zero, telemetry is lost, the DirectInput backend cannot apply effects, or Emergency Stop/Stop All is triggered.
+Gameplay FFB outputs zero when gameplay FFB is disabled, no valid packet exists, `vehicle=null`, telemetry fade reaches zero, telemetry is lost, the DirectInput backend cannot apply effects, an AI helper is active, the local player is a passenger or explicitly not the driver, or Emergency Stop/Stop All is triggered.

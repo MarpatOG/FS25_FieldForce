@@ -327,6 +327,45 @@ public sealed class DirectInputFfbBackend : IFfbBackend
         }
     }
 
+    public bool TryGetSelectedDeviceButtons(out bool[] buttons)
+    {
+        lock (_effectLock)
+        {
+            buttons = [];
+            if (_device is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                _device.Poll();
+                var state = _device.GetCurrentJoystickState();
+                buttons = state.Buttons.ToArray();
+                return true;
+            }
+            catch (SharpGenException ex) when (IsAcquireFailure(ex))
+            {
+                try
+                {
+                    EnsureDeviceAcquired();
+                    _device.Poll();
+                    var state = _device.GetCurrentJoystickState();
+                    buttons = state.Buttons.ToArray();
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
     private void StopAllEffectsCore(string reason)
     {
         StopGameplayEffectsCore(reason);

@@ -13,7 +13,7 @@ public sealed class AppConfig
     public string DeviceProfileName { get; set; } = "Logitech Momo Racing";
     public int RotationDegrees { get; set; } = 270;
     public string RecommendedMode { get; set; } = "Override";
-    public string PanicHotkey { get; set; } = "Ctrl+Alt+Pause";
+    public KeybindsConfig Keybinds { get; set; } = new();
     public string TelemetryHost { get; set; } = "127.0.0.1";
     public int TelemetryPort { get; set; } = 34325;
     public string TelemetryTransportMode { get; set; } = "file";

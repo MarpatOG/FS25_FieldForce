@@ -75,7 +75,7 @@ public sealed partial class GameplayFfbCalculator
 
         var packet = state.LastPacket;
         var fade = CalculateTelemetryFade(state.LastPacketAge);
-        if (fade <= 0 || packet is null || !packet.IsPlayerInVehicle)
+        if (fade <= 0 || packet is null || !packet.IsGameplayFfbOperatorAllowed)
         {
             _lastDrivetrainSample = null;
             ResetEngineEventState();

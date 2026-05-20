@@ -350,8 +350,8 @@
                                 <Grid ColumnDefinitions="170,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                     <TextBlock Classes="muted" Text="Backend"/>
                                     <TextBlock Grid.Column="1" Text="{Binding BackendStatus}" TextWrapping="Wrap"/>
-                                    <TextBlock Grid.Row="1" Classes="muted" Text="Panic hotkey"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PanicHotkey}"/>
+                                    <TextBlock Grid.Row="1" Classes="muted" Text="Keybinds"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Configured on the Keybinds tab"/>
                                     <TextBlock Grid.Row="2" Classes="muted" Text="Active effects"/>
                                     <TextBlock Grid.Row="2" Grid.Column="1" Classes="output" Text="{Binding ActiveGameplayEffects}"/>
                                     <TextBlock Grid.Row="3" Classes="muted" Text="Active category"/>
@@ -465,6 +465,49 @@
                 </Grid>
             </TabItem>
 
+            <TabItem Header="Keybinds">
+                <Border Classes="panel" Margin="0,16,0,0">
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Top" Spacing="3" Margin="0,0,0,14">
+                            <TextBlock Classes="section" Text="Global Keybinds"/>
+                            <TextBlock Classes="muted" Text="Record a Windows hotkey or a DirectInput button. Backspace clears; Escape cancels."/>
+                        </StackPanel>
+                        <Grid RowDefinitions="Auto,*">
+                            <Border Background="{StaticResource PanelAltBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    Padding="10,8">
+                                <Grid ColumnDefinitions="180,*,190,130" ColumnSpacing="12">
+                                    <TextBlock Classes="muted" Text="Action" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1" Classes="muted" Text="Binding" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="2" Classes="muted" Text="Status" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="3" Classes="muted" Text="Record" FontWeight="SemiBold"/>
+                                </Grid>
+                            </Border>
+                            <ItemsControl Grid.Row="1" ItemsSource="{Binding KeybindRows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="{StaticResource BorderBrush}"
+                                                BorderThickness="1,0,1,1"
+                                                Padding="10,8">
+                                            <Grid ColumnDefinitions="180,*,190,130" ColumnSpacing="12">
+                                                <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Binding}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Status}" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="3"
+                                                        Content="{Binding RecordButtonText}"
+                                                        Command="{Binding #Root.DataContext.StartKeybindRecordingCommand}"
+                                                        CommandParameter="{Binding Action}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+
             <TabItem Header="Telemetry">
                 <Grid ColumnDefinitions="1.05*,1*" RowDefinitions="Auto,*" ColumnSpacing="16" RowSpacing="16" Margin="0,16,0,0">
                     <Border Classes="panel">
@@ -538,29 +581,35 @@
                     <Border Grid.Column="1" Classes="panel">
                         <StackPanel Spacing="12">
                             <TextBlock Classes="section" Text="Vehicle"/>
-                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
                                 <TextBlock Classes="muted" Text="Vehicle"/>
                                 <TextBlock Grid.Column="1" Text="{Binding CurrentVehicle}"/>
-                                <TextBlock Grid.Row="1" Classes="muted" Text="Type"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding VehicleType}"/>
-                                <TextBlock Grid.Row="2" Classes="muted" Text="Category"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding VehicleCategory}"/>
-                                <TextBlock Grid.Row="3" Classes="muted" Text="Game state"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding GameState}"/>
-                                <TextBlock Grid.Row="4" Classes="muted" Text="Speed"/>
-                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SpeedKmh}"/>
-                                <TextBlock Grid.Row="5" Classes="muted" Text="Steering"/>
-                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SteeringAngle}"/>
-                                <TextBlock Grid.Row="6" Classes="muted" Text="RPM"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Rpm}"/>
-                                <TextBlock Grid.Row="7" Classes="muted" Text="Engine"/>
-                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding EngineStatus}"/>
-                                <TextBlock Grid.Row="8" Classes="muted" Text="Mass / total"/>
-                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding MassAndTotal}"/>
-                                <TextBlock Grid.Row="9" Classes="muted" Text="On field"/>
-                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding IsOnField}"/>
-                                <TextBlock Grid.Row="10" Classes="muted" Text="Surface"/>
-                                <TextBlock Grid.Row="10" Grid.Column="1">
+                                <TextBlock Grid.Row="1" Classes="muted" Text="Driver"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DriverStatus}"/>
+                                <TextBlock Grid.Row="2" Classes="muted" Text="Passenger"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PassengerStatus}"/>
+                                <TextBlock Grid.Row="3" Classes="muted" Text="AI helper"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AiWorkerStatus}"/>
+                                <TextBlock Grid.Row="4" Classes="muted" Text="Type"/>
+                                <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding VehicleType}"/>
+                                <TextBlock Grid.Row="5" Classes="muted" Text="Category"/>
+                                <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding VehicleCategory}"/>
+                                <TextBlock Grid.Row="6" Classes="muted" Text="Game state"/>
+                                <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding GameState}"/>
+                                <TextBlock Grid.Row="7" Classes="muted" Text="Speed"/>
+                                <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding SpeedKmh}"/>
+                                <TextBlock Grid.Row="8" Classes="muted" Text="Steering"/>
+                                <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding SteeringAngle}"/>
+                                <TextBlock Grid.Row="9" Classes="muted" Text="RPM"/>
+                                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding Rpm}"/>
+                                <TextBlock Grid.Row="10" Classes="muted" Text="Engine"/>
+                                <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding EngineStatus}"/>
+                                <TextBlock Grid.Row="11" Classes="muted" Text="Mass / total"/>
+                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding MassAndTotal}"/>
+                                <TextBlock Grid.Row="12" Classes="muted" Text="On field"/>
+                                <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding IsOnField}"/>
+                                <TextBlock Grid.Row="13" Classes="muted" Text="Surface"/>
+                                <TextBlock Grid.Row="13" Grid.Column="1">
                                     <TextBlock.Text>
                                         <MultiBinding StringFormat="{}{0} / attr {1}">
                                             <Binding Path="SurfaceType"/>
@@ -568,22 +617,22 @@
                                         </MultiBinding>
                                     </TextBlock.Text>
                                 </TextBlock>
-                                <TextBlock Grid.Row="11" Classes="muted" Text="Wetness / rain"/>
-                                <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding WetnessAndRain}"/>
-                                <TextBlock Grid.Row="12" Classes="muted" Text="Slip avg / max"/>
-                                <TextBlock Grid.Row="12" Grid.Column="1" Text="{Binding WheelSlip}"/>
-                                <TextBlock Grid.Row="13" Classes="muted" Text="Ground contact"/>
-                                <TextBlock Grid.Row="13" Grid.Column="1" Text="{Binding GroundContactRatio}"/>
-                                <TextBlock Grid.Row="14" Classes="muted" Text="Pitch / roll / slope"/>
-                                <TextBlock Grid.Row="14" Grid.Column="1" Text="{Binding Attitude}"/>
-                                <TextBlock Grid.Row="15" Classes="muted" Text="Local accel"/>
-                                <TextBlock Grid.Row="15" Grid.Column="1" Text="{Binding LocalAcceleration}"/>
-                                <TextBlock Grid.Row="16" Classes="muted" Text="Bump impulse"/>
-                                <TextBlock Grid.Row="16" Grid.Column="1" Text="{Binding BumpImpulse}"/>
-                                <TextBlock Grid.Row="17" Classes="muted" Text="Tire types"/>
-                                <TextBlock Grid.Row="17" Grid.Column="1" Text="{Binding WheelTireTypes}"/>
-                                <TextBlock Grid.Row="18" Classes="muted" Text="Tire profile"/>
-                                <TextBlock Grid.Row="18" Grid.Column="1" Text="{Binding WheelTireProfile}"/>
+                                <TextBlock Grid.Row="14" Classes="muted" Text="Wetness / rain"/>
+                                <TextBlock Grid.Row="14" Grid.Column="1" Text="{Binding WetnessAndRain}"/>
+                                <TextBlock Grid.Row="15" Classes="muted" Text="Slip avg / max"/>
+                                <TextBlock Grid.Row="15" Grid.Column="1" Text="{Binding WheelSlip}"/>
+                                <TextBlock Grid.Row="16" Classes="muted" Text="Ground contact"/>
+                                <TextBlock Grid.Row="16" Grid.Column="1" Text="{Binding GroundContactRatio}"/>
+                                <TextBlock Grid.Row="17" Classes="muted" Text="Pitch / roll / slope"/>
+                                <TextBlock Grid.Row="17" Grid.Column="1" Text="{Binding Attitude}"/>
+                                <TextBlock Grid.Row="18" Classes="muted" Text="Local accel"/>
+                                <TextBlock Grid.Row="18" Grid.Column="1" Text="{Binding LocalAcceleration}"/>
+                                <TextBlock Grid.Row="19" Classes="muted" Text="Bump impulse"/>
+                                <TextBlock Grid.Row="19" Grid.Column="1" Text="{Binding BumpImpulse}"/>
+                                <TextBlock Grid.Row="20" Classes="muted" Text="Tire types"/>
+                                <TextBlock Grid.Row="20" Grid.Column="1" Text="{Binding WheelTireTypes}"/>
+                                <TextBlock Grid.Row="21" Classes="muted" Text="Tire profile"/>
+                                <TextBlock Grid.Row="21" Grid.Column="1" Text="{Binding WheelTireProfile}"/>
                             </Grid>
                         </StackPanel>
                     </Border>

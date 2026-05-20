@@ -6,7 +6,8 @@ public sealed class TelemetryPacketV1
 {
     public const string ExpectedProtocolName = "FIELDFORCE_TELEMETRY";
     public const string LegacyProtocolName = "FS25_REAL_FFB_TELEMETRY";
-    public const string ExpectedProtocolVersion = "1.4.0";
+    public const string ExpectedProtocolVersion = "1.5.0";
+    public const string LegacyProtocolVersionV1_4 = "1.4.0";
     public const string LegacyProtocolVersion = "1.3.0";
     public const string LegacyProtocolVersionV1_2 = "1.2.0";
 
@@ -69,11 +70,48 @@ public sealed class TelemetryPacketV1
         (string.Equals(Protocol?.Name, ExpectedProtocolName, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Name, LegacyProtocolName, StringComparison.Ordinal)) &&
         (string.Equals(Protocol?.Version, ExpectedProtocolVersion, StringComparison.Ordinal) ||
+         string.Equals(Protocol?.Version, LegacyProtocolVersionV1_4, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersion, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersionV1_2, StringComparison.Ordinal));
 
     [JsonIgnore]
     public bool IsPlayerInVehicle => Player?.IsInVehicle == true && Vehicle is not null;
+
+    [JsonIgnore]
+    public bool IsGameplayFfbOperatorAllowed =>
+        IsPlayerInVehicle &&
+        Vehicle?.AiWorkerActive != true &&
+        Player?.IsPassenger != true &&
+        Player?.IsDriver != false;
+
+    [JsonIgnore]
+    public string? GameplayFfbOperatorPauseReason
+    {
+        get
+        {
+            if (!IsPlayerInVehicle)
+            {
+                return "gameplay inactive";
+            }
+
+            if (Vehicle?.AiWorkerActive == true)
+            {
+                return "AI helper active";
+            }
+
+            if (Player?.IsPassenger == true)
+            {
+                return "passenger seat";
+            }
+
+            if (Player?.IsDriver == false)
+            {
+                return "not driver";
+            }
+
+            return null;
+        }
+    }
 
     [JsonIgnore]
     public string? VehicleName => Vehicle?.Name;
@@ -367,6 +405,12 @@ public sealed class TelemetryPlayerV1
 {
     [JsonPropertyName("isInVehicle")]
     public bool? IsInVehicle { get; set; }
+
+    [JsonPropertyName("isDriver")]
+    public bool? IsDriver { get; set; }
+
+    [JsonPropertyName("isPassenger")]
+    public bool? IsPassenger { get; set; }
 }
 
 public sealed class TelemetryVehicleV1
@@ -394,6 +438,9 @@ public sealed class TelemetryVehicleV1
 
     [JsonPropertyName("totalMassT")]
     public double? TotalMassT { get; set; }
+
+    [JsonPropertyName("aiWorkerActive")]
+    public bool? AiWorkerActive { get; set; }
 }
 
 public sealed class TelemetryControlsV1

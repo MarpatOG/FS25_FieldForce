@@ -69,6 +69,52 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Driver_without_ai_keeps_gameplay_ffb_active()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 22, isDriver: true, isPassenger: false, aiWorkerActive: false)), new GameplayFfbSettings());
+
+        Assert.True(output.IsActive);
+        Assert.True(output.SpringPercent > 0);
+    }
+
+    [Fact]
+    public void Ai_worker_active_produces_zero_ffb()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 22, isDriver: true, aiWorkerActive: true)), new GameplayFfbSettings());
+
+        Assert.False(output.IsActive);
+        Assert.Equal(0, output.SpringPercent);
+        Assert.Equal(0, output.EngineVibrationPercent);
+    }
+
+    [Fact]
+    public void Passenger_produces_zero_ffb()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 22, isPassenger: true)), new GameplayFfbSettings());
+
+        Assert.False(output.IsActive);
+        Assert.Equal(0, output.SpringPercent);
+    }
+
+    [Fact]
+    public void Explicit_not_driver_produces_zero_ffb()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 22, isDriver: false)), new GameplayFfbSettings());
+
+        Assert.False(output.IsActive);
+        Assert.Equal(0, output.SpringPercent);
+    }
+
+    [Fact]
+    public void Legacy_packet_without_operator_fields_preserves_old_behavior()
+    {
+        var output = _calculator.Calculate(State(Packet(speedKmh: 22, isDriver: null, isPassenger: null, aiWorkerActive: null)), new GameplayFfbSettings());
+
+        Assert.True(output.IsActive);
+        Assert.True(output.SpringPercent > 0);
+    }
+
+    [Fact]
     public void No_vehicle_v1_packet_produces_zero_ffb()
     {
         var output = _calculator.Calculate(State(NoVehiclePacket()), new GameplayFfbSettings());
@@ -1633,14 +1679,17 @@ public sealed class GameplayFfbCalculatorTests
         double frameDtMs = 8,
         bool? isArticulated = null,
         string? vehicleCategory = VehicleCategoryFfbProfile.TractorWheeled,
-        string tireProfile = "street")
+        string tireProfile = "street",
+        bool? isDriver = null,
+        bool? isPassenger = null,
+        bool? aiWorkerActive = null)
     {
         return new TelemetryPacketV1
         {
             Protocol = new TelemetryProtocolV1 { Name = TelemetryPacketV1.ExpectedProtocolName, Version = TelemetryPacketV1.ExpectedProtocolVersion },
             Frame = new TelemetryFrameV1 { TimestampMs = 1, DtMs = frameDtMs, TelemetryRateHz = 125, Sequence = 1, IsDuplicate = false, IsInterpolated = false },
             Game = new TelemetryGameV1 { State = "mission" },
-            Player = new TelemetryPlayerV1 { IsInVehicle = true },
+            Player = new TelemetryPlayerV1 { IsInVehicle = true, IsDriver = isDriver, IsPassenger = isPassenger },
             Vehicle = new TelemetryVehicleV1
             {
                 Name = "Tractor",
@@ -1650,7 +1699,8 @@ public sealed class GameplayFfbCalculatorTests
                 WheelTireProfile = tireProfile,
                 IsArticulated = isArticulated,
                 MassT = mass / 1000.0,
-                TotalMassT = totalMass / 1000.0
+                TotalMassT = totalMass / 1000.0,
+                AiWorkerActive = aiWorkerActive
             },
             Controls = new TelemetryControlsV1 { Throttle = throttle, Brake = brake, Clutch = clutch },
             Motion = new TelemetryMotionV1

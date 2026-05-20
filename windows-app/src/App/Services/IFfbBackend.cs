@@ -11,6 +11,7 @@ public interface IFfbBackend : IDisposable
     FfbApplyResult ApplyGameplayEffects(GameplayFfbOutput output);
     void StopGameplayEffects(string reason);
     void StopAllEffects(string reason);
+    bool TryGetSelectedDeviceButtons(out bool[] buttons);
     DeviceInfo? SelectedDevice { get; }
     bool HasSelectedFfbDevice { get; }
 }

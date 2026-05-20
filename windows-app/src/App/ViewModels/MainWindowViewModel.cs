@@ -19,7 +19,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly EffectStatusWriter _effectStatusWriter;
     private readonly SafetyManager _safety;
     private readonly AppLogService _log;
-    private readonly PanicHotkeyService _panicHotkey;
+    private readonly KeybindDispatcherService _keybindDispatcher;
     private readonly TelemetryCaptureLogService _telemetryCapture;
     private readonly TelemetryCaptureHotkeyService _telemetryCaptureHotkey;
     private AppConfig _config;
@@ -29,6 +29,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private bool _effectCategoryPinnedByUser;
     private bool _gameplayFfbPausedByStopAll;
     private bool _gameplayFfbPausedByReload;
+    private KeybindAction? _recordingKeybindAction;
+    private bool[] _recordingPreviousSelectedButtons = [];
+    private System.Threading.Timer? _keybindRecordingTimer;
     private bool _disposed;
 
     [ObservableProperty]
@@ -81,6 +84,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string _currentVehicle = "No vehicle";
+
+    [ObservableProperty]
+    private string _driverStatus = "-";
+
+    [ObservableProperty]
+    private string _passengerStatus = "-";
+
+    [ObservableProperty]
+    private string _aiWorkerStatus = "-";
 
     [ObservableProperty]
     private string _vehicleType = "Unknown";
@@ -539,14 +551,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _telemetryReceiver = telemetryReceiver ?? new TelemetryReceiverService(_log);
         _safety = new SafetyManager(_backend, _log);
         _effectStatusWriter = new EffectStatusWriter(_log);
-        _panicHotkey = new PanicHotkeyService(_log);
-        _panicHotkey.Pressed += HandlePanicHotkey;
-        _panicHotkey.Register();
         _telemetryCapture = new TelemetryCaptureLogService(_log);
         _telemetryCaptureHotkey = new TelemetryCaptureHotkeyService(_log);
         _telemetryCaptureHotkey.Pressed += HandleTelemetryCaptureHotkey;
         _telemetryCaptureHotkey.Register();
         _config = _configStore.Load();
+        _keybindDispatcher = new KeybindDispatcherService(_log, _backend);
+        _keybindDispatcher.Pressed += HandleKeybindPressed;
+        _keybindDispatcher.StatusChanged += OnKeybindStatusChanged;
         _config.GameplayFfb = _effectsProfileStore.Load(_config.GameplayFfb.WheelProfileId, _config.GameplayFfb);
         UseGlobalForceLimitOnly(_config.GameplayFfb);
         _loadingConfig = true;
@@ -563,6 +575,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _telemetryFilePath = GetEffectiveTelemetryFilePath();
         Logs = _log.Entries;
         LogEvents = _log.EventEntries;
+        KeybindRows = new ObservableCollection<KeybindRowViewModel>(KeybindsConfig.Actions.Select(action => new KeybindRowViewModel(action, GetKeybindActionDisplayName(action))));
+        RefreshKeybindRows();
+        _keybindDispatcher.Apply(_config.Keybinds);
         EffectCategoryOptions = VehicleCategoryFfbProfile.Categories
             .Select(category => new EffectCategoryOption(category, GetVehicleCategoryDisplayName(category)))
             .ToArray();
@@ -588,6 +603,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<DeviceInfo> Devices { get; } = [];
     public ObservableCollection<string> Logs { get; }
     public ObservableCollection<AppLogEntry> LogEvents { get; }
+    public ObservableCollection<KeybindRowViewModel> KeybindRows { get; }
     public ObservableCollection<TireSurfaceMatrixRow> TireSurfaceMatrixRows { get; } = [];
     public ObservableCollection<SurfaceAliasRow> SurfaceAliasRows { get; } = [];
     public IReadOnlyList<string> TireSurfaceTargets => TireSurfaceTuningSettings.SurfaceTypes;
@@ -599,7 +615,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         FfbCurveKind.Linear,
         FfbCurveKind.Aggressive
     ];
-    public string PanicHotkey => _config.PanicHotkey;
     public string TelemetryCaptureHotkey => "Ctrl+Alt+L";
     public bool CanRunEffects => SelectedDevice?.IsForceFeedbackCapable == true && _backend.HasSelectedFfbDevice;
     public string DeviceCountText => $"{Devices.Count} device(s)";
@@ -668,15 +683,170 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ScanDevices();
     }
 
-    public void HandlePanicHotkey()
+    public bool HandleKeybindRecordingKeyboard(int virtualKey, KeyboardModifiers modifiers)
+    {
+        if (_recordingKeybindAction is not KeybindAction action)
+        {
+            return false;
+        }
+
+        if (virtualKey == 0x1B)
+        {
+            CancelKeybindRecording();
+            return true;
+        }
+
+        if (virtualKey == 0x08)
+        {
+            AssignKeybind(action, InputBinding.None());
+            return true;
+        }
+
+        AssignKeybind(action, InputBinding.Keyboard(virtualKey, modifiers));
+        return true;
+    }
+
+    public void HandleKeybindRecordingDirectInputButton(DeviceInfo device, int buttonIndex)
+    {
+        if (_recordingKeybindAction is not KeybindAction action)
+        {
+            return;
+        }
+
+        AssignKeybind(action, InputBinding.DirectInputButton(device.StableId, device.DisplayName, buttonIndex));
+    }
+
+    [RelayCommand]
+    private void StartKeybindRecording(KeybindAction action)
+    {
+        _recordingKeybindAction = action;
+        _recordingPreviousSelectedButtons = _backend.TryGetSelectedDeviceButtons(out var buttons) ? buttons : [];
+        _keybindRecordingTimer?.Dispose();
+        _keybindRecordingTimer = new System.Threading.Timer(_ => PollKeybindRecordingButtons(), null, TimeSpan.FromMilliseconds(25), TimeSpan.FromMilliseconds(25));
+        RefreshKeybindRows();
+    }
+
+    private void CancelKeybindRecording()
+    {
+        _recordingKeybindAction = null;
+        _recordingPreviousSelectedButtons = [];
+        _keybindRecordingTimer?.Dispose();
+        _keybindRecordingTimer = null;
+        RefreshKeybindRows();
+    }
+
+    public void AssignKeybind(KeybindAction action, InputBinding binding)
+    {
+        if (!binding.IsNone)
+        {
+            foreach (var existingAction in KeybindsConfig.Actions)
+            {
+                if (existingAction != action && _config.Keybinds.Get(existingAction).Equals(binding))
+                {
+                    _config.Keybinds.Set(existingAction, InputBinding.None());
+                }
+            }
+        }
+
+        _config.Keybinds.Set(action, binding);
+        _recordingKeybindAction = null;
+        _recordingPreviousSelectedButtons = [];
+        _keybindRecordingTimer?.Dispose();
+        _keybindRecordingTimer = null;
+        _configStore.Save(_config);
+        RefreshKeybindRows();
+        _keybindDispatcher.Apply(_config.Keybinds);
+    }
+
+    private void PollKeybindRecordingButtons()
+    {
+        if (_recordingKeybindAction is not KeybindAction action ||
+            SelectedDevice is null ||
+            !_backend.TryGetSelectedDeviceButtons(out var current))
+        {
+            return;
+        }
+
+        var previous = _recordingPreviousSelectedButtons;
+        _recordingPreviousSelectedButtons = current;
+        for (var index = 0; index < current.Length; index++)
+        {
+            var wasPressed = index < previous.Length && previous[index];
+            if (current[index] && !wasPressed)
+            {
+                Dispatcher.UIThread.Post(() => HandleKeybindRecordingDirectInputButton(SelectedDevice, index));
+                return;
+            }
+        }
+    }
+
+    private void HandleKeybindPressed(KeybindAction action)
+    {
+        Dispatcher.UIThread.Post(() => ExecuteKeybindAction(action));
+    }
+
+    public void ExecuteKeybindAction(KeybindAction action)
+    {
+        switch (action)
+        {
+            case KeybindAction.ToggleFfb:
+                ToggleGameplayFfbCommand.Execute(null);
+                break;
+            case KeybindAction.EmergencyStop:
+                EmergencyStop();
+                break;
+            case KeybindAction.Reload:
+                ReloadFieldForceCommand.Execute(null);
+                break;
+            case KeybindAction.ToggleOverlay:
+                EffectOverlayEnabled = !EffectOverlayEnabled;
+                break;
+            case KeybindAction.ToggleOverlayClickThrough:
+                EffectOverlayClickThrough = !EffectOverlayClickThrough;
+                break;
+        }
+    }
+
+    private void EmergencyStop()
     {
         _gameplayFfbPausedByStopAll = true;
-        _safety.OnPanicHotkey();
+        _safety.StopAll("emergency stop");
         OnGameplayOutputChanged(GameplayFfbOutput.Zero);
         _effectStatusWriter.WriteZero(ActiveVehicleCategory);
         GameplayFfbRuntimeStatus = "Paused by emergency stop";
         BackendStatus = "Emergency stop active";
         StopAllEffectsCommand.NotifyCanExecuteChanged();
+        RefreshDashboardStatusProperties();
+    }
+
+    private void OnKeybindStatusChanged(KeybindAction action, string status)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            var row = KeybindRows.FirstOrDefault(row => row.Action == action);
+            if (row is not null && _recordingKeybindAction != action)
+            {
+                row.Status = status;
+            }
+        });
+    }
+
+    private void RefreshKeybindRows()
+    {
+        if (KeybindRows is null)
+        {
+            return;
+        }
+
+        foreach (var row in KeybindRows)
+        {
+            var binding = _config.Keybinds.Get(row.Action);
+            row.Binding = binding.DisplayText;
+            row.Status = _recordingKeybindAction == row.Action
+                ? "Recording"
+                : binding.IsNone ? "Unassigned" : row.Status is "Unassigned" or "Recording" ? "Listening" : row.Status;
+            row.RecordButtonText = _recordingKeybindAction == row.Action ? "Recording..." : "Record";
+        }
     }
 
     public void HandleClosing()
@@ -1731,6 +1901,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void OnTelemetryFfbStateChanged(TelemetryReceiverState state)
     {
         _telemetryCapture.Record(state);
+        UpdateGameplayOperatorPauseStatus(state);
         if (_telemetryCapture.IsRecording && _telemetryCapture.SampleCount % 16 == 0)
         {
             Dispatcher.UIThread.Post(() =>
@@ -1742,6 +1913,31 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 }
             });
         }
+    }
+
+    private void UpdateGameplayOperatorPauseStatus(TelemetryReceiverState state)
+    {
+        var pauseReason = state.LastPacket?.GameplayFfbOperatorPauseReason;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!GameplayFfbEnabled || _gameplayFfbPausedByStopAll || _gameplayFfbPausedByReload || !CanRunEffects)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(pauseReason))
+            {
+                GameplayFfbRuntimeStatus = $"Paused: {pauseReason}";
+                RefreshDashboardStatusProperties();
+                return;
+            }
+
+            if (GameplayFfbRuntimeStatus.StartsWith("Paused:", StringComparison.Ordinal))
+            {
+                GameplayFfbRuntimeStatus = "FFB enabled";
+                RefreshDashboardStatusProperties();
+            }
+        });
     }
 
     private void HandleTelemetryCaptureHotkey()
@@ -1768,6 +1964,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (packet is null)
         {
             CurrentVehicle = "No vehicle";
+            DriverStatus = "-";
+            PassengerStatus = "-";
+            AiWorkerStatus = "-";
             VehicleType = "Unknown";
             VehicleCategory = "Unknown";
             ActiveVehicleCategory = "Unknown";
@@ -1795,6 +1994,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         else
         {
             CurrentVehicle = string.IsNullOrWhiteSpace(packet.VehicleName) ? "No vehicle" : packet.VehicleName;
+            DriverStatus = FormatBool(packet.Player?.IsDriver);
+            PassengerStatus = FormatBool(packet.Player?.IsPassenger);
+            AiWorkerStatus = FormatBool(packet.Vehicle?.AiWorkerActive);
             VehicleType = string.IsNullOrWhiteSpace(packet.VehicleType) ? "Unknown" : packet.VehicleType;
             VehicleCategory = string.IsNullOrWhiteSpace(packet.VehicleCategory) ? "Unknown" : packet.VehicleCategory;
             ActiveVehicleCategory = VehicleCategory;
@@ -1858,9 +2060,24 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _ => category
     };
 
+    public static string GetKeybindActionDisplayName(KeybindAction action) => action switch
+    {
+        KeybindAction.ToggleFfb => "Toggle FFB",
+        KeybindAction.EmergencyStop => "Emergency Stop",
+        KeybindAction.Reload => "Reload",
+        KeybindAction.ToggleOverlay => "Overlay",
+        KeybindAction.ToggleOverlayClickThrough => "Overlay Click-through",
+        _ => action.ToString()
+    };
+
     private static string FormatNumber(double? value, string format)
     {
         return value is null ? "-" : value.Value.ToString(format);
+    }
+
+    private static string FormatBool(bool? value)
+    {
+        return value is null ? "-" : value.Value ? "Yes" : "No";
     }
 
     private int CalculateActiveTireSurfaceMultiplier(TelemetryPacketV1 packet)
@@ -1903,13 +2120,37 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _telemetryCaptureHotkey.Pressed -= HandleTelemetryCaptureHotkey;
         _telemetryCaptureHotkey.Dispose();
         _telemetryCapture.Dispose();
-        _panicHotkey.Dispose();
+        _keybindRecordingTimer?.Dispose();
+        _keybindDispatcher.Pressed -= HandleKeybindPressed;
+        _keybindDispatcher.StatusChanged -= OnKeybindStatusChanged;
+        _keybindDispatcher.Dispose();
         _backend.Dispose();
         _log.Dispose();
     }
 }
 
 public sealed record EffectCategoryOption(string Id, string DisplayName);
+
+public sealed partial class KeybindRowViewModel : ObservableObject
+{
+    public KeybindRowViewModel(KeybindAction action, string displayName)
+    {
+        Action = action;
+        DisplayName = displayName;
+    }
+
+    public KeybindAction Action { get; }
+    public string DisplayName { get; }
+
+    [ObservableProperty]
+    private string _binding = "None";
+
+    [ObservableProperty]
+    private string _status = "Unassigned";
+
+    [ObservableProperty]
+    private string _recordButtonText = "Record";
+}
 
 public sealed partial class TireSurfaceMatrixRow : ObservableObject
 {

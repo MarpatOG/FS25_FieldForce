@@ -58,7 +58,7 @@ Start FS25, enable **FieldForce Telemetry** in the savegame, and enter a vehicle
 3. Open `Device`, press `Scan`, and select the wheel.
 4. Keep initial limits conservative: about 40% global and 35% device.
 5. Test `Spring`, `Damper`, `Constant Left`, `Constant Right`, and `Vibration` one at a time.
-6. Press `Emergency Stop` or `Ctrl+Alt+Pause` if anything feels wrong.
+6. Press `Emergency Stop` if anything feels wrong. Optional keyboard or wheel-button shortcuts can be assigned on the `Keybinds` tab.
 
 ## Telemetry Flow
 

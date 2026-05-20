@@ -1,11 +1,11 @@
 # FieldForce Telemetry Mod Versioning
 
-Current FieldForce Telemetry mod version: `2.0.0.0`
+Current FieldForce Telemetry mod version: `2.1.0.0`
 
 The version above must match `fs25-mod/modDesc.xml`:
 
 ```xml
-<version>2.0.0.0</version>
+<version>2.1.0.0</version>
 ```
 
 ## Required Rule

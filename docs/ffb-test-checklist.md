@@ -52,7 +52,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 - `Drivetrain Pulse`: gear changes or acceleration/braking jerk show drivetrain pulse activity with lower strength than bump/collision.
 - Each effect can be enabled/disabled independently and each strength slider changes the live output value.
 - Stop the engine, leave the vehicle, or stop telemetry; gameplay outputs fade or stop safely.
-- `Stop All` and `Ctrl+Alt+Pause` stop test and gameplay effects. `Stop All` disables gameplay FFB until the header `FFB` status button is pressed again.
+- `Stop All` and an assigned Emergency Stop keybind stop test and gameplay effects. `Stop All` disables gameplay FFB until the header `FFB` status button is pressed again.
 
 ## Final MVP Acceptance
 
@@ -73,7 +73,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 ## Safety Checks
 
 - `Emergency Stop` stops active effects.
-- `Ctrl+Alt+Pause` stops active effects and disables gameplay FFB, including when another window has focus if global hotkey registration succeeds.
+- Assigned keyboard keybinds work as global hotkeys when registration succeeds; assigned wheel-button keybinds work while the app can poll the selected DirectInput device.
 - Closing the app stops active effects.
 - Disconnecting the wheel and pressing `Scan` logs a device disconnect safety event.
 

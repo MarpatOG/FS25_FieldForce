@@ -25,6 +25,5 @@ public sealed class SafetyManager
     }
 
     public void OnAppClosing() => StopAll("app closing");
-    public void OnPanicHotkey() => StopAll("panic hotkey");
     public void OnDeviceDisconnect() => StopAll("device disconnect");
 }

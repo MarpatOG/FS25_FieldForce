@@ -279,6 +279,53 @@ public sealed class TelemetryReceiverServiceTests
     }
 
     [Fact]
+    public void Telemetry_contract_accepts_v1_5_operator_fields()
+    {
+        var json = """
+            {
+              "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.5.0" },
+              "frame": { "sequence": 11, "dtMs": 8, "telemetryRateHz": 60, "timestampMs": 123512, "isDuplicate": false, "isInterpolated": false },
+              "game": { "state": "mission" },
+              "player": { "isInVehicle": true, "isDriver": true, "isPassenger": false },
+              "vehicle": { "name": "Tractor", "type": "tractor", "category": "TractorWheeled", "massT": 6.2, "totalMassT": 8.8, "aiWorkerActive": false },
+              "controls": { "throttle": 0.2, "brake": 0.0, "clutch": 0.0 },
+              "motion": { "speedMps": 1, "speedKmh": 3.6, "localAccelerationMps2": { "x": 0, "y": 0, "z": 0 } },
+              "steering": { "angle": 0.0, "rate": 0.0 },
+              "engine": { "isRunning": true, "started": true, "rpm": 900 },
+              "transmission": { "gear": 2 },
+              "wheels": [],
+              "suspension": { "impulse": null, "verticalImpactImpulse": null, "landingImpulse": null, "leftImpulse": null, "rightImpulse": null },
+              "surface": { "isOnField": false, "type": null, "attribute": null },
+              "environment": { "groundWetness": null, "rainScale": null },
+              "attachments": [],
+              "collisions": { "collisionImpulse": null, "longitudinalJerkImpulse": null },
+              "diagnostics": { "payloadBytes": 1800, "buildTimeMs": 0.4, "warnings": [] }
+            }
+            """;
+
+        var packet = JsonSerializer.Deserialize<TelemetryPacketV1>(json);
+
+        packet!.ValidateContract();
+        Assert.True(packet.IsProtocolValid);
+        Assert.True(packet.Player?.IsDriver);
+        Assert.False(packet.Player?.IsPassenger);
+        Assert.False(packet.Vehicle?.AiWorkerActive);
+        Assert.True(packet.IsGameplayFfbOperatorAllowed);
+    }
+
+    [Fact]
+    public void Telemetry_contract_accepts_v1_4_legacy_packets()
+    {
+        var packet = JsonSerializer.Deserialize<TelemetryPacketV1>(
+            ValidPacket.Replace("\"1.2.0\"", "\"1.4.0\"", StringComparison.Ordinal));
+
+        packet!.ValidateContract();
+        Assert.True(packet.IsProtocolValid);
+        Assert.Null(packet.Player?.IsDriver);
+        Assert.True(packet.IsGameplayFfbOperatorAllowed);
+    }
+
+    [Fact]
     public void Telemetry_contract_accepts_position_spike_filtered_packet()
     {
         var json = """

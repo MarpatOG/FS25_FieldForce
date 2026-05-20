@@ -6,6 +6,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.ComponentModel;
+using FieldForce.App.Models;
 using FieldForce.App.ViewModels;
 
 namespace FieldForce.App.Views;
@@ -90,14 +91,57 @@ public partial class MainWindow : Window
 
     private void OnKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
     {
-        if (e.Key == Key.Pause &&
-            e.KeyModifiers.HasFlag(KeyModifiers.Control) &&
-            e.KeyModifiers.HasFlag(KeyModifiers.Alt) &&
-            DataContext is MainWindowViewModel viewModel)
+        if (DataContext is MainWindowViewModel viewModel &&
+            TryGetVirtualKey(e.Key, out var virtualKey) &&
+            viewModel.HandleKeybindRecordingKeyboard(virtualKey, ToKeybindModifiers(e.KeyModifiers)))
         {
-            viewModel.HandlePanicHotkey();
             e.Handled = true;
         }
+    }
+
+    private static KeyboardModifiers ToKeybindModifiers(KeyModifiers modifiers)
+    {
+        var result = KeyboardModifiers.None;
+        if (modifiers.HasFlag(KeyModifiers.Control))
+        {
+            result |= KeyboardModifiers.Control;
+        }
+
+        if (modifiers.HasFlag(KeyModifiers.Alt))
+        {
+            result |= KeyboardModifiers.Alt;
+        }
+
+        if (modifiers.HasFlag(KeyModifiers.Shift))
+        {
+            result |= KeyboardModifiers.Shift;
+        }
+
+        if (modifiers.HasFlag(KeyModifiers.Meta))
+        {
+            result |= KeyboardModifiers.Windows;
+        }
+
+        return result;
+    }
+
+    private static bool TryGetVirtualKey(Key key, out int virtualKey)
+    {
+        virtualKey = key switch
+        {
+            Key.Back => 0x08,
+            Key.Tab => 0x09,
+            Key.Enter => 0x0D,
+            Key.Pause => 0x13,
+            Key.Escape => 0x1B,
+            Key.Space => 0x20,
+            >= Key.D0 and <= Key.D9 => 0x30 + (key - Key.D0),
+            >= Key.A and <= Key.Z => 0x41 + (key - Key.A),
+            >= Key.F1 and <= Key.F24 => 0x70 + (key - Key.F1),
+            _ => 0
+        };
+
+        return virtualKey != 0;
     }
 
     private async void OnChooseTelemetryFolderClick(object? sender, RoutedEventArgs e)

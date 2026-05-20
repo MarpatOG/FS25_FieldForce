@@ -55,7 +55,7 @@ public sealed class GameplayFfbController : IDisposable
 
         if (!output.IsActive)
         {
-            StopIfActive(output.TelemetryFade <= 0 ? "telemetry lost" : "gameplay inactive");
+            StopIfActive(output.TelemetryFade <= 0 ? "telemetry lost" : state.LastPacket?.GameplayFfbOperatorPauseReason ?? "gameplay inactive");
             _effectStatusWriter?.WriteZero(output.ActiveCategory);
             return;
         }

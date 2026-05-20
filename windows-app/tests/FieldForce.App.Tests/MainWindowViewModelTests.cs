@@ -348,6 +348,11 @@ public sealed class MainWindowViewModelTests
         public FfbApplyResult ApplyGameplayEffects(GameplayFfbOutput output) => FfbApplyResult.Applied;
         public void StopGameplayEffects(string reason) { }
         public void StopAllEffects(string reason) { }
+        public bool TryGetSelectedDeviceButtons(out bool[] buttons)
+        {
+            buttons = [];
+            return false;
+        }
         public void Dispose() { }
     }
 }
