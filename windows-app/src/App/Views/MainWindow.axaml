@@ -722,9 +722,9 @@
 
                         <StackPanel Spacing="18">
                             <StackPanel Spacing="8">
-                                <TextBlock Classes="section" Text="Steering Load"/>
+                                <TextBlock Classes="section" Text="Steering &amp; Stability"/>
                                 <Grid ColumnDefinitions="132,86,*,50,112,130"
-                                      RowDefinitions="Auto,Auto,Auto,Auto"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                       RowSpacing="10"
                                       ColumnSpacing="12">
                                     <TextBlock Classes="muted" Text="Effect"/>
@@ -754,42 +754,27 @@
                                     <TextBlock Grid.Row="3" Grid.Column="3" Classes="muted" Text="-" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="3" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="3" Grid.Column="5" Classes="output muted" Text="Hidden modifier only" VerticalAlignment="Center"/>
-                                </Grid>
-                            </StackPanel>
 
-                            <StackPanel Spacing="8">
-                                <TextBlock Classes="section" Text="Speed Stability"/>
-                                <Grid ColumnDefinitions="132,86,*,50,112,130"
-                                      RowDefinitions="Auto,Auto,Auto,Auto"
-                                      RowSpacing="10"
-                                      ColumnSpacing="12">
-                                    <TextBlock Classes="muted" Text="Effect"/>
-                                    <TextBlock Grid.Column="1" Classes="muted" Text="Enabled"/>
-                                    <TextBlock Grid.Column="2" Classes="muted" Text="Strength"/>
-                                    <TextBlock Grid.Column="3" Classes="muted" Text="Value"/>
-                                    <TextBlock Grid.Column="4" Classes="muted" Text="Curve"/>
-                                    <TextBlock Grid.Column="5" Classes="muted" Text="Live output"/>
+                                    <TextBlock Grid.Row="4" Text="Road damping" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="4" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable road damping" IsChecked="{Binding SpeedDamperEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="4" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Road damping strength" IsSnapToTickEnabled="True" Value="{Binding SpeedDamperStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding SpeedDamperStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Row="4" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding SpeedDamperCurve, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
 
-                                    <TextBlock Grid.Row="1" Text="Road damping" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="1" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable road damping" IsChecked="{Binding SpeedDamperEnabled, Mode=TwoWay}"/>
-                                    <Slider Grid.Row="1" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Road damping strength" IsSnapToTickEnabled="True" Value="{Binding SpeedDamperStrengthPercent, Mode=TwoWay}"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding SpeedDamperStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Row="1" Grid.Column="4" MinHeight="44" ItemsSource="{Binding CurveKinds}" SelectedItem="{Binding SpeedDamperCurve, Mode=TwoWay}"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Text="Anti-oscillation" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Classes="unavailable" Text="X" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="2" Classes="muted" Text="Built in" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="3" Classes="muted" Text="-" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="5" Classes="output muted" Text="Not tunable" VerticalAlignment="Center"/>
 
-                                    <TextBlock Grid.Row="2" Text="Anti-oscillation" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="unavailable" Text="X" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="2" Classes="muted" Text="Built in" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="3" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="5" Classes="output muted" Text="Not tunable" VerticalAlignment="Center"/>
-
-                                    <TextBlock Grid.Row="3" Text="Slew smoothing" VerticalAlignment="Center"/>
-                                    <CheckBox Grid.Row="3" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable slew smoothing" IsChecked="{Binding SlewSmoothingEnabled, Mode=TwoWay}"/>
-                                    <Slider Grid.Row="3" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Slew smoothing strength" IsSnapToTickEnabled="True" Value="{Binding SlewSmoothingStrengthPercent, Mode=TwoWay}"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding SlewSmoothingStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="6" Text="Slew smoothing" VerticalAlignment="Center"/>
+                                    <CheckBox Grid.Row="6" Grid.Column="1" MinHeight="44" AutomationProperties.Name="Enable slew smoothing" IsChecked="{Binding SlewSmoothingEnabled, Mode=TwoWay}"/>
+                                    <Slider Grid.Row="6" Grid.Column="2" Minimum="0" Maximum="100" TickFrequency="5" MinHeight="44" AutomationProperties.Name="Slew smoothing strength" IsSnapToTickEnabled="True" Value="{Binding SlewSmoothingStrengthPercent, Mode=TwoWay}"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding SlewSmoothingStrengthPercent, StringFormat={}{0}%}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="4" Classes="muted" Text="-" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="5" Classes="output" Text="{Binding DamperOutput}" VerticalAlignment="Center"/>
                                 </Grid>
                             </StackPanel>
 

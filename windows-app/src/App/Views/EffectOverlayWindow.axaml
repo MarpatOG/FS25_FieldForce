@@ -73,7 +73,7 @@
     <Border Classes="shell" PointerPressed="OnOverlayPointerPressed">
         <StackPanel Spacing="10">
             <StackPanel Classes="categoryGroup">
-                <TextBlock Classes="category" Text="Steering Load"/>
+                <TextBlock Classes="category" Text="Steering &amp; Stability"/>
                 <StackPanel Classes="lampRow">
                     <Border Classes="lamp" Classes.active="{Binding SpeedSpringActive}" ToolTip.Tip="Steering spring">
                         <TextBlock Classes="lampCode" Text="SS"/>
@@ -84,12 +84,6 @@
                     <Border Classes="lamp" Classes.active="{Binding ContactReliefControlsActive}" ToolTip.Tip="Contact relief controls">
                         <TextBlock Classes="lampCode" Text="CR"/>
                     </Border>
-                </StackPanel>
-            </StackPanel>
-
-            <StackPanel Classes="categoryGroup">
-                <TextBlock Classes="category" Text="Speed Stability"/>
-                <StackPanel Classes="lampRow">
                     <Border Classes="lamp" Classes.active="{Binding SpeedDamperActive}" ToolTip.Tip="Road damping">
                         <TextBlock Classes="lampCode" Text="RD"/>
                     </Border>
