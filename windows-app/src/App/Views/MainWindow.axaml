@@ -470,7 +470,7 @@
                     <DockPanel LastChildFill="True">
                         <StackPanel DockPanel.Dock="Top" Spacing="3" Margin="0,0,0,14">
                             <TextBlock Classes="section" Text="Global Keybinds"/>
-                            <TextBlock Classes="muted" Text="Record a Windows hotkey or a DirectInput button. Backspace clears; Escape cancels."/>
+                            <TextBlock Classes="muted" Text="Assign a Windows hotkey or a DirectInput button. Backspace clears; Escape cancels."/>
                         </StackPanel>
                         <Grid RowDefinitions="Auto,*">
                             <Border Background="{StaticResource PanelAltBrush}"
@@ -481,7 +481,7 @@
                                     <TextBlock Classes="muted" Text="Action" FontWeight="SemiBold"/>
                                     <TextBlock Grid.Column="1" Classes="muted" Text="Binding" FontWeight="SemiBold"/>
                                     <TextBlock Grid.Column="2" Classes="muted" Text="Status" FontWeight="SemiBold"/>
-                                    <TextBlock Grid.Column="3" Classes="muted" Text="Record" FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="3" Classes="muted" Text="Assign" FontWeight="SemiBold"/>
                                 </Grid>
                             </Border>
                             <ItemsControl Grid.Row="1" ItemsSource="{Binding KeybindRows}">

@@ -110,6 +110,32 @@ public sealed class KeybindTests
         Assert.Equal(!clickThrough, fixture.ViewModel.EffectOverlayClickThrough);
     }
 
+    [Fact]
+    public void DirectInput_recording_suppresses_buttons_held_during_warmup_until_released()
+    {
+        using var log = new AppLogService();
+        var device = new DeviceInfo("stable-joystick", Guid.NewGuid(), Guid.NewGuid(), "Stick", "Test Stick", "Joystick", false, [], []);
+        using var backend = new RecordingFfbBackend(device, [true, false]);
+        using var recorder = new DirectInputButtonRecordingService(log, backend, TimeSpan.Zero);
+
+        recorder.Start([device]);
+
+        Assert.Equal(DirectInputRecordingState.ReleaseHeldControls, recorder.Poll().State);
+
+        backend.Buttons = [true, true];
+        Assert.Equal(DirectInputRecordingState.ReleaseHeldControls, recorder.Poll().State);
+
+        backend.Buttons = [false, false];
+        Assert.Equal(DirectInputRecordingState.WaitingForButton, recorder.Poll().State);
+
+        backend.Buttons = [false, true];
+        var result = recorder.Poll();
+
+        Assert.Equal(DirectInputRecordingState.Pressed, result.State);
+        Assert.NotNull(result.Press);
+        Assert.Equal(1, result.Press!.ButtonIndex);
+    }
+
     private sealed class ViewModelFixture : IDisposable
     {
         private ViewModelFixture(string directory, MainWindowViewModel viewModel)
@@ -205,6 +231,32 @@ public sealed class KeybindTests
         {
             buttons = [];
             return false;
+        }
+        public void Dispose() { }
+    }
+
+    private sealed class RecordingFfbBackend : IFfbBackend
+    {
+        public RecordingFfbBackend(DeviceInfo selectedDevice, bool[] buttons)
+        {
+            SelectedDevice = selectedDevice;
+            Buttons = buttons;
+        }
+
+        public bool[] Buttons { get; set; }
+        public DeviceInfo? SelectedDevice { get; }
+        public bool HasSelectedFfbDevice => true;
+        public IReadOnlyList<DeviceInfo> ScanDevices() => [SelectedDevice!];
+        public bool SelectDevice(DeviceInfo device, IntPtr windowHandle, int globalLimitPercent, int deviceLimitPercent, int? primaryFfbAxisOffset) => true;
+        public void UpdateForceLimits(int globalLimitPercent, int deviceLimitPercent) { }
+        public void StartTestEffect(FfbEffectKind kind) { }
+        public FfbApplyResult ApplyGameplayEffects(GameplayFfbOutput output) => FfbApplyResult.Applied;
+        public void StopGameplayEffects(string reason) { }
+        public void StopAllEffects(string reason) { }
+        public bool TryGetSelectedDeviceButtons(out bool[] buttons)
+        {
+            buttons = Buttons.ToArray();
+            return true;
         }
         public void Dispose() { }
     }

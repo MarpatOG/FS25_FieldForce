@@ -729,6 +729,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         _directInputButtonRecording.Start(Devices);
         _keybindRecordingTimer?.Dispose();
         _keybindRecordingTimer = new System.Threading.Timer(_ => PollKeybindRecordingButtons(), null, TimeSpan.FromMilliseconds(25), TimeSpan.FromMilliseconds(25));
+        SetRecordingRowStatus("Preparing...");
         RefreshKeybindRows();
     }
 
@@ -767,12 +768,26 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private void PollKeybindRecordingButtons()
     {
         if (_recordingKeybindAction is not KeybindAction ||
-            _directInputButtonRecording.Poll() is not { } press)
+            _directInputButtonRecording.Poll() is not { } result)
         {
             return;
         }
 
-        Dispatcher.UIThread.Post(() => HandleKeybindRecordingDirectInputButton(press.Device, press.ButtonIndex));
+        switch (result.State)
+        {
+            case DirectInputRecordingState.Preparing:
+                SetRecordingRowStatus("Preparing...");
+                break;
+            case DirectInputRecordingState.ReleaseHeldControls:
+                SetRecordingRowStatus("Release held controls");
+                break;
+            case DirectInputRecordingState.WaitingForButton:
+                SetRecordingRowStatus("Press a button");
+                break;
+            case DirectInputRecordingState.Pressed when result.Press is not null:
+                Dispatcher.UIThread.Post(() => HandleKeybindRecordingDirectInputButton(result.Press.Device, result.Press.ButtonIndex));
+                break;
+        }
     }
 
     private void HandleKeybindPressed(KeybindAction action)
@@ -840,8 +855,25 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             row.Status = _recordingKeybindAction == row.Action
                 ? "Recording"
                 : binding.IsNone ? "Unassigned" : row.Status is "Unassigned" or "Recording" ? "Listening" : row.Status;
-            row.RecordButtonText = _recordingKeybindAction == row.Action ? "Recording..." : "Record";
+            row.RecordButtonText = _recordingKeybindAction == row.Action ? "Assigning..." : "Assign";
         }
+    }
+
+    private void SetRecordingRowStatus(string status)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_recordingKeybindAction is not KeybindAction action)
+            {
+                return;
+            }
+
+            var row = KeybindRows.FirstOrDefault(row => row.Action == action);
+            if (row is not null)
+            {
+                row.Status = status;
+            }
+        });
     }
 
     public void HandleClosing()
@@ -2145,7 +2177,7 @@ public sealed partial class KeybindRowViewModel : ObservableObject
     private string _status = "Unassigned";
 
     [ObservableProperty]
-    private string _recordButtonText = "Record";
+    private string _recordButtonText = "Assign";
 }
 
 public sealed partial class TireSurfaceMatrixRow : ObservableObject
