@@ -676,7 +676,7 @@
             </TabItem>
 
             <TabItem Header="Effects">
-                <ScrollViewer Margin="0,16,0,0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Margin="0,16,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                 <Border Classes="panel">
                     <StackPanel Spacing="14">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -741,9 +741,10 @@
                         </Grid>
 
                         <StackPanel Spacing="18">
-                            <Expander Header="Steering &amp; Stability" IsExpanded="False">
+                            <Expander Header="Steering &amp; Stability" IsExpanded="False" MinWidth="900">
                             <StackPanel Spacing="8">
-                                <Grid ColumnDefinitions="132,86,*,50,112,130"
+                                <Grid MinWidth="900"
+                                      ColumnDefinitions="132,86,*,50,112,130"
                                       RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                       RowSpacing="10"
                                       ColumnSpacing="12">
@@ -799,9 +800,10 @@
                             </StackPanel>
                             </Expander>
 
-                            <Expander Header="Surface &amp; Traction" IsExpanded="False">
+                            <Expander Header="Surface &amp; Traction" IsExpanded="False" MinWidth="900">
                             <StackPanel Spacing="8">
-                                <Grid ColumnDefinitions="132,86,*,50,112,130"
+                                <Grid MinWidth="900"
+                                      ColumnDefinitions="132,86,*,50,112,130"
                                       RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                                       RowSpacing="10"
                                       ColumnSpacing="12">
@@ -843,9 +845,10 @@
                             </StackPanel>
                             </Expander>
 
-                            <Expander Header="Suspension &amp; Terrain" IsExpanded="False">
+                            <Expander Header="Suspension &amp; Terrain" IsExpanded="False" MinWidth="900">
                             <StackPanel Spacing="8">
-                                <Grid ColumnDefinitions="132,86,*,50,112,130"
+                                <Grid MinWidth="900"
+                                      ColumnDefinitions="132,86,*,50,112,130"
                                       RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                       RowSpacing="10"
                                       ColumnSpacing="12">
@@ -894,9 +897,10 @@
                             </StackPanel>
                             </Expander>
 
-                            <Expander Header="Load, Slope &amp; Implement" IsExpanded="False">
+                            <Expander Header="Load, Slope &amp; Implement" IsExpanded="False" MinWidth="900">
                             <StackPanel Spacing="8">
-                                <Grid ColumnDefinitions="132,86,*,50,112,130"
+                                <Grid MinWidth="900"
+                                      ColumnDefinitions="132,86,*,50,112,130"
                                       RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                       RowSpacing="10"
                                       ColumnSpacing="12">
@@ -945,9 +949,10 @@
                             </StackPanel>
                             </Expander>
 
-                            <Expander Header="Engine &amp; Drivetrain" IsExpanded="False">
+                            <Expander Header="Engine &amp; Drivetrain" IsExpanded="False" MinWidth="900">
                             <StackPanel Spacing="8">
-                                <Grid ColumnDefinitions="132,86,*,50,112,130"
+                                <Grid MinWidth="900"
+                                      ColumnDefinitions="132,86,*,50,112,130"
                                       RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                       RowSpacing="10"
                                       ColumnSpacing="12">
