@@ -69,6 +69,7 @@ public sealed class EffectStatusWriter
                 output.SlipVibrationPercent > 0,
                 output.EventPulseKind == FfbPulseKind.Bump,
                 output.EventPulseKind is FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit,
+                output.EventPulseKind is FfbPulseKind.BottomOut or FfbPulseKind.LeftBottomOut or FfbPulseKind.RightBottomOut,
                 output.EventPulseKind == FfbPulseKind.Landing,
                 output.EventPulseKind == FfbPulseKind.Collision,
                 output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop,
@@ -82,7 +83,8 @@ public sealed class EffectStatusWriter
                 output.SurfaceVibrationPercent > 0 || output.TerrainRumblePercent > 0 || output.SlipVibrationPercent > 0,
                 output.TerrainRumblePercent > 0,
                 output.LoadResistanceActive || output.MotionFeedbackActive || output.HillStandstillLoadActive || output.SideSlopeBiasActive || output.ImplementBiasActive,
-                output.EngineVibrationPercent > 0);
+                output.EngineVibrationPercent > 0,
+                output.EventPulseKind is FfbPulseKind.BottomOut or FfbPulseKind.LeftBottomOut or FfbPulseKind.RightBottomOut ? "new" : "auto");
 
             File.WriteAllText(_statusPath, JsonSerializer.Serialize(status, JsonOptions));
             _lastWriteUtc = now;
@@ -106,6 +108,7 @@ public sealed class EffectStatusWriter
         [property: JsonPropertyName("slipFeedback")] bool SlipFeedback,
         [property: JsonPropertyName("bump")] bool Bump,
         [property: JsonPropertyName("suspensionHit")] bool SuspensionHit,
+        [property: JsonPropertyName("bottomOut")] bool BottomOut,
         [property: JsonPropertyName("landing")] bool Landing,
         [property: JsonPropertyName("collision")] bool Collision,
         [property: JsonPropertyName("drivetrainPulse")] bool DrivetrainPulse,
@@ -119,5 +122,6 @@ public sealed class EffectStatusWriter
         [property: JsonPropertyName("surfaceTraction")] bool SurfaceTraction,
         [property: JsonPropertyName("suspensionTerrain")] bool SuspensionTerrain,
         [property: JsonPropertyName("loadSlopeImplement")] bool LoadSlopeImplement,
-        [property: JsonPropertyName("engineDrivetrain")] bool EngineDrivetrain);
+        [property: JsonPropertyName("engineDrivetrain")] bool EngineDrivetrain,
+        [property: JsonPropertyName("ffbBranch")] string FfbBranch);
 }

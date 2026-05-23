@@ -314,6 +314,45 @@ public sealed class TelemetryReceiverServiceTests
     }
 
     [Fact]
+    public void Telemetry_contract_accepts_v1_6_road_slope_and_bottom_out_fields()
+    {
+        var json = """
+            {
+              "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.6.0" },
+              "frame": { "sequence": 12, "dtMs": 8, "telemetryRateHz": 60, "timestampMs": 123520, "isDuplicate": false, "isInterpolated": false },
+              "game": { "state": "mission" },
+              "player": { "isInVehicle": true, "isDriver": true, "isPassenger": false },
+              "vehicle": { "name": "Tractor", "type": "tractor", "category": "TractorWheeled", "massT": 6.2, "totalMassT": 8.8, "aiWorkerActive": false },
+              "controls": { "throttle": 0.2, "brake": 0.0, "clutch": 0.0 },
+              "motion": { "speedMps": 1, "speedKmh": 3.6, "pitchDeg": 9.0, "rollDeg": 5.0, "slopeDeg": 9.0, "localAccelerationMps2": { "x": 0, "y": 0, "z": 0 } },
+              "bodyAttitude": { "pitchDeg": 9.0, "rollDeg": 5.0, "yawRateRadPerSec": 0.1, "confidence": 0.8 },
+              "roadSlope": { "longitudinalDeg": 3.0, "lateralDeg": 4.0, "confidence": 0.9, "source": "heightSampling" },
+              "steering": { "angle": 0.0, "rate": 0.0 },
+              "engine": { "isRunning": true, "started": true, "rpm": 900 },
+              "transmission": { "gear": 2 },
+              "wheels": [
+                { "index": 0, "side": "left", "hasContact": true, "contactNormal": { "x": 0.5, "y": 0.8, "z": 0.0 }, "compressionRatio": 0.98, "suspensionVelocity": -1.2, "tireLoad": 12000 }
+              ],
+              "suspension": { "impulse": 0.3, "hitImpulse": 0.31, "bottomOutImpulse": 0.7, "leftBottomOutImpulse": 0.7, "rightBottomOutImpulse": 0.1, "verticalImpactImpulse": null, "landingImpulse": null, "leftImpulse": null, "rightImpulse": null, "suspensionConfidence": 1.0, "bottomOutConfidence": 1.0, "source": "wheel" },
+              "impact": { "localAccelerationMps2": { "x": 0.1, "y": 0.2, "z": 0.3 }, "verticalBodyImpulse": 0.4, "horizontalBodyImpulse": 0.5 },
+              "surface": { "isOnField": false, "type": null, "attribute": null },
+              "environment": { "groundWetness": null, "rainScale": null },
+              "attachments": [],
+              "collisions": { "collisionImpulse": null, "longitudinalJerkImpulse": null },
+              "diagnostics": { "payloadBytes": 1800, "buildTimeMs": 0.4, "warnings": [] }
+            }
+            """;
+
+        var packet = JsonSerializer.Deserialize<TelemetryPacketV1>(json);
+
+        packet!.ValidateContract();
+        Assert.True(packet.IsProtocolValid);
+        Assert.Equal("heightSampling", packet.RoadSlopeSource);
+        Assert.Equal(0.7, packet.BottomOutImpulse);
+        Assert.Equal("wheel", packet.SuspensionSource);
+    }
+
+    [Fact]
     public void Telemetry_contract_accepts_v1_4_legacy_packets()
     {
         var packet = JsonSerializer.Deserialize<TelemetryPacketV1>(

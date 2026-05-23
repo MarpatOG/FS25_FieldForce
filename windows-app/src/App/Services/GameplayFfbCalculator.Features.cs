@@ -152,8 +152,15 @@ public sealed partial class GameplayFfbCalculator
             var loadFactor = CalculateLoadFactor(packet.MassKg, packet.TotalMassKg);
             var steeringContact = FirstValid(packet.SteeringGroundContactRatio, packet.GroundContactRatio);
             var contactConfidence = IsValidFinite(packet.SteeringGroundContactRatio) ? 1.0 : IsValidFinite(packet.GroundContactRatio) ? 0.55 : 0.0;
-            var suspension = MaxValidImpulse(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse);
-            var suspensionConfidence = CountValidImpulses(packet.SuspensionImpulse, packet.BumpImpulse, packet.VerticalImpactImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse) > 0 ? 1.0 : 0.0;
+            var calculatedBottomOut = CalculateBottomOutImpulseFromWheels(packet);
+            var bottomOut = MaxValidImpulse(packet.BottomOutImpulse, calculatedBottomOut.Total);
+            var leftBottomOut = MaxValidImpulse(packet.LeftBottomOutImpulse, calculatedBottomOut.Left);
+            var rightBottomOut = MaxValidImpulse(packet.RightBottomOutImpulse, calculatedBottomOut.Right);
+            var suspensionHit = MaxValidImpulse(packet.SuspensionHitImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse);
+            var velocityRumble = CalculateSuspensionVelocityRumble(packet);
+            var loadRumble = CalculateSuspensionLoadRumble(packet);
+            var suspension = Math.Max(MaxValidImpulse(packet.SuspensionImpulse, suspensionHit, packet.VerticalImpactImpulse), Math.Max(velocityRumble, loadRumble));
+            var suspensionConfidence = Math.Max(packet.SuspensionConfidence, CountValidImpulses(packet.SuspensionImpulse, packet.SuspensionHitImpulse, packet.VerticalImpactImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse) > 0 || velocityRumble > 0 || loadRumble > 0 ? 1.0 : 0.0);
             var verticalImpact = MaxValidImpulse(packet.VerticalImpactImpulse, packet.BumpImpulse, packet.SuspensionImpulse);
             var landing = NormalizeImpulse(packet.LandingImpulse);
             var collision = NormalizeImpulse(packet.CollisionImpulse);
@@ -177,7 +184,7 @@ public sealed partial class GameplayFfbCalculator
             var heavyEngine = IsHeavyEngine(packet);
             var powertrainType = NormalizePowertrainType(packet.PowertrainType);
             var lugging = packet.EngineRunning == true && loadRatio >= 0.65 && rpmRatio <= (heavyEngine ? 0.36 : 0.30);
-            var rollDeg = IsValidFinite(packet.RollDeg) ? packet.RollDeg!.Value : 0;
+            var rollDeg = IsValidFinite(packet.EffectiveLateralSlopeDeg) ? packet.EffectiveLateralSlopeDeg!.Value : 0;
             var rollAbs = Math.Abs(rollDeg);
             var rollRatio = rollAbs <= profile.SideSlopeBias.MinRollDeg
                 ? 0
@@ -209,7 +216,7 @@ public sealed partial class GameplayFfbCalculator
                 CalculateFeatureWetness(packet, surfaceType),
                 loadFactor,
                 packet.MassKg is not null && packet.TotalMassKg is not null ? 1.0 : 0.0,
-                NormalizeAbs(packet.CalculatedSlopeDeg, profile.MotionFeedback.FullPitchDeg),
+                NormalizeAbs(packet.EffectiveSlopeDeg, profile.MotionFeedback.FullPitchDeg),
                 suspension,
                 suspensionConfidence,
                 verticalImpact,
@@ -232,7 +239,75 @@ public sealed partial class GameplayFfbCalculator
                 downhillRollDirection,
                 accelerationRatio,
                 attachedMassRatio,
-                implementLateralOffsetRatio);
+                implementLateralOffsetRatio,
+                bottomOut,
+                leftBottomOut,
+                rightBottomOut,
+                packet.UsesNewRoadSlopeModel,
+                packet.RoadSlopeSource,
+                packet.RoadSlopeConfidence,
+                packet.MaxSuspensionVelocity ?? 0,
+                packet.MaxTireLoad ?? 0,
+                packet.CompressionRatioAvailable);
+        }
+
+        private static (double Total, double Left, double Right) CalculateBottomOutImpulseFromWheels(TelemetryPacketV1 packet)
+        {
+            var total = 0.0;
+            var left = 0.0;
+            var right = 0.0;
+            foreach (var wheel in packet.Wheels)
+            {
+                if (!IsValidFinite(wheel.CompressionRatio) ||
+                    !IsValidFinite(wheel.SuspensionVelocity) ||
+                    wheel.CompressionRatio!.Value < 0.92 ||
+                    wheel.SuspensionVelocity!.Value >= -0.25 ||
+                    (wheel.HasContact ?? wheel.HasGroundContact) != true)
+                {
+                    continue;
+                }
+
+                var load = FirstValid(wheel.TireLoad, wheel.SuspensionLoad, wheel.ContactForce);
+                if (!IsValidFinite(load) || load!.Value <= 0)
+                {
+                    continue;
+                }
+
+                var compression = Math.Clamp((wheel.CompressionRatio.Value - 0.92) / 0.08, 0, 1);
+                var velocity = Math.Clamp(Math.Abs(wheel.SuspensionVelocity.Value) / 1.5, 0, 1);
+                var loadRatio = Math.Clamp(load.Value / 12000.0, 0, 1);
+                var impulse = Math.Clamp((compression * 0.75) + (velocity * 0.85) + (loadRatio * 0.40), 0, 2);
+                total = Math.Max(total, impulse);
+                if (string.Equals(wheel.Side, "left", StringComparison.OrdinalIgnoreCase))
+                {
+                    left = Math.Max(left, impulse);
+                }
+                else if (string.Equals(wheel.Side, "right", StringComparison.OrdinalIgnoreCase))
+                {
+                    right = Math.Max(right, impulse);
+                }
+            }
+
+            return (total, left, right);
+        }
+
+        private static double CalculateSuspensionVelocityRumble(TelemetryPacketV1 packet)
+        {
+            var values = packet.Wheels
+                .Where(w => IsValidFinite(w.SuspensionVelocity))
+                .Select(w => Math.Abs(w.SuspensionVelocity!.Value))
+                .ToArray();
+            return values.Length == 0 ? 0 : Math.Clamp(values.Max() / 1.8, 0, 1.3);
+        }
+
+        private static double CalculateSuspensionLoadRumble(TelemetryPacketV1 packet)
+        {
+            var values = packet.Wheels
+                .Select(w => FirstValid(w.TireLoad, w.SuspensionLoad, w.ContactForce))
+                .Where(IsValidFinite)
+                .Select(v => Math.Abs(v!.Value))
+                .ToArray();
+            return values.Length == 0 ? 0 : Math.Clamp(values.Max() / 18000.0, 0, 1.0);
         }
 
         private static string ResolveTireProfile(TelemetryPacketV1 packet)

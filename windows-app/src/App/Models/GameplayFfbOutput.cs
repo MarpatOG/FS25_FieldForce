@@ -104,6 +104,9 @@ public sealed record GameplayFfbOutput(
                 {
                     FfbPulseKind.LeftSuspensionHit => "Left suspension",
                     FfbPulseKind.RightSuspensionHit => "Right suspension",
+                    FfbPulseKind.BottomOut => "Bottom-out",
+                    FfbPulseKind.LeftBottomOut => "Left bottom-out",
+                    FfbPulseKind.RightBottomOut => "Right bottom-out",
                     FfbPulseKind.Landing => "Landing",
                     FfbPulseKind.Collision => "Collision",
                     FfbPulseKind.GearShift => "Gear shift",

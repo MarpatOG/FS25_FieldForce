@@ -330,8 +330,9 @@ public sealed partial class GameplayFfbCalculator
         {
             FfbPulseKind.Collision => 0,
             FfbPulseKind.Landing => 1,
-            FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit => 2,
-            FfbPulseKind.Bump => 3,
+            FfbPulseKind.BottomOut or FfbPulseKind.LeftBottomOut or FfbPulseKind.RightBottomOut => 2,
+            FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit => 3,
+            FfbPulseKind.Bump => 4,
             FfbPulseKind.EngineStartStop => 4,
             FfbPulseKind.GearShift => 5,
             FfbPulseKind.DrivetrainJerk => 5,

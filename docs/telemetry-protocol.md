@@ -1,4 +1,4 @@
-# Telemetry Protocol v1.5
+# Telemetry Protocol v1.6
 
 The FS25 telemetry mod writes JSON packets to a file transport by default. UDP remains available as a hidden diagnostic transport.
 
@@ -12,10 +12,10 @@ The FS25 telemetry mod writes JSON packets to a file transport by default. UDP r
 - Hidden UDP host: `127.0.0.1`
 - Hidden UDP port: `34325`
 
-The Windows receiver accepts the current `FIELDFORCE_TELEMETRY` protocol name and legacy `FS25_REAL_FFB_TELEMETRY` protocol name. It accepts current `1.5.0` packets and legacy `1.4.0` / `1.3.0` / `1.2.0` packets:
+The Windows receiver accepts the current `FIELDFORCE_TELEMETRY` protocol name and legacy `FS25_REAL_FFB_TELEMETRY` protocol name. It accepts current `1.6.0` packets and legacy `1.5.0` / `1.4.0` / `1.3.0` / `1.2.0` packets:
 
 ```json
-{ "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.5.0" } }
+{ "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.6.0" } }
 ```
 
 Flat legacy JSON is rejected and does not replace the last valid packet.
@@ -25,16 +25,16 @@ Flat legacy JSON is rejected and does not replace the last valid packet.
 The top-level wire object contains only these blocks:
 
 ```text
-protocol, frame, game, player, vehicle, controls, motion, steering,
-engine, transmission, events, wheels, suspension, surface, environment,
-attachments, collisions, diagnostics
+protocol, frame, game, player, vehicle, controls, motion, bodyAttitude,
+roadSlope, steering, engine, transmission, events, wheels, suspension,
+impact, surface, environment, attachments, collisions, diagnostics
 ```
 
 Example:
 
 ```json
 {
-  "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.5.0" },
+  "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.6.0" },
   "frame": {
     "sequence": 1,
     "dtMs": 8,
@@ -66,6 +66,8 @@ Example:
     "slopeDeg": null,
     "localAccelerationMps2": { "x": 0.3, "y": 1.8, "z": -0.6 }
   },
+  "bodyAttitude": { "pitchDeg": 3.1, "rollDeg": -2.4, "yawRateRadPerSec": 0.14835, "confidence": 0.65 },
+  "roadSlope": { "longitudinalDeg": 2.2, "lateralDeg": -1.4, "confidence": 0.9, "source": "heightSampling" },
   "steering": { "angle": 0.13, "rate": 0.8 },
   "engine": {
     "isRunning": false,
@@ -96,15 +98,42 @@ Example:
       "surfaceAttribute": 3,
       "groundType": "asphalt",
       "groundDepth": 0.0,
-      "isOnField": false
+      "isOnField": false,
+      "rawSuspensionLength": 0.42,
+      "suspTravel": 0.18,
+      "suspensionVelocity": -0.35,
+      "suspensionLoad": 4200,
+      "tireLoad": 3900,
+      "contactForce": 4100,
+      "contactPoint": { "x": 10.1, "y": 73.2, "z": -18.7 },
+      "contactNormal": { "x": 0.0, "y": 1.0, "z": 0.0 },
+      "hasContact": true,
+      "axleRole": "front",
+      "wheelRole": "steered",
+      "steeringInfluence": 1.0,
+      "compressionRatio": null
     }
   ],
   "suspension": {
     "impulse": 0.30,
+    "hitImpulse": 0.18,
+    "bottomOutImpulse": null,
     "verticalImpactImpulse": 0.46,
     "landingImpulse": null,
     "leftImpulse": 0.18,
-    "rightImpulse": 0.06
+    "rightImpulse": 0.06,
+    "leftHitImpulse": 0.18,
+    "rightHitImpulse": 0.06,
+    "leftBottomOutImpulse": null,
+    "rightBottomOutImpulse": null,
+    "suspensionConfidence": 1.0,
+    "bottomOutConfidence": 0.0,
+    "source": "wheel"
+  },
+  "impact": {
+    "localAccelerationMps2": { "x": 0.3, "y": 1.8, "z": -0.6 },
+    "verticalBodyImpulse": 0.46,
+    "horizontalBodyImpulse": 0.21
   },
   "surface": { "isOnField": true, "type": "field", "attribute": 1 },
   "environment": { "groundWetness": 0.35, "rainScale": 0.2 },
@@ -127,7 +156,7 @@ Example:
 When no driveable vehicle is active:
 
 - `vehicle=null`
-- `controls`, `motion`, `steering`, `engine`, `transmission`, `events`, `suspension`, `surface`, and `collisions` are `null`
+- `controls`, `motion`, `bodyAttitude`, `roadSlope`, `steering`, `engine`, `transmission`, `events`, `suspension`, `impact`, `surface`, and `collisions` are `null`
 - `wheels=[]`
 - `attachments=[]`
 
@@ -146,7 +175,9 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 - `speedKmh`: stable FS25 vehicle speed in kilometers per hour for UI and profile thresholds. The Lua mod may calculate a root-node position-delta speed for fallback/diagnostics, but position spikes are not the primary wire value.
 - `localAccelerationMps2`: vehicle-local acceleration in meters per second squared.
 - `yawRateRadPerSec`: radians per second.
-- `motion.slopeDeg`: legacy optional field. Current Lua sender writes `null`; Windows derives slope from `pitchDeg`.
+- `motion.pitchDeg`, `motion.rollDeg`, `motion.slopeDeg`: legacy compatibility fields. Windows uses them for old packets and body-motion feedback fallback.
+- `bodyAttitude`: body pitch/roll/yaw-rate with confidence, kept separate from road geometry.
+- `roadSlope`: primary road geometry. `source` is one of `"heightSampling"`, `"terrainNormal"`, `"bodyFallback"`, or `"none"`. `contactNormal` is diagnostic wheel data and must not be used as `roadSlope.source`.
 - `steering.angle`: normalized/raw steering angle from FS25 source data.
 - `steering.rate`: steering angle delta per second.
 - `engine.state`: `"off"`, `"ignition"`, `"starting"`, `"running"`, or `"unknown"` from `Motorized:getMotorState()`.
@@ -164,6 +195,14 @@ The receiver treats that as a valid no-vehicle state and emits no gameplay FFB.
 - `wheels[].surfaceType`, `surface.type`: normalized surface such as `"asphalt"`, `"dirt"`, `"gravel"`, `"mud"`, `"grass"`, `"snow"`, `"shallowWater"`, `"field"`, `"plowedField"`, `"cultivatedField"`, `"wetField"`, or `"unknownMixed"`.
 - `wheels[].surfaceAttribute`, `surface.attribute`: raw/engine terrain attribute when available.
 - `wheels[].groundType` and `wheels[].groundDepth`: raw ground context from wheel physics when available.
+- `wheels[].rawSuspensionLength`, `suspTravel`, `suspensionVelocity`: raw suspension motion values when available.
+- `wheels[].suspensionLoad`, `tireLoad`, `contactForce`: optional load/contact force readings.
+- `wheels[].contactPoint`, `contactNormal`, `hasContact`: optional wheel contact diagnostics.
+- `wheels[].axleRole`: `"front"`, `"rear"`, `"center"`, or `"unknown"`.
+- `wheels[].wheelRole`: `"steered"`, `"drive"`, `"trailer"`, `"implement"`, `"crawler"`, or `"unknown"`.
+- `wheels[].compressionRatio`: nullable. It is populated only after the sender has observed a plausible suspension range; otherwise it remains `null`.
+- `suspension.hitImpulse`: sharp suspension hit channel.
+- `suspension.bottomOutImpulse`: near-end travel bottom-out channel. It requires compression ratio, compression velocity, load/contact confirmation, and contact.
 
 ## Derived Features
 

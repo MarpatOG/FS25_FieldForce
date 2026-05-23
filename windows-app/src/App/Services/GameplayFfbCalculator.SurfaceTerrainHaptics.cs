@@ -128,6 +128,19 @@ public sealed partial class GameplayFfbCalculator
                     collisionCandidate,
                     CreateImpulseCandidate(FfbPulseKind.Landing, features.LandingImpulse, profile.LandingFeedback, context, features, 1)
                 };
+            var bottomOutKind = SelectBottomOutPulseKind(features);
+            if (bottomOutKind is not FfbPulseKind.Bump)
+            {
+                var bottomOutImpulse = bottomOutKind switch
+                {
+                    FfbPulseKind.LeftBottomOut => Math.Max(features.LeftBottomOutImpulse, features.BottomOutImpulse),
+                    FfbPulseKind.RightBottomOut => Math.Max(features.RightBottomOutImpulse, features.BottomOutImpulse),
+                    _ => features.BottomOutImpulse
+                };
+                var direction = bottomOutKind == FfbPulseKind.LeftBottomOut ? -1 : 1;
+                candidates.Add(CreateImpulseCandidate(bottomOutKind, bottomOutImpulse, profile.SuspensionHitFeedback, context, features, direction, CalculatePulseSurfaceScale(features) * 1.25, CalculateBottomOutMinImpulse(features)));
+            }
+
             var sideKind = SelectSidePulseKind(features);
             if (sideKind is not FfbPulseKind.Bump)
             {
@@ -146,6 +159,12 @@ public sealed partial class GameplayFfbCalculator
                 else if (HasSuppressingEvent(candidates, FfbPulseKind.Landing))
                 {
                     bump = bump with { Valid = false, SuppressReason = "LandingCandidateSelected" };
+                }
+                else if (HasSuppressingEvent(candidates, FfbPulseKind.BottomOut) ||
+                         HasSuppressingEvent(candidates, FfbPulseKind.LeftBottomOut) ||
+                         HasSuppressingEvent(candidates, FfbPulseKind.RightBottomOut))
+                {
+                    bump = bump with { Valid = false, SuppressReason = "BottomOutCandidateSelected" };
                 }
 
                 candidates.Add(bump);
@@ -211,6 +230,7 @@ public sealed partial class GameplayFfbCalculator
             return kind switch
             {
                 FfbPulseKind.Bump => Math.Min(configured, IsOffRoadSurface(features) || IsUnknownMixedSurface(features) ? 90 : 105),
+                FfbPulseKind.BottomOut or FfbPulseKind.LeftBottomOut or FfbPulseKind.RightBottomOut => Math.Min(configured, 70),
                 FfbPulseKind.LeftSuspensionHit or FfbPulseKind.RightSuspensionHit => Math.Min(configured, 85),
                 FfbPulseKind.Landing => Math.Min(configured, 140),
                 _ => configured
@@ -368,7 +388,7 @@ public sealed partial class GameplayFfbCalculator
             }
 
             var minSideImpulse = IsOffRoadSurface(features) ? 0.20 : IsUnknownMixedSurface(features) ? 0.30 : 0.35;
-            var dominance = IsOffRoadSurface(features) ? 1.25 : IsUnknownMixedSurface(features) ? 1.40 : 1.80;
+            var dominance = 1.40;
             var minSideDelta = IsOffRoadSurface(features) ? 0.12 : IsUnknownMixedSurface(features) ? 0.15 : 0.24;
             var left = features.LeftSuspensionImpulse;
             var right = features.RightSuspensionImpulse;
@@ -388,6 +408,41 @@ public sealed partial class GameplayFfbCalculator
             }
 
             return FfbPulseKind.Bump;
+        }
+
+        private static FfbPulseKind SelectBottomOutPulseKind(TelemetryFeatures features)
+        {
+            if (!features.CompressionRatioAvailable || features.BottomOutImpulse <= 0)
+            {
+                return FfbPulseKind.Bump;
+            }
+
+            var left = features.LeftBottomOutImpulse;
+            var right = features.RightBottomOutImpulse;
+            var maxSide = Math.Max(left, right);
+            if (maxSide <= 0)
+            {
+                return FfbPulseKind.BottomOut;
+            }
+
+            var sideDelta = Math.Abs(left - right);
+            var threshold = IsOffRoadSurface(features) ? 0.10 : IsUnknownMixedSurface(features) ? 0.14 : 0.20;
+            if (left > right && (left >= right * 1.4 || sideDelta >= threshold))
+            {
+                return FfbPulseKind.LeftBottomOut;
+            }
+
+            if (right > left && (right >= left * 1.4 || sideDelta >= threshold))
+            {
+                return FfbPulseKind.RightBottomOut;
+            }
+
+            return FfbPulseKind.BottomOut;
+        }
+
+        private static double CalculateBottomOutMinImpulse(TelemetryFeatures features)
+        {
+            return IsOffRoadSurface(features) ? 0.35 : IsUnknownMixedSurface(features) ? 0.45 : 0.55;
         }
     }
 

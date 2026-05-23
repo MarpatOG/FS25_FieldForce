@@ -4,11 +4,11 @@
         x:Class="FieldForce.App.Views.EffectOverlayWindow"
         x:DataType="vm:MainWindowViewModel"
         Width="360"
-        Height="380"
+        Height="430"
         MinWidth="360"
-        MinHeight="380"
+        MinHeight="430"
         MaxWidth="360"
-        MaxHeight="380"
+        MaxHeight="430"
         CanResize="False"
         ShowInTaskbar="False"
         SystemDecorations="None"
@@ -135,7 +135,11 @@
                     <Border Classes="lamp" Classes.active="{Binding TerrainRumbleActive}" ToolTip.Tip="Terrain rumble">
                         <TextBlock Classes="lampCode" Text="TR"/>
                     </Border>
+                    <Border Classes="lamp" Classes.active="{Binding BottomOutActive}" ToolTip.Tip="Bottom-out pulse">
+                        <TextBlock Classes="lampCode" Text="BO"/>
+                    </Border>
                 </StackPanel>
+                <TextBlock Text="{Binding SuspensionDiagnostics}"/>
             </StackPanel>
 
             <StackPanel Classes="categoryGroup">
@@ -157,6 +161,8 @@
                         <TextBlock Classes="lampCode" Text="IB"/>
                     </Border>
                 </StackPanel>
+                <TextBlock Text="{Binding RoadSlope}"/>
+                <TextBlock Text="{Binding RoadSlopeSource}"/>
             </StackPanel>
 
             <StackPanel Classes="categoryGroup">

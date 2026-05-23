@@ -1512,6 +1512,78 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Road_slope_primary_beats_body_pitch()
+    {
+        var packet = Packet(speedKmh: 0, pitchDeg: 14, rollDeg: 8);
+        packet.BodyAttitude = new TelemetryBodyAttitudeV1 { PitchDeg = 14, RollDeg = 8, Confidence = 0.8 };
+        packet.RoadSlope = new TelemetryRoadSlopeV1 { LongitudinalDeg = 1, LateralDeg = 2, Confidence = 0.9, Source = "heightSampling" };
+
+        var features = GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(packet, new GameplayFfbSettings(), null);
+
+        Assert.True(features.UsesNewRoadSlopeModel);
+        Assert.Equal("heightSampling", features.RoadSlopeSource);
+        Assert.InRange(features.SlopeRatio, 0.00, 0.20);
+        Assert.InRange(features.RollRatio, 0.00, 0.50);
+    }
+
+    [Fact]
+    public void Body_pitch_is_used_only_when_road_slope_missing()
+    {
+        var packet = Packet(speedKmh: 0, pitchDeg: 12);
+        packet.BodyAttitude = new TelemetryBodyAttitudeV1 { PitchDeg = 12, RollDeg = 0, Confidence = 0.8 };
+        packet.RoadSlope = new TelemetryRoadSlopeV1 { LongitudinalDeg = null, LateralDeg = null, Confidence = 0, Source = "none" };
+
+        var features = GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(packet, new GameplayFfbSettings(), null);
+
+        Assert.False(features.UsesNewRoadSlopeModel);
+        Assert.True(features.SlopeRatio > 0.5);
+    }
+
+    [Fact]
+    public void Contact_normal_never_becomes_road_slope_source()
+    {
+        var packet = Packet(speedKmh: 0, pitchDeg: 0, rollDeg: 0);
+        packet.Wheels[0].ContactNormal = new TelemetryVector3V1 { X = 0.7, Y = 0.7, Z = 0 };
+        packet.RoadSlope = new TelemetryRoadSlopeV1 { LongitudinalDeg = null, LateralDeg = null, Confidence = 0, Source = "none" };
+
+        var features = GameplayFfbCalculator.TelemetryFeatureExtractor.Extract(packet, new GameplayFfbSettings(), null);
+
+        Assert.False(features.UsesNewRoadSlopeModel);
+        Assert.NotEqual("contactNormal", features.RoadSlopeSource);
+    }
+
+    [Fact]
+    public void Side_pulse_requires_dominance_or_category_delta()
+    {
+        var output = _calculator.Calculate(State(Packet(
+            speedKmh: 15,
+            surfaceType: "asphalt",
+            verticalImpactImpulse: 0.35,
+            leftSuspensionImpulse: 0.50,
+            rightSuspensionImpulse: 0.40,
+            groundContactRatio: 1)), new GameplayFfbSettings());
+
+        Assert.NotEqual(FfbPulseKind.LeftSuspensionHit, output.EventPulseKind);
+        Assert.NotEqual(FfbPulseKind.RightSuspensionHit, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Bottom_out_requires_compression_velocity_load_and_contact()
+    {
+        var withoutCompression = _calculator.Calculate(State(Packet(speedKmh: 15, surfaceType: "asphalt", groundContactRatio: 1)), new GameplayFfbSettings());
+        var packet = Packet(speedKmh: 15, surfaceType: "asphalt", groundContactRatio: 1);
+        packet.Wheels[0].CompressionRatio = 0.98;
+        packet.Wheels[0].SuspensionVelocity = -1.6;
+        packet.Wheels[0].TireLoad = 16000;
+        packet.Wheels[0].HasContact = true;
+
+        var bottomOut = _calculator.Calculate(State(packet), new GameplayFfbSettings());
+
+        Assert.NotEqual(FfbPulseKind.BottomOut, withoutCompression.EventPulseKind);
+        Assert.Equal(FfbPulseKind.LeftBottomOut, bottomOut.EventPulseKind);
+    }
+
+    [Fact]
     public void Terrain_rumble_frequency_stays_below_surface_when_both_are_active()
     {
         var output = _calculator.Calculate(

@@ -51,6 +51,9 @@ public enum FfbPulseKind
     Bump,
     LeftSuspensionHit,
     RightSuspensionHit,
+    BottomOut,
+    LeftBottomOut,
+    RightBottomOut,
     Landing,
     Collision,
     EngineStartStop,
@@ -95,7 +98,16 @@ public sealed record TelemetryFeatures(
     double RollDirection = 0,
     double AccelerationRatio = 0,
     double AttachedMassRatio = 0,
-    double ImplementLateralOffsetRatio = 0);
+    double ImplementLateralOffsetRatio = 0,
+    double BottomOutImpulse = 0,
+    double LeftBottomOutImpulse = 0,
+    double RightBottomOutImpulse = 0,
+    bool UsesNewRoadSlopeModel = false,
+    string RoadSlopeSource = "none",
+    double RoadSlopeConfidence = 0,
+    double MaxSuspensionVelocity = 0,
+    double MaxTireLoad = 0,
+    bool CompressionRatioAvailable = false);
 
 public sealed record WheelProfile(
     string Id,

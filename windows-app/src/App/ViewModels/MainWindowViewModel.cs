@@ -160,6 +160,15 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private string _attitude = "- / - / -";
 
     [ObservableProperty]
+    private string _roadSlope = "- / -";
+
+    [ObservableProperty]
+    private string _roadSlopeSource = "none";
+
+    [ObservableProperty]
+    private string _suspensionDiagnostics = "-";
+
+    [ObservableProperty]
     private string _localAcceleration = "- / - / -";
 
     [ObservableProperty]
@@ -505,6 +514,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private bool _rightSuspensionHitActive;
+
+    [ObservableProperty]
+    private bool _bottomOutActive;
 
     [ObservableProperty]
     private bool _landingFeedbackActive;
@@ -2008,6 +2020,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             LeftSuspensionHitActive = output.EventPulseKind == FfbPulseKind.LeftSuspensionHit;
             RightSuspensionHitActive = output.EventPulseKind == FfbPulseKind.RightSuspensionHit;
             SuspensionHitActive = LeftSuspensionHitActive || RightSuspensionHitActive;
+            BottomOutActive = output.EventPulseKind is FfbPulseKind.BottomOut or FfbPulseKind.LeftBottomOut or FfbPulseKind.RightBottomOut;
             LandingFeedbackActive = output.EventPulseKind == FfbPulseKind.Landing;
             CollisionFeedbackActive = output.EventPulseKind == FfbPulseKind.Collision;
             DrivetrainPulseActive = output.EventPulseKind is FfbPulseKind.DrivetrainJerk or FfbPulseKind.GearShift or FfbPulseKind.EngineStartStop;
@@ -2173,6 +2186,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WheelTireProfile = "-";
             ActiveTireSurfaceMultiplier = FormatTireSurfaceMultiplier(50);
             Attitude = "- / - / -";
+            RoadSlope = "- / -";
+            RoadSlopeSource = "none";
+            SuspensionDiagnostics = "-";
             LocalAcceleration = "- / - / -";
             BumpImpulse = "-";
             GameState = "-";
@@ -2203,7 +2219,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             WheelTireTypes = string.IsNullOrWhiteSpace(packet.WheelTireTypes) ? "-" : packet.WheelTireTypes;
             WheelTireProfile = string.IsNullOrWhiteSpace(packet.ActiveTireProfile) ? "-" : packet.ActiveTireProfile;
             ActiveTireSurfaceMultiplier = FormatTireSurfaceMultiplier(CalculateActiveTireSurfaceMultiplier(packet));
-            Attitude = $"{FormatNumber(packet.PitchDeg, "0.0 deg")} / {FormatNumber(packet.RollDeg, "0.0 deg")} / {FormatNumber(packet.CalculatedSlopeDeg, "0.0 deg")}";
+            Attitude = $"{FormatNumber(packet.BodyPitchDeg, "0.0 deg")} / {FormatNumber(packet.BodyRollDeg, "0.0 deg")} / {FormatNumber(packet.CalculatedSlopeDeg, "0.0 deg")}";
+            RoadSlope = $"{FormatNumber(packet.RoadSlopeLongitudinalDeg, "0.0 deg")} / {FormatNumber(packet.RoadSlopeLateralDeg, "0.0 deg")}";
+            RoadSlopeSource = $"{packet.RoadSlopeSource} / {packet.RoadSlopeConfidence:0.00}";
+            SuspensionDiagnostics = $"hit {FormatNumber(packet.SuspensionHitImpulse, "0.00")} / bottom {FormatNumber(packet.BottomOutImpulse, "0.00")} / {packet.SuspensionSource}";
             LocalAcceleration = $"{FormatNumber(packet.LocalAccelerationX, "0.00")} / {FormatNumber(packet.LocalAccelerationY, "0.00")} / {FormatNumber(packet.LocalAccelerationZ, "0.00")}";
             BumpImpulse = FormatNumber(packet.VerticalImpactImpulse, "0.00");
             GameState = string.IsNullOrWhiteSpace(packet.GameState) ? "-" : packet.GameState;

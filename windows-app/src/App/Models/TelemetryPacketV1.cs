@@ -6,7 +6,8 @@ public sealed class TelemetryPacketV1
 {
     public const string ExpectedProtocolName = "FIELDFORCE_TELEMETRY";
     public const string LegacyProtocolName = "FS25_REAL_FFB_TELEMETRY";
-    public const string ExpectedProtocolVersion = "1.5.0";
+    public const string ExpectedProtocolVersion = "1.6.0";
+    public const string LegacyProtocolVersionV1_5 = "1.5.0";
     public const string LegacyProtocolVersionV1_4 = "1.4.0";
     public const string LegacyProtocolVersion = "1.3.0";
     public const string LegacyProtocolVersionV1_2 = "1.2.0";
@@ -32,6 +33,12 @@ public sealed class TelemetryPacketV1
     [JsonPropertyName("motion")]
     public TelemetryMotionV1? Motion { get; set; }
 
+    [JsonPropertyName("bodyAttitude")]
+    public TelemetryBodyAttitudeV1? BodyAttitude { get; set; }
+
+    [JsonPropertyName("roadSlope")]
+    public TelemetryRoadSlopeV1? RoadSlope { get; set; }
+
     [JsonPropertyName("steering")]
     public TelemetrySteeringV1? Steering { get; set; }
 
@@ -49,6 +56,9 @@ public sealed class TelemetryPacketV1
 
     [JsonPropertyName("suspension")]
     public TelemetrySuspensionV1? Suspension { get; set; }
+
+    [JsonPropertyName("impact")]
+    public TelemetryImpactV1? Impact { get; set; }
 
     [JsonPropertyName("surface")]
     public TelemetrySurfaceV1? Surface { get; set; }
@@ -70,6 +80,7 @@ public sealed class TelemetryPacketV1
         (string.Equals(Protocol?.Name, ExpectedProtocolName, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Name, LegacyProtocolName, StringComparison.Ordinal)) &&
         (string.Equals(Protocol?.Version, ExpectedProtocolVersion, StringComparison.Ordinal) ||
+         string.Equals(Protocol?.Version, LegacyProtocolVersionV1_5, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersionV1_4, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersion, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersionV1_2, StringComparison.Ordinal));
@@ -251,6 +262,33 @@ public sealed class TelemetryPacketV1
         : IsValidFinite(Motion?.PitchDeg) ? Math.Abs(Motion!.PitchDeg!.Value) : null;
 
     [JsonIgnore]
+    public double? BodyPitchDeg => BodyAttitude?.PitchDeg ?? Motion?.PitchDeg;
+
+    [JsonIgnore]
+    public double? BodyRollDeg => BodyAttitude?.RollDeg ?? Motion?.RollDeg;
+
+    [JsonIgnore]
+    public double? RoadSlopeLongitudinalDeg => RoadSlope?.LongitudinalDeg;
+
+    [JsonIgnore]
+    public double? RoadSlopeLateralDeg => RoadSlope?.LateralDeg;
+
+    [JsonIgnore]
+    public double RoadSlopeConfidence => IsValidFinite(RoadSlope?.Confidence) ? Math.Clamp(RoadSlope!.Confidence!.Value, 0, 1) : 0;
+
+    [JsonIgnore]
+    public string RoadSlopeSource => string.IsNullOrWhiteSpace(RoadSlope?.Source) ? "none" : RoadSlope.Source!;
+
+    [JsonIgnore]
+    public bool UsesNewRoadSlopeModel => RoadSlopeConfidence > 0 && IsValidFinite(RoadSlope?.LongitudinalDeg);
+
+    [JsonIgnore]
+    public double? EffectiveSlopeDeg => UsesNewRoadSlopeModel ? RoadSlopeLongitudinalDeg : CalculatedSlopeDeg;
+
+    [JsonIgnore]
+    public double? EffectiveLateralSlopeDeg => RoadSlopeConfidence > 0 && IsValidFinite(RoadSlope?.LateralDeg) ? RoadSlope!.LateralDeg : RollDeg;
+
+    [JsonIgnore]
     public double? LocalAccelerationX => Motion?.LocalAccelerationMps2?.X;
 
     [JsonIgnore]
@@ -261,6 +299,12 @@ public sealed class TelemetryPacketV1
 
     [JsonIgnore]
     public double? SuspensionImpulse => Suspension?.Impulse;
+
+    [JsonIgnore]
+    public double? SuspensionHitImpulse => Suspension?.HitImpulse ?? Suspension?.Impulse;
+
+    [JsonIgnore]
+    public double? BottomOutImpulse => Suspension?.BottomOutImpulse;
 
     [JsonIgnore]
     public double? VerticalImpactImpulse => Suspension?.VerticalImpactImpulse;
@@ -278,10 +322,43 @@ public sealed class TelemetryPacketV1
     public double? LongitudinalJerkImpulse => Collisions?.LongitudinalJerkImpulse;
 
     [JsonIgnore]
-    public double? LeftSuspensionImpulse => Suspension?.LeftImpulse;
+    public double? LeftSuspensionImpulse => Suspension?.LeftHitImpulse ?? Suspension?.LeftImpulse;
 
     [JsonIgnore]
-    public double? RightSuspensionImpulse => Suspension?.RightImpulse;
+    public double? RightSuspensionImpulse => Suspension?.RightHitImpulse ?? Suspension?.RightImpulse;
+
+    [JsonIgnore]
+    public double? LeftBottomOutImpulse => Suspension?.LeftBottomOutImpulse;
+
+    [JsonIgnore]
+    public double? RightBottomOutImpulse => Suspension?.RightBottomOutImpulse;
+
+    [JsonIgnore]
+    public double SuspensionConfidence => IsValidFinite(Suspension?.SuspensionConfidence) ? Math.Clamp(Suspension!.SuspensionConfidence!.Value, 0, 1) : 0;
+
+    [JsonIgnore]
+    public double BottomOutConfidence => IsValidFinite(Suspension?.BottomOutConfidence) ? Math.Clamp(Suspension!.BottomOutConfidence!.Value, 0, 1) : 0;
+
+    [JsonIgnore]
+    public string SuspensionSource => string.IsNullOrWhiteSpace(Suspension?.Source) ? "legacy" : Suspension.Source!;
+
+    [JsonIgnore]
+    public double? MaxSuspensionVelocity => Wheels
+        .Where(w => IsValidFinite(w.SuspensionVelocity))
+        .Select(w => Math.Abs(w.SuspensionVelocity!.Value))
+        .DefaultIfEmpty(double.NaN)
+        .Max() is var value && double.IsNaN(value) ? null : value;
+
+    [JsonIgnore]
+    public double? MaxTireLoad => Wheels
+        .Select(w => FirstValid(w.TireLoad, w.SuspensionLoad, w.ContactForce))
+        .Where(IsValidFinite)
+        .Select(value => value!.Value)
+        .DefaultIfEmpty(double.NaN)
+        .Max() is var value && double.IsNaN(value) ? null : value;
+
+    [JsonIgnore]
+    public bool CompressionRatioAvailable => Wheels.Any(w => IsValidFinite(w.CompressionRatio));
 
     [JsonIgnore]
     public double? Throttle => Controls?.Throttle;
@@ -340,8 +417,9 @@ public sealed class TelemetryPacketV1
 
         if (Vehicle is null)
         {
-            if (Controls is not null || Motion is not null || Steering is not null || Engine is not null ||
-                Transmission is not null || Suspension is not null || Surface is not null || Collisions is not null)
+            if (Controls is not null || Motion is not null || BodyAttitude is not null || RoadSlope is not null ||
+                Steering is not null || Engine is not null || Transmission is not null || Suspension is not null ||
+                Impact is not null || Surface is not null || Collisions is not null)
             {
                 throw new InvalidDataException("Invalid no-vehicle packet: vehicle-dependent blocks must be null.");
             }
@@ -356,6 +434,19 @@ public sealed class TelemetryPacketV1
     private static bool IsValidFinite(double? value)
     {
         return value is not null && !double.IsNaN(value.Value) && !double.IsInfinity(value.Value);
+    }
+
+    private static double? FirstValid(params double?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (IsValidFinite(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
     }
 
     private static double? Ratio(IEnumerable<TelemetryWheelV1> wheels, Func<TelemetryWheelV1, bool?> selector)
@@ -477,6 +568,36 @@ public sealed class TelemetryMotionV1
 
     [JsonPropertyName("localAccelerationMps2")]
     public TelemetryVector3V1? LocalAccelerationMps2 { get; set; }
+}
+
+public sealed class TelemetryBodyAttitudeV1
+{
+    [JsonPropertyName("pitchDeg")]
+    public double? PitchDeg { get; set; }
+
+    [JsonPropertyName("rollDeg")]
+    public double? RollDeg { get; set; }
+
+    [JsonPropertyName("yawRateRadPerSec")]
+    public double? YawRateRadPerSec { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double? Confidence { get; set; }
+}
+
+public sealed class TelemetryRoadSlopeV1
+{
+    [JsonPropertyName("longitudinalDeg")]
+    public double? LongitudinalDeg { get; set; }
+
+    [JsonPropertyName("lateralDeg")]
+    public double? LateralDeg { get; set; }
+
+    [JsonPropertyName("confidence")]
+    public double? Confidence { get; set; }
+
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
 }
 
 public sealed class TelemetryVector3V1
@@ -636,6 +757,45 @@ public sealed class TelemetryWheelV1
 
     [JsonPropertyName("isOnField")]
     public bool? IsOnField { get; set; }
+
+    [JsonPropertyName("rawSuspensionLength")]
+    public double? RawSuspensionLength { get; set; }
+
+    [JsonPropertyName("suspTravel")]
+    public double? SuspTravel { get; set; }
+
+    [JsonPropertyName("suspensionVelocity")]
+    public double? SuspensionVelocity { get; set; }
+
+    [JsonPropertyName("suspensionLoad")]
+    public double? SuspensionLoad { get; set; }
+
+    [JsonPropertyName("tireLoad")]
+    public double? TireLoad { get; set; }
+
+    [JsonPropertyName("contactForce")]
+    public double? ContactForce { get; set; }
+
+    [JsonPropertyName("contactPoint")]
+    public TelemetryVector3V1? ContactPoint { get; set; }
+
+    [JsonPropertyName("contactNormal")]
+    public TelemetryVector3V1? ContactNormal { get; set; }
+
+    [JsonPropertyName("hasContact")]
+    public bool? HasContact { get; set; }
+
+    [JsonPropertyName("axleRole")]
+    public string? AxleRole { get; set; }
+
+    [JsonPropertyName("wheelRole")]
+    public string? WheelRole { get; set; }
+
+    [JsonPropertyName("steeringInfluence")]
+    public double? SteeringInfluence { get; set; }
+
+    [JsonPropertyName("compressionRatio")]
+    public double? CompressionRatio { get; set; }
 }
 
 public sealed class TelemetrySuspensionV1
@@ -654,6 +814,45 @@ public sealed class TelemetrySuspensionV1
 
     [JsonPropertyName("rightImpulse")]
     public double? RightImpulse { get; set; }
+
+    [JsonPropertyName("hitImpulse")]
+    public double? HitImpulse { get; set; }
+
+    [JsonPropertyName("bottomOutImpulse")]
+    public double? BottomOutImpulse { get; set; }
+
+    [JsonPropertyName("leftHitImpulse")]
+    public double? LeftHitImpulse { get; set; }
+
+    [JsonPropertyName("rightHitImpulse")]
+    public double? RightHitImpulse { get; set; }
+
+    [JsonPropertyName("leftBottomOutImpulse")]
+    public double? LeftBottomOutImpulse { get; set; }
+
+    [JsonPropertyName("rightBottomOutImpulse")]
+    public double? RightBottomOutImpulse { get; set; }
+
+    [JsonPropertyName("suspensionConfidence")]
+    public double? SuspensionConfidence { get; set; }
+
+    [JsonPropertyName("bottomOutConfidence")]
+    public double? BottomOutConfidence { get; set; }
+
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+}
+
+public sealed class TelemetryImpactV1
+{
+    [JsonPropertyName("localAccelerationMps2")]
+    public TelemetryVector3V1? LocalAccelerationMps2 { get; set; }
+
+    [JsonPropertyName("verticalBodyImpulse")]
+    public double? VerticalBodyImpulse { get; set; }
+
+    [JsonPropertyName("horizontalBodyImpulse")]
+    public double? HorizontalBodyImpulse { get; set; }
 }
 
 public sealed class TelemetrySurfaceV1
