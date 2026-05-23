@@ -313,6 +313,22 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Engine_start_defaults_use_slow_strong_v8_cranking()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        _ = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: false, engineStartSeq: 0)), settings);
+        var start = calculator.Calculate(State(Packet(speedKmh: 0, engineStarted: true, engineStartSeq: 1)), settings);
+
+        Assert.True(start.EngineStartStopPulseActive);
+        Assert.Equal(10, start.EngineStartPulseHz);
+        Assert.True(start.EngineStartPulsePercent > settings.EngineStartStopPulse.StrengthPercent * 0.85);
+        Assert.True(start.EngineRpmVibrationPercent > DeviceHapticProfile.LogitechMomo.EngineVibrationCapPercent);
+        Assert.Equal(DeviceHapticProfile.LogitechMomo.EngineDrivetrainPulseCapPercent, start.EngineRpmVibrationPercent);
+    }
+
+    [Fact]
     public void Engine_start_seq_prefers_telemetry_start_duration()
     {
         var calculator = new GameplayFfbCalculator();

@@ -5,6 +5,8 @@ namespace FieldForce.App.Services;
 public sealed partial class GameplayFfbCalculator
 {
     private const double TelemetryLongitudinalJerkPulseThreshold = 0.85;
+    private const double EngineStartCrankingStrengthMultiplier = 1.15;
+    private const double EngineStartCrankingCapMultiplier = 1.40;
 
     public static class EngineDrivetrainLayer
     {
@@ -236,7 +238,12 @@ public sealed partial class GameplayFfbCalculator
     private void StartEngineStartStopVibration(GameplayFfbEffectProfile profile, FfbFrameContext context, int direction, double? telemetryStartDurationMs = null, double powertrainScale = 1.0)
     {
         var settings = profile.EngineStartStopPulse;
-        var percent = Math.Min(CalculateMaxCapped(settings, context.TelemetryFade) * 0.85, Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100)) * Math.Clamp(powertrainScale, 0, 1);
+        var basePercent = CalculateMaxCapped(settings, context.TelemetryFade);
+        var cap = Math.Clamp(profile.EngineDrivetrainMaxPercent, 0, 100);
+        var percent = direction > 0
+            ? Math.Min(basePercent * EngineStartCrankingStrengthMultiplier, Math.Clamp(cap * EngineStartCrankingCapMultiplier, 0, 100))
+            : Math.Min(basePercent * 0.85, cap);
+        percent *= Math.Clamp(powertrainScale, 0, 1);
         var durationMs = direction > 0
             ? ResolveEngineStartDurationMs(settings, telemetryStartDurationMs)
             : Math.Clamp(settings.StopDurationMs, 40, 500);

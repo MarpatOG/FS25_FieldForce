@@ -27,7 +27,7 @@ public sealed class EngineStartStopPulseSettings : FfbEffectSettings
         set => StopDurationMs = value;
     }
 
-    public int StartFrequencyHz { get; set; } = 18;
+    public int StartFrequencyHz { get; set; } = 10;
     public int StopFrequencyHz { get; set; } = 12;
 }
 

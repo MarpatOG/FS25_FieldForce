@@ -129,7 +129,7 @@ public sealed partial class GameplayFfbCalculator
             SuspensionTerrainLayer.CalculatePulses(packet, features, profile, context),
             engineDrivetrainPulses);
 
-        var capped = DeviceCaps.Apply(steering, haptics, pulses, context.DeviceProfile);
+        var capped = DeviceCaps.Apply(steering, haptics, pulses, context.DeviceProfile, engineStartStopVibration.Direction != 0);
         var bump = SelectFramePulse(capped.Pulses);
 
         var output = new GameplayFfbOutput(

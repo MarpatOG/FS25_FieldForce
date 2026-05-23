@@ -106,11 +106,15 @@ public sealed partial class GameplayFfbCalculator
             SteeringModel steering,
             ContinuousHaptics haptics,
             IReadOnlyList<EventPulse> pulses,
-            DeviceHapticProfile profile)
+            DeviceHapticProfile profile,
+            bool engineStartStopActive = false)
         {
+            var engineCapPercent = engineStartStopActive
+                ? Math.Max(profile.EngineVibrationCapPercent, profile.EngineDrivetrainPulseCapPercent)
+                : profile.EngineVibrationCapPercent;
             var cappedHaptics = haptics with
             {
-                EnginePercent = Math.Min(haptics.EnginePercent, profile.EngineVibrationCapPercent),
+                EnginePercent = Math.Min(haptics.EnginePercent, engineCapPercent),
                 SurfacePercent = Math.Min(haptics.SurfacePercent, profile.SurfaceHapticCapPercent),
                 SlipPercent = Math.Min(haptics.SlipPercent, profile.SlipHapticCapPercent),
                 TerrainRumblePercent = Math.Min(haptics.TerrainRumblePercent, profile.TerrainRumbleCapPercent)

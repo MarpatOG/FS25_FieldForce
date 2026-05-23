@@ -2,6 +2,9 @@ namespace FieldForce.App.Models;
 
 public class GameplayFfbEffectProfile
 {
+    private const int LegacyEngineStartFrequencyHz = 18;
+    private const int V8EngineStartFrequencyHz = 10;
+
     public const int SpeedSpringStrengthDefault = 75;
     public const int SpeedSpringMaxOutputDefault = 80;
     public const double SpeedSpringStandstillFloorDefault = 0.22;
@@ -126,7 +129,7 @@ public class GameplayFfbEffectProfile
         Curve = FfbCurveKind.Smooth,
         StartDurationMs = 3000,
         StopDurationMs = 120,
-        StartFrequencyHz = 18,
+        StartFrequencyHz = 10,
         StopFrequencyHz = 12
     };
 
@@ -478,6 +481,13 @@ public class GameplayFfbEffectProfile
         settings.EngineStartStopPulse ??= new EngineStartStopPulseSettings();
         settings.EngineStartStopPulse.StartDurationMs = Math.Clamp(settings.EngineStartStopPulse.StartDurationMs, 40, 5000);
         settings.EngineStartStopPulse.StopDurationMs = Math.Clamp(settings.EngineStartStopPulse.StopDurationMs, 40, 500);
+        if (settings.EngineStartStopPulse.StartFrequencyHz == LegacyEngineStartFrequencyHz)
+        {
+            settings.EngineStartStopPulse.StartFrequencyHz = V8EngineStartFrequencyHz;
+        }
+
+        settings.EngineStartStopPulse.StartFrequencyHz = Math.Clamp(settings.EngineStartStopPulse.StartFrequencyHz, 6, 60);
+        settings.EngineStartStopPulse.StopFrequencyHz = Math.Clamp(settings.EngineStartStopPulse.StopFrequencyHz, 6, 60);
         settings.GearShiftPulse.CooldownMs = Math.Clamp(settings.GearShiftPulse.CooldownMs, 100, 700);
         settings.EngineDrivetrainMaxPercent = Math.Clamp(settings.EngineDrivetrainMaxPercent, 0, 100);
         settings.SurfaceFeedback ??= new SurfaceFeedbackSettings();
