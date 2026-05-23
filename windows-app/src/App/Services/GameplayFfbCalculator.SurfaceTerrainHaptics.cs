@@ -327,8 +327,7 @@ public sealed partial class GameplayFfbCalculator
 
             if (fullContact &&
                 IsOffRoadSurface(features) &&
-                features.VerticalImpactImpulse >= 0.30 &&
-                sideImpulse < 0.75)
+                (features.VerticalImpactImpulse >= 0.30 || sideImpulse >= 0.30))
             {
                 return false;
             }
