@@ -234,6 +234,57 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public void Disabled_effect_checkboxes_stay_disabled_when_strength_is_nonzero()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FieldForce.Tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var configPath = Path.Combine(directory, "config.json");
+        var store = new ConfigStore(configPath);
+        store.Save(new AppConfig { TelemetryPort = GetFreeUdpPort() });
+
+        using var log = new AppLogService();
+        using var telemetry = new TelemetryReceiverService(log);
+        using var viewModel = new MainWindowViewModel(store, new FakeFfbBackend(), telemetry, log);
+
+        viewModel.SpeedSpringEnabled = false;
+        viewModel.SpeedDamperEnabled = false;
+        viewModel.MechanicalFrictionEnabled = false;
+        viewModel.EngineVibrationEnabled = false;
+        viewModel.GearShiftPulseEnabled = false;
+        viewModel.EngineStartStopPulseEnabled = false;
+        viewModel.SurfaceFeedbackEnabled = false;
+        viewModel.SlipFeedbackEnabled = false;
+        viewModel.BumpFeedbackEnabled = false;
+        viewModel.SuspensionHitFeedbackEnabled = false;
+        viewModel.LandingFeedbackEnabled = false;
+        viewModel.CollisionFeedbackEnabled = false;
+        viewModel.TerrainRumbleEnabled = false;
+        viewModel.DrivetrainPulseEnabled = false;
+
+        var saved = JsonSerializer.Deserialize<AppConfig>(File.ReadAllText(configPath), new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+
+        var profile = saved!.GameplayFfb.VehicleCategoryEffectProfiles[VehicleCategoryFfbProfile.TractorWheeled];
+        Assert.False(profile.SpeedSpring.Enabled);
+        Assert.False(profile.SpeedDamper.Enabled);
+        Assert.False(profile.MechanicalFriction.Enabled);
+        Assert.False(profile.EngineVibration.Enabled);
+        Assert.False(profile.GearShiftPulse.Enabled);
+        Assert.False(profile.EngineStartStopPulse.Enabled);
+        Assert.False(profile.SurfaceFeedback.Enabled);
+        Assert.False(profile.SlipFeedback.Enabled);
+        Assert.False(profile.BumpFeedback.Enabled);
+        Assert.False(profile.SuspensionHitFeedback.Enabled);
+        Assert.False(profile.LandingFeedback.Enabled);
+        Assert.False(profile.CollisionFeedback.Enabled);
+        Assert.False(profile.TerrainRumble.Enabled);
+        Assert.False(profile.DrivetrainPulse.Enabled);
+        Assert.True(profile.SpeedSpring.StrengthPercent > 0);
+    }
+
+    [Fact]
     public void Effect_level_seven_point_five_saves_enabled_with_75_percent()
     {
         var directory = Path.Combine(Path.GetTempPath(), "FieldForce.Tests", Guid.NewGuid().ToString("N"));

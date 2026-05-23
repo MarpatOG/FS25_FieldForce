@@ -1860,11 +1860,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private void SaveGameplaySettingsToProfile(GameplayFfbEffectProfile profile)
     {
-        ApplyLevel(profile.SpeedSpring, SpeedSpringStrengthLevel);
+        ApplyLevel(profile.SpeedSpring, SpeedSpringStrengthLevel, SpeedSpringEnabled);
         profile.SpeedSpring.Curve = SpeedSpringCurve;
-        ApplyLevel(profile.SpeedDamper, SpeedDamperStrengthLevel);
+        ApplyLevel(profile.SpeedDamper, SpeedDamperStrengthLevel, SpeedDamperEnabled);
         profile.SpeedDamper.Curve = SpeedDamperCurve;
-        ApplyLevel(profile.MechanicalFriction, MechanicalFrictionStrengthLevel);
+        ApplyLevel(profile.MechanicalFriction, MechanicalFrictionStrengthLevel, MechanicalFrictionEnabled);
         profile.MechanicalFriction.Curve = MechanicalFrictionCurve;
         ApplyLevel(profile.LoadResistance, LoadResistanceStrengthLevel, LoadResistanceEnabled);
         profile.LoadResistance.Curve = LoadResistanceCurve;
@@ -1879,34 +1879,34 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         profile.EngineVibration.LoadStrengthPercent = LevelToPercent(EngineLoadStrengthLevel);
         profile.EngineVibration.LuggingBoostPercent = Math.Clamp(EngineLuggingBoostPercent, 0, 100);
         profile.EngineVibration.StrengthPercent = Math.Clamp(Math.Max(profile.EngineVibration.IdleStrengthPercent, profile.EngineVibration.LoadStrengthPercent), 0, 100);
-        profile.EngineVibration.Enabled = profile.EngineVibration.StrengthPercent > 0;
+        profile.EngineVibration.Enabled = EngineVibrationEnabled && profile.EngineVibration.StrengthPercent > 0;
         profile.EngineVibration.MaxOutputPercent = 100;
         profile.EngineVibration.Curve = EngineVibrationCurve;
-        ApplyLevel(profile.GearShiftPulse, GearShiftPulseStrengthLevel);
+        ApplyLevel(profile.GearShiftPulse, GearShiftPulseStrengthLevel, GearShiftPulseEnabled);
         profile.GearShiftPulse.Curve = GearShiftPulseCurve;
         profile.GearShiftPulse.CooldownMs = Math.Clamp(GearShiftPulseCooldownMs, 100, 700);
-        ApplyLevel(profile.EngineStartStopPulse, EngineStartStopPulseStrengthLevel);
+        ApplyLevel(profile.EngineStartStopPulse, EngineStartStopPulseStrengthLevel, EngineStartStopPulseEnabled);
         profile.EngineStartStopPulse.Curve = EngineStartStopPulseCurve;
         profile.EngineDrivetrainMaxPercent = Math.Clamp(EngineDrivetrainMaxPercent, 0, 100);
-        ApplyLevel(profile.SurfaceFeedback, SurfaceFeedbackStrengthLevel);
+        ApplyLevel(profile.SurfaceFeedback, SurfaceFeedbackStrengthLevel, SurfaceFeedbackEnabled);
         profile.SurfaceFeedback.Curve = SurfaceFeedbackCurve;
-        ApplyLevel(profile.SlipFeedback, SlipFeedbackStrengthLevel);
+        ApplyLevel(profile.SlipFeedback, SlipFeedbackStrengthLevel, SlipFeedbackEnabled);
         profile.SlipFeedback.Curve = SlipFeedbackCurve;
         ApplyLevel(profile.WetnessFeedback, WetnessFeedbackStrengthLevel, WetnessFeedbackEnabled);
         profile.WetnessFeedback.Curve = WetnessFeedbackCurve;
         ApplyLevel(profile.MotionFeedback, MotionFeedbackStrengthLevel, MotionFeedbackEnabled);
         profile.MotionFeedback.Curve = MotionFeedbackCurve;
-        ApplyLevel(profile.BumpFeedback, BumpFeedbackStrengthLevel);
+        ApplyLevel(profile.BumpFeedback, BumpFeedbackStrengthLevel, BumpFeedbackEnabled);
         profile.BumpFeedback.Curve = BumpFeedbackCurve;
-        ApplyLevel(profile.SuspensionHitFeedback, SuspensionHitFeedbackStrengthLevel);
+        ApplyLevel(profile.SuspensionHitFeedback, SuspensionHitFeedbackStrengthLevel, SuspensionHitFeedbackEnabled);
         profile.SuspensionHitFeedback.Curve = SuspensionHitFeedbackCurve;
-        ApplyLevel(profile.LandingFeedback, LandingFeedbackStrengthLevel);
+        ApplyLevel(profile.LandingFeedback, LandingFeedbackStrengthLevel, LandingFeedbackEnabled);
         profile.LandingFeedback.Curve = LandingFeedbackCurve;
-        ApplyLevel(profile.CollisionFeedback, CollisionFeedbackStrengthLevel);
+        ApplyLevel(profile.CollisionFeedback, CollisionFeedbackStrengthLevel, CollisionFeedbackEnabled);
         profile.CollisionFeedback.Curve = CollisionFeedbackCurve;
-        ApplyLevel(profile.TerrainRumble, TerrainRumbleStrengthLevel);
+        ApplyLevel(profile.TerrainRumble, TerrainRumbleStrengthLevel, TerrainRumbleEnabled);
         profile.TerrainRumble.Curve = TerrainRumbleCurve;
-        ApplyLevel(profile.DrivetrainPulse, DrivetrainPulseStrengthLevel);
+        ApplyLevel(profile.DrivetrainPulse, DrivetrainPulseStrengthLevel, DrivetrainPulseEnabled);
         profile.DrivetrainPulse.Curve = DrivetrainPulseCurve;
     }
 
