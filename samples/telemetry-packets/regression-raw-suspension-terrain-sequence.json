@@ -1,0 +1,58 @@
+[
+  {
+    "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.7.0" },
+    "frame": { "sequence": 1, "dtMs": 100, "telemetryRateHz": 10, "timestampMs": 1000, "isDuplicate": false, "isInterpolated": false },
+    "game": { "state": "mission" },
+    "player": { "isInVehicle": true, "isDriver": true, "isPassenger": false },
+    "vehicle": { "name": "Raw Regression Tractor", "type": "tractor", "category": "TractorWheeled", "massT": 6.2, "totalMassT": 8.8, "aiWorkerActive": false },
+    "controls": { "throttle": 0.2, "brake": 0, "clutch": 0 },
+    "motion": {
+      "speedMps": 5.56,
+      "speedKmh": 20,
+      "worldPositionM": { "x": 0, "y": 73, "z": 0 },
+      "rotationRad": { "x": 0, "y": 0, "z": 0 },
+      "pitchDeg": 0,
+      "rollDeg": 0,
+      "yawRateRadPerSec": 0
+    },
+    "steering": { "angle": 0, "rate": 0 },
+    "engine": { "isRunning": true, "started": true, "rpm": 900 },
+    "transmission": { "gear": 2 },
+    "wheels": [
+      { "index": 0, "side": "left", "isSteering": true, "hasContact": true, "hasGroundContact": true, "rawSuspensionLength": 0.50, "suspTravel": 0.18, "suspensionLoad": 16000, "tireLoad": 16000, "contactForce": 16000, "slip": 0.04, "surfaceType": "field", "surfaceAttribute": 1, "groundDepth": 0.04, "isOnField": true, "wheelType": "wheel", "tireProfile": "agricultural", "axleRole": "front", "wheelRole": "steered" },
+      { "index": 1, "side": "right", "isSteering": true, "hasContact": true, "hasGroundContact": true, "rawSuspensionLength": 0.42, "suspTravel": 0.18, "suspensionLoad": 9000, "tireLoad": 9000, "contactForce": 9000, "slip": 0.04, "surfaceType": "field", "surfaceAttribute": 1, "groundDepth": 0.04, "isOnField": true, "wheelType": "wheel", "tireProfile": "agricultural", "axleRole": "front", "wheelRole": "steered" }
+    ],
+    "surface": { "isOnField": true, "type": "field", "attribute": 1 },
+    "environment": { "groundWetness": 0.2, "rainScale": 0 },
+    "attachments": [],
+    "diagnostics": { "payloadBytes": null, "buildTimeMs": null, "warnings": [] }
+  },
+  {
+    "protocol": { "name": "FIELDFORCE_TELEMETRY", "version": "1.7.0" },
+    "frame": { "sequence": 2, "dtMs": 100, "telemetryRateHz": 10, "timestampMs": 1100, "isDuplicate": false, "isInterpolated": false },
+    "game": { "state": "mission" },
+    "player": { "isInVehicle": true, "isDriver": true, "isPassenger": false },
+    "vehicle": { "name": "Raw Regression Tractor", "type": "tractor", "category": "TractorWheeled", "massT": 6.2, "totalMassT": 8.8, "aiWorkerActive": false },
+    "controls": { "throttle": 0.2, "brake": 0, "clutch": 0 },
+    "motion": {
+      "speedMps": 5.56,
+      "speedKmh": 20,
+      "worldPositionM": { "x": 0.6, "y": 73.1, "z": 0 },
+      "rotationRad": { "x": 0, "y": 0, "z": 0 },
+      "pitchDeg": 0,
+      "rollDeg": 0,
+      "yawRateRadPerSec": 0
+    },
+    "steering": { "angle": 0, "rate": 0 },
+    "engine": { "isRunning": true, "started": true, "rpm": 900 },
+    "transmission": { "gear": 2 },
+    "wheels": [
+      { "index": 0, "side": "left", "isSteering": true, "hasContact": true, "hasGroundContact": true, "rawSuspensionLength": 0.40, "suspTravel": 0.18, "suspensionLoad": 16000, "tireLoad": 16000, "contactForce": 16000, "slip": 0.04, "surfaceType": "field", "surfaceAttribute": 1, "groundDepth": 0.04, "isOnField": true, "wheelType": "wheel", "tireProfile": "agricultural", "axleRole": "front", "wheelRole": "steered" },
+      { "index": 1, "side": "right", "isSteering": true, "hasContact": true, "hasGroundContact": true, "rawSuspensionLength": 0.42, "suspTravel": 0.18, "suspensionLoad": 9000, "tireLoad": 9000, "contactForce": 9000, "slip": 0.04, "surfaceType": "field", "surfaceAttribute": 1, "groundDepth": 0.04, "isOnField": true, "wheelType": "wheel", "tireProfile": "agricultural", "axleRole": "front", "wheelRole": "steered" }
+    ],
+    "surface": { "isOnField": true, "type": "field", "attribute": 1 },
+    "environment": { "groundWetness": 0.2, "rainScale": 0 },
+    "attachments": [],
+    "diagnostics": { "payloadBytes": null, "buildTimeMs": null, "warnings": [] }
+  }
+]

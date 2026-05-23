@@ -57,6 +57,8 @@ public sealed partial class GameplayFfbCalculator
 
     private DateTimeOffset? _lastCalculateAt;
 
+    private readonly RawTelemetryImpactDeriver _impactDeriver = new();
+
     public GameplayFfbOutput Calculate(TelemetryReceiverState state, GameplayFfbSettings settings)
     {
         return Calculate(state, settings, WheelProfileCatalog.ResolveById(settings.WheelProfileId).Haptics);
@@ -70,6 +72,7 @@ public sealed partial class GameplayFfbCalculator
             ResetEngineEventState();
             _lastSteeringModel = null;
             _lastCalculateAt = null;
+            _impactDeriver.Reset();
             return GameplayFfbOutput.Zero;
         }
 
@@ -81,18 +84,21 @@ public sealed partial class GameplayFfbCalculator
             ResetEngineEventState();
             _lastSteeringModel = null;
             _lastCalculateAt = null;
+            _impactDeriver.Reset();
             return GameplayFfbOutput.Zero;
         }
 
         var activeCategory = NormalizeVehicleCategory(packet.VehicleCategory);
         var profile = ResolveVehicleCategoryProfile(settings, activeCategory);
+        var deltaTime = CalculateContextDeltaTime(packet);
         var context = new FfbFrameContext(
-            CalculateContextDeltaTime(packet),
+            deltaTime,
             state.LastPacketAge,
             fade,
             activeCategory,
             deviceProfile);
-        var features = TelemetryFeatureExtractor.Extract(packet, profile, settings.TireSurfaceTuning);
+        var derivedImpact = _impactDeriver.Derive(packet, deltaTime);
+        var features = TelemetryFeatureExtractor.Extract(packet, profile, settings.TireSurfaceTuning, derivedImpact);
 
         var loadResistance = LoadResistanceLayer.Calculate(features, profile, context);
         var motionFeedback = MotionFeedbackLayer.Calculate(features, profile, context);
@@ -356,8 +362,8 @@ public sealed partial class GameplayFfbCalculator
         var wallClockMs = _lastCalculateAt is null ? 0 : (now - _lastCalculateAt.Value).TotalMilliseconds;
         _lastCalculateAt = now;
 
-        var frameDtMs = IsValidFinite(packet.Frame?.DtMs) ? packet.Frame!.DtMs!.Value : 1000.0 / 125.0;
-        var deltaMs = Math.Max(frameDtMs, wallClockMs);
+        var frameDtMs = IsValidFinite(packet.Frame?.DtMs) ? packet.Frame!.DtMs!.Value : double.NaN;
+        var deltaMs = IsValidFinite(frameDtMs) ? frameDtMs : wallClockMs > 0 ? wallClockMs : 1000.0 / 125.0;
         return TimeSpan.FromMilliseconds(Math.Clamp(deltaMs, 1, 1000));
     }
 }

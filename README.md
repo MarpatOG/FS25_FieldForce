@@ -5,7 +5,7 @@ FieldForce adds telemetry-driven force feedback for Farming Simulator 25. It has
 - **FieldForce Telemetry**: an FS25 Lua mod that reads the active vehicle state and writes telemetry JSON.
 - **FieldForce App**: a Windows desktop app that receives that telemetry and drives DirectInput force feedback effects.
 
-The mod does not change vehicle physics or steering. The Windows app calculates wheel forces from telemetry such as speed, steering, RPM, surface, slip, load, suspension impacts, collisions, terrain, and drivetrain events.
+The mod does not change vehicle physics or steering. The Windows app calculates wheel forces from raw telemetry such as speed, steering, RPM, surface, slip, suspension length/load, wheel contact, vehicle motion, mass, and drivetrain events.
 
 ## Requirements
 

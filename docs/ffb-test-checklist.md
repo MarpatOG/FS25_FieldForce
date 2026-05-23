@@ -68,7 +68,7 @@ Use this checklist with the wheel firmly mounted and your hands clear before sta
 
 - Overlay appears as a compact mod container.
 - Telemetry fields are displayed vertically as label/value rows.
-- The overlay includes the base vehicle fields plus surface, wetness/rain, wheel slip, attitude, local acceleration, and bump/impact impulse telemetry.
+- The overlay includes the base vehicle fields plus surface, wetness/rain, wheel slip, attitude, and raw world position telemetry.
 - If the panel background is unavailable in the game render API, the text list still renders and FS25 does not crash.
 
 ## Safety Checks

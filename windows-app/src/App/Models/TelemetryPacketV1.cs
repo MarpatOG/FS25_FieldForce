@@ -6,7 +6,8 @@ public sealed class TelemetryPacketV1
 {
     public const string ExpectedProtocolName = "FIELDFORCE_TELEMETRY";
     public const string LegacyProtocolName = "FS25_REAL_FFB_TELEMETRY";
-    public const string ExpectedProtocolVersion = "1.6.0";
+    public const string ExpectedProtocolVersion = "1.7.0";
+    public const string LegacyProtocolVersionV1_6 = "1.6.0";
     public const string LegacyProtocolVersionV1_5 = "1.5.0";
     public const string LegacyProtocolVersionV1_4 = "1.4.0";
     public const string LegacyProtocolVersion = "1.3.0";
@@ -80,6 +81,7 @@ public sealed class TelemetryPacketV1
         (string.Equals(Protocol?.Name, ExpectedProtocolName, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Name, LegacyProtocolName, StringComparison.Ordinal)) &&
         (string.Equals(Protocol?.Version, ExpectedProtocolVersion, StringComparison.Ordinal) ||
+         string.Equals(Protocol?.Version, LegacyProtocolVersionV1_6, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersionV1_5, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersionV1_4, StringComparison.Ordinal) ||
          string.Equals(Protocol?.Version, LegacyProtocolVersion, StringComparison.Ordinal) ||
@@ -298,6 +300,9 @@ public sealed class TelemetryPacketV1
     public double? LocalAccelerationZ => Motion?.LocalAccelerationMps2?.Z;
 
     [JsonIgnore]
+    public bool IsCurrentRawOnlyProtocol => string.Equals(Protocol?.Version, ExpectedProtocolVersion, StringComparison.Ordinal);
+
+    [JsonIgnore]
     public double? SuspensionImpulse => Suspension?.Impulse;
 
     [JsonIgnore]
@@ -413,6 +418,11 @@ public sealed class TelemetryPacketV1
         if (!IsProtocolValid)
         {
             throw new InvalidDataException($"Unsupported telemetry protocol '{Protocol?.Name ?? "<null>"}' version '{Protocol?.Version ?? "<null>"}'.");
+        }
+
+        if (IsCurrentRawOnlyProtocol && (Suspension is not null || Impact is not null || Collisions is not null))
+        {
+            throw new InvalidDataException($"Unsupported telemetry derived top-level blocks for protocol {ExpectedProtocolVersion}.");
         }
 
         if (Vehicle is null)
@@ -553,6 +563,12 @@ public sealed class TelemetryMotionV1
 
     [JsonPropertyName("speedKmh")]
     public double? SpeedKmh { get; set; }
+
+    [JsonPropertyName("worldPositionM")]
+    public TelemetryVector3V1? WorldPositionM { get; set; }
+
+    [JsonPropertyName("rotationRad")]
+    public TelemetryVector3V1? RotationRad { get; set; }
 
     [JsonPropertyName("pitchDeg")]
     public double? PitchDeg { get; set; }

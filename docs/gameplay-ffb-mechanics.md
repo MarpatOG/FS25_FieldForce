@@ -11,14 +11,14 @@ Entry points:
 
 ## Telemetry Input
 
-The Lua mod sends nested `FIELDFORCE_TELEMETRY` v1.5 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.4.0`, `1.3.0`, and `1.2.0` packets.
+The Lua mod sends nested `FIELDFORCE_TELEMETRY` v1.7 packets. The wire contract contains raw or normalized telemetry only; FFB-specific features are derived in Windows. The receiver still accepts legacy `1.6.0`, `1.5.0`, `1.4.0`, `1.3.0`, and `1.2.0` packets.
 
 Core blocks:
 
 ```text
 protocol, frame, game, player
 vehicle, controls, motion, steering, engine, transmission
-wheels, suspension, surface, environment, attachments, collisions
+wheels, surface, environment, attachments
 diagnostics
 ```
 
@@ -26,14 +26,14 @@ Important source details:
 
 - `motion.speedKmh` is primarily the stable FS25 vehicle speed from `vehicle:getLastSpeed()` / `vehicle.lastSpeedReal`. Root-node horizontal world-position delta is kept as a fallback/diagnostic source and is ignored for acceleration/impact on spike frames.
 - `motion.speedMps` is the same stable speed in meters per second.
-- `motion.localAccelerationMps2` is vehicle-local acceleration.
+- `motion.worldPositionM` and `motion.rotationRad` are raw vehicle root motion sources. Windows keeps frame history and derives local acceleration from them.
 - `motion.yawRateRadPerSec` is radians per second.
 - `motion.slopeDeg` is legacy-only. Current Lua writes `null`; Windows derives slope from `motion.pitchDeg`.
 - `vehicle.massT` and `vehicle.totalMassT` are metric tonnes.
 - `attachments[]` contains recursively attached implements with `name`, `massT`, `totalMassT`, `lateralOffsetM`, and `depth`.
 - `vehicle.isArticulated` marks articulated-frame vehicles whose frame/pivot motion should not be treated as a left/right suspension hit.
-- `wheels[]` carries per-wheel slip, steering flag, side, contact, suspension impulse, wheel type, tire type/profile, and raw surface/ground context.
-- `suspension.verticalImpactImpulse`, `suspension.landingImpulse`, and `collisions.collisionImpulse` remain telemetry inputs; they are not effect percentages.
+- `wheels[]` carries per-wheel slip, steering flag, side, contact, suspension length/load, wheel type, tire type/profile, and raw surface/ground context.
+- `suspension`, `impact`, and `collisions` are legacy blocks and are rejected in current `1.7.0` packets.
 - `engine.state` reports `off`, `ignition`, `starting`, `running`, or `unknown`; `engine.isStarting` is true during `MotorState.STARTING`.
 - `engine.startDurationMs` and `engine.startRemainingMs` describe the FS25 starter/cranking interval when available.
 - `events.engineStartSeq` increments when starter cranking begins (`OFF/IGNITION -> STARTING`). `events.engineStopSeq` keeps the existing stop semantics.
@@ -61,12 +61,12 @@ rollRatio = abs(motion.rollDeg) normalized by SideSlopeBias min/full roll thresh
 rollDirection = -sign(motion.rollDeg), so steering bias points downhill on side slopes
 attachedMassRatio = sum(attachments[].massT) / vehicle.massT
 implementLateralOffsetRatio = mass-weighted attachments[].lateralOffsetM normalized by ImplementBias.FullLateralOffsetM
-accelerationRatio = magnitude(motion.localAccelerationMps2) normalized by MotionFeedback.FullAcceleration
-suspensionImpulse = maxValid(abs(suspension.impulse), abs(suspension.verticalImpactImpulse)), clamped 0..2
-verticalImpactImpulse = maxValid(abs(suspension.verticalImpactImpulse), abs(suspension.impulse)), clamped 0..2
-landingImpulse = normalized separately with small impulse noise rejected
-collisionImpulse = normalized separately with small impulse noise rejected
-longitudinalJerkImpulse = clamp(abs(collisions.longitudinalJerkImpulse ?? local horizontal acceleration fallback), 0, 2)
+localAcceleration = derivative of motion.worldPositionM transformed by motion.rotationRad
+suspensionImpulse = max raw wheel suspension velocity/load response, clamped 0..2
+verticalImpactImpulse = max(abs(localAcceleration.Y) / 9.81 - 0.22, 0), clamped 0..2
+landingImpulse = previous contactRatio < 0.20, current contactRatio > 0.60, verticalImpactImpulse >= 0.35
+collisionImpulse = horizontal local acceleration gated by speed, surface class, vertical separation, and off-road wheel/contact confirmation
+longitudinalJerkImpulse = horizontal local acceleration magnitude, clamped 0..2
 isArticulatedVehicle = vehicle.isArticulated == true
 ```
 
@@ -110,7 +110,7 @@ maxCapped(effect) = clamp(effect.StrengthPercent, 0, 100)
 - Implement bias uses attached mass and mass-weighted lateral offset. Centered implements add load only; lateral implements also produce signed `CenterOffsetPercent`.
 - Engine vibration, surface feedback, slip feedback, and suspension terrain rumble produce continuous haptics.
 - `SurfaceVibrationPercent` is high-frequency texture from surface class, speed, tire/surface multiplier, wetness, and telemetry fade. It works on all surfaces above the minimum speed: asphalt is intentionally weak, `unknownMixed` is intermediate, and off-road surfaces are stronger through the surface/tire matrix. Default frequency range is `22..42 Hz`.
-- `TerrainRumblePercent` is low-frequency suspension/impact rumble from `suspension.impulse`, `suspension.verticalImpactImpulse`, and wheel suspension impulses. Surface class, tire/surface multiplier, and load scale only scale that impulse-driven rumble; they never create rumble from surface type alone. Default frequency range is `6..12 Hz`.
+- `TerrainRumblePercent` is low-frequency suspension/load rumble from Windows-derived suspension and vertical-impact features. Surface class, tire/surface multiplier, and load scale only scale that impulse-driven rumble; they never create rumble from surface type alone. Default frequency range is `6..12 Hz`.
 - Tire/surface tuning is stored per wheel effects profile in `GameplayFfbSettings.TireSurfaceTuning`. `SurfaceAliases` maps raw map/mod surface names to normalized surfaces. `Matrix[tireProfile][surfaceType]` is clamped to `0..200%`, defaults to `100%`, and uses `50%` for unknown tire/surface fallback.
 - The tire/surface matrix scales only continuous `SurfaceVibrationPercent` and `TerrainRumblePercent`. Collision, landing, suspension-hit, bump, drivetrain, gear, and engine start/stop pulses are not scaled by this matrix.
 - Default matrix uses a UI scale from `1..10`, stored internally as `20..200%` in 20% steps. Lower values mean the tire/surface pair is expected to absorb more detail; higher values mean it should transmit more vibration. Examples: street tires on asphalt `2`, street tires on field/plowed field `8..9`, agricultural/mud/off-road tires on field `2..3`, agricultural/mud/off-road tires on asphalt `6..7`, tracked vehicles on field/plowed field `2`, unknown surfaces/tires `4..5`.

@@ -189,7 +189,7 @@ public sealed partial class GameplayFfbCalculator
         if (rpm <= 0)
         {
             _rpmStartZeroMs += Math.Max(1, context.DeltaTime.TotalMilliseconds);
-            if (_rpmStartZeroMs >= EngineStartRpmZeroThresholdMs)
+            if (_rpmStartZeroMs > EngineStartRpmZeroThresholdMs)
             {
                 _rpmStartArmed = true;
             }

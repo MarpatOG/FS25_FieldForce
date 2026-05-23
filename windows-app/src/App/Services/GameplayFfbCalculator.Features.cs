@@ -138,7 +138,7 @@ public sealed partial class GameplayFfbCalculator
 
     public static class TelemetryFeatureExtractor
     {
-        public static TelemetryFeatures Extract(TelemetryPacketV1 packet, GameplayFfbEffectProfile profile, TireSurfaceTuningSettings? tuning = null)
+        public static TelemetryFeatures Extract(TelemetryPacketV1 packet, GameplayFfbEffectProfile profile, TireSurfaceTuningSettings? tuning = null, DerivedImpactFeatures? derivedImpact = null)
         {
             tuning = TireSurfaceTuningSettings.CreateNormalized(tuning);
             var rawSpeed = Math.Max(0, packet.SpeedKmh ?? 0);
@@ -152,19 +152,29 @@ public sealed partial class GameplayFfbCalculator
             var loadFactor = CalculateLoadFactor(packet.MassKg, packet.TotalMassKg);
             var steeringContact = FirstValid(packet.SteeringGroundContactRatio, packet.GroundContactRatio);
             var contactConfidence = IsValidFinite(packet.SteeringGroundContactRatio) ? 1.0 : IsValidFinite(packet.GroundContactRatio) ? 0.55 : 0.0;
-            var calculatedBottomOut = CalculateBottomOutImpulseFromWheels(packet);
-            var bottomOut = MaxValidImpulse(packet.BottomOutImpulse, calculatedBottomOut.Total);
-            var leftBottomOut = MaxValidImpulse(packet.LeftBottomOutImpulse, calculatedBottomOut.Left);
-            var rightBottomOut = MaxValidImpulse(packet.RightBottomOutImpulse, calculatedBottomOut.Right);
-            var suspensionHit = MaxValidImpulse(packet.SuspensionHitImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse);
-            var velocityRumble = CalculateSuspensionVelocityRumble(packet);
+            var calculatedBottomOut = derivedImpact is null
+                ? CalculateBottomOutImpulseFromWheels(packet)
+                : (Total: derivedImpact.BottomOutImpulse, Left: derivedImpact.LeftBottomOutImpulse, Right: derivedImpact.RightBottomOutImpulse);
+            var bottomOut = derivedImpact is null ? MaxValidImpulse(packet.BottomOutImpulse, calculatedBottomOut.Total) : NormalizeImpulse(calculatedBottomOut.Total);
+            var leftBottomOut = derivedImpact is null ? MaxValidImpulse(packet.LeftBottomOutImpulse, calculatedBottomOut.Left) : NormalizeImpulse(calculatedBottomOut.Left);
+            var rightBottomOut = derivedImpact is null ? MaxValidImpulse(packet.RightBottomOutImpulse, calculatedBottomOut.Right) : NormalizeImpulse(calculatedBottomOut.Right);
+            var leftSuspensionImpulse = derivedImpact?.LeftSuspensionImpulse ?? NormalizeImpulse(packet.LeftSuspensionImpulse);
+            var rightSuspensionImpulse = derivedImpact?.RightSuspensionImpulse ?? NormalizeImpulse(packet.RightSuspensionImpulse);
+            var suspensionHit = derivedImpact is null
+                ? MaxValidImpulse(packet.SuspensionHitImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse)
+                : Math.Max(leftSuspensionImpulse, rightSuspensionImpulse);
+            var velocityRumble = derivedImpact is null ? CalculateSuspensionVelocityRumble(packet) : 0;
             var loadRumble = CalculateSuspensionLoadRumble(packet);
-            var suspension = Math.Max(MaxValidImpulse(packet.SuspensionImpulse, suspensionHit, packet.VerticalImpactImpulse), Math.Max(velocityRumble, loadRumble));
-            var suspensionConfidence = Math.Max(packet.SuspensionConfidence, CountValidImpulses(packet.SuspensionImpulse, packet.SuspensionHitImpulse, packet.VerticalImpactImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse) > 0 || velocityRumble > 0 || loadRumble > 0 ? 1.0 : 0.0);
-            var verticalImpact = MaxValidImpulse(packet.VerticalImpactImpulse, packet.BumpImpulse, packet.SuspensionImpulse);
-            var landing = NormalizeImpulse(packet.LandingImpulse);
-            var collision = NormalizeImpulse(packet.CollisionImpulse);
-            var longitudinalJerk = packet.LongitudinalJerkImpulse ??
+            var suspension = derivedImpact is null
+                ? Math.Max(MaxValidImpulse(packet.SuspensionImpulse, suspensionHit, packet.VerticalImpactImpulse), Math.Max(velocityRumble, loadRumble))
+                : Math.Max(derivedImpact.SuspensionImpulse, loadRumble);
+            var suspensionConfidence = derivedImpact?.SuspensionConfidence ??
+                Math.Max(packet.SuspensionConfidence, CountValidImpulses(packet.SuspensionImpulse, packet.SuspensionHitImpulse, packet.VerticalImpactImpulse, packet.LeftSuspensionImpulse, packet.RightSuspensionImpulse) > 0 || velocityRumble > 0 || loadRumble > 0 ? 1.0 : 0.0);
+            var verticalImpact = derivedImpact?.VerticalImpactImpulse ?? MaxValidImpulse(packet.VerticalImpactImpulse, packet.BumpImpulse, packet.SuspensionImpulse);
+            var landing = derivedImpact?.LandingImpulse ?? NormalizeImpulse(packet.LandingImpulse);
+            var collision = derivedImpact?.CollisionImpulse ?? NormalizeImpulse(packet.CollisionImpulse);
+            var longitudinalJerk = derivedImpact?.HorizontalImpulse ??
+                                    packet.LongitudinalJerkImpulse ??
                                     Math.Clamp(Math.Abs(packet.LocalAccelerationZ ?? packet.LocalAccelerationX ?? 0) / 9.81, 0, 2);
             var slip = Math.Max(packet.SteeringWheelSlip ?? 0, packet.MaxWheelSlip ?? packet.WheelSlip ?? 0);
             var minRpm = Math.Max(0, profile.EngineVibration.MinRpm);
@@ -190,7 +200,9 @@ public sealed partial class GameplayFfbCalculator
                 ? 0
                 : Math.Clamp((rollAbs - profile.SideSlopeBias.MinRollDeg) / Math.Max(0.1, profile.SideSlopeBias.FullRollDeg - profile.SideSlopeBias.MinRollDeg), 0, 1);
             var downhillRollDirection = -Math.Sign(rollDeg);
-            var accelerationRatio = NormalizeVector(packet.LocalAccelerationX, packet.LocalAccelerationY, packet.LocalAccelerationZ, profile.MotionFeedback.FullAcceleration);
+            var accelerationRatio = derivedImpact is null
+                ? NormalizeVector(packet.LocalAccelerationX, packet.LocalAccelerationY, packet.LocalAccelerationZ, profile.MotionFeedback.FullAcceleration)
+                : NormalizeVector(derivedImpact.LocalAccelerationX, derivedImpact.LocalAccelerationY, derivedImpact.LocalAccelerationZ, profile.MotionFeedback.FullAcceleration);
             var ownMassT = IsValidFinite(packet.MassT) && packet.MassT > 0 ? packet.MassT!.Value : 0;
             var attachedMassT = packet.Attachments
                 .Where(a => IsValidFinite(a.MassT))
@@ -223,8 +235,8 @@ public sealed partial class GameplayFfbCalculator
                 landing,
                 collision,
                 Math.Clamp(Math.Abs(longitudinalJerk), 0, 2),
-                NormalizeImpulse(packet.LeftSuspensionImpulse),
-                NormalizeImpulse(packet.RightSuspensionImpulse),
+                leftSuspensionImpulse,
+                rightSuspensionImpulse,
                 packet.IsArticulated == true,
                 rpmRatio,
                 packet.TransmissionThrottle01 is not null || packet.TransmissionBrake01 is not null || packet.TransmissionClutch01 is not null || packet.Gear is not null ? 1.0 : 0.0,
@@ -248,7 +260,7 @@ public sealed partial class GameplayFfbCalculator
                 packet.RoadSlopeConfidence,
                 packet.MaxSuspensionVelocity ?? 0,
                 packet.MaxTireLoad ?? 0,
-                packet.CompressionRatioAvailable);
+                packet.CompressionRatioAvailable || bottomOut > 0);
         }
 
         private static (double Total, double Left, double Right) CalculateBottomOutImpulseFromWheels(TelemetryPacketV1 packet)

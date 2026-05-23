@@ -45,6 +45,22 @@ public sealed record EventPulse(
     double Direction,
     double Confidence);
 
+public sealed record DerivedImpactFeatures(
+    double LocalAccelerationX,
+    double LocalAccelerationY,
+    double LocalAccelerationZ,
+    double VerticalImpactImpulse,
+    double HorizontalImpulse,
+    double CollisionImpulse,
+    double LandingImpulse,
+    double SuspensionImpulse,
+    double LeftSuspensionImpulse,
+    double RightSuspensionImpulse,
+    double BottomOutImpulse,
+    double LeftBottomOutImpulse,
+    double RightBottomOutImpulse,
+    double SuspensionConfidence);
+
 public enum FfbPulseKind
 {
     None,

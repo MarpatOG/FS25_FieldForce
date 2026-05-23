@@ -33,13 +33,17 @@ public sealed class TelemetryReceiverService : IDisposable
         "transmission",
         "events",
         "wheels",
-        "suspension",
-        "impact",
         "surface",
         "environment",
         "attachments",
-        "collisions",
         "diagnostics"
+    };
+
+    private static readonly HashSet<string> LegacyTopLevelKeys = new(StringComparer.Ordinal)
+    {
+        "suspension",
+        "impact",
+        "collisions"
     };
 
     private readonly AppLogService _log;
@@ -354,9 +358,26 @@ public sealed class TelemetryReceiverService : IDisposable
 
         foreach (var property in document.RootElement.EnumerateObject())
         {
-            if (!AllowedTopLevelKeys.Contains(property.Name))
+            if (!AllowedTopLevelKeys.Contains(property.Name) && !LegacyTopLevelKeys.Contains(property.Name))
             {
                 throw new InvalidDataException($"Unsupported telemetry top-level field '{property.Name}'.");
+            }
+        }
+
+        var version = document.RootElement.TryGetProperty("protocol", out var protocol) &&
+            protocol.ValueKind == JsonValueKind.Object &&
+            protocol.TryGetProperty("version", out var versionElement)
+                ? versionElement.GetString()
+                : null;
+
+        if (string.Equals(version, TelemetryPacketV1.ExpectedProtocolVersion, StringComparison.Ordinal))
+        {
+            foreach (var legacyKey in LegacyTopLevelKeys)
+            {
+                if (document.RootElement.TryGetProperty(legacyKey, out var value) && value.ValueKind != JsonValueKind.Null)
+                {
+                    throw new InvalidDataException($"Unsupported telemetry top-level field '{legacyKey}' for protocol {TelemetryPacketV1.ExpectedProtocolVersion}.");
+                }
             }
         }
     }

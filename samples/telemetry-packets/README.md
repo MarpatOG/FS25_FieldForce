@@ -16,3 +16,4 @@ Calibration packets:
 Regression packets:
 
 - `regression-position-speed-spike-filtered.json`: stable FS25 speed after a simulated position-derived speed spike; acceleration and collision impulses stay suppressed for the noisy frame.
+- `regression-raw-suspension-terrain-sequence.json`: v1.7 raw-only multi-frame sequence with `motion.worldPositionM`, `motion.rotationRad`, contact, load, and raw suspension lengths for Windows-side terrain derivation.

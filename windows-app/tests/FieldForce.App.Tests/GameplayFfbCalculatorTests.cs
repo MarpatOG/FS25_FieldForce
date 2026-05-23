@@ -1584,6 +1584,58 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Raw_field_horizontal_acceleration_without_confirmation_does_not_emit_collision()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        _ = calculator.Calculate(State(RawPacket(0, 0, 0, 0, surfaceType: "field", isOnField: true)), settings);
+        _ = calculator.Calculate(State(RawPacket(1, 1, 0, 0, surfaceType: "field", isOnField: true)), settings);
+        var output = calculator.Calculate(State(RawPacket(2, 3.2, 0, 0, surfaceType: "field", isOnField: true)), settings);
+
+        Assert.NotEqual(FfbPulseKind.Collision, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Raw_hard_object_hit_on_asphalt_emits_collision()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        _ = calculator.Calculate(State(RawPacket(0, 0, 0, 0, surfaceType: "asphalt")), settings);
+        _ = calculator.Calculate(State(RawPacket(1, 1, 0, 0, surfaceType: "asphalt")), settings);
+        var output = calculator.Calculate(State(RawPacket(2, 3.2, 0, 0, surfaceType: "asphalt", groundContactRatio: 0.5)), settings);
+
+        Assert.Equal(FfbPulseKind.Collision, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Raw_contact_restore_after_airborne_vertical_impact_emits_landing()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        _ = calculator.Calculate(State(RawPacket(0, 0, 0, 0, groundContactRatio: 0)), settings);
+        _ = calculator.Calculate(State(RawPacket(1, 0, 1, 0, groundContactRatio: 0)), settings);
+        var output = calculator.Calculate(State(RawPacket(2, 0, 3.2, 0, groundContactRatio: 1)), settings);
+
+        Assert.Equal(FfbPulseKind.Landing, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Raw_bottom_out_comes_from_observed_travel_velocity_and_load()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        _ = calculator.Calculate(State(RawPacket(0, 0, 0, 0, leftFrontLength: 0.50, tireLoad: 16000)), settings);
+        _ = calculator.Calculate(State(RawPacket(1, 0.1, 0, 0, leftFrontLength: 0.42, tireLoad: 16000)), settings);
+        var output = calculator.Calculate(State(RawPacket(2, 0.2, 0, 0, leftFrontLength: 0.32, tireLoad: 16000)), settings);
+
+        Assert.Equal(FfbPulseKind.LeftBottomOut, output.EventPulseKind);
+    }
+
+    [Fact]
     public void Terrain_rumble_frequency_stays_below_surface_when_both_are_active()
     {
         var output = _calculator.Calculate(
@@ -1906,6 +1958,40 @@ public sealed class GameplayFfbCalculatorTests
             Collisions = null,
             Diagnostics = new TelemetryDiagnosticsV1()
         };
+    }
+
+    private static TelemetryPacketV1 RawPacket(
+        long sequence,
+        double x,
+        double y,
+        double z,
+        bool isOnField = false,
+        string? surfaceType = null,
+        double? groundContactRatio = 1,
+        double leftFrontLength = 0.42,
+        double tireLoad = 12000)
+    {
+        var packet = Packet(speedKmh: 20, isOnField: isOnField, surfaceType: surfaceType, groundContactRatio: groundContactRatio, frameDtMs: 100);
+        packet.Suspension = null;
+        packet.Impact = null;
+        packet.Collisions = null;
+        packet.Frame!.Sequence = sequence;
+        packet.Frame.TimestampMs = sequence * 1000;
+        packet.Motion!.WorldPositionM = new TelemetryVector3V1 { X = x, Y = y, Z = z };
+        packet.Motion.RotationRad = new TelemetryVector3V1 { X = 0, Y = 0, Z = 0 };
+        packet.Motion.LocalAccelerationMps2 = null;
+        for (var index = 0; index < packet.Wheels.Count; index++)
+        {
+            packet.Wheels[index].RawSuspensionLength = index == 0 ? leftFrontLength : 0.42;
+            packet.Wheels[index].SuspensionLoad = tireLoad;
+            packet.Wheels[index].TireLoad = tireLoad;
+            packet.Wheels[index].ContactForce = tireLoad;
+            packet.Wheels[index].SurfaceType = surfaceType;
+            packet.Wheels[index].IsOnField = isOnField;
+            packet.Wheels[index].HasContact = packet.Wheels[index].HasGroundContact;
+        }
+
+        return packet;
     }
 
     private static List<TelemetryWheelV1> CreateWheels(double? slip, double? contactRatio, double? steeringContactRatio, string tireProfile)

@@ -595,6 +595,25 @@ public sealed class TelemetryReceiverServiceTests
     }
 
     [Fact]
+    public async Task Rejects_v1_7_packets_with_derived_top_level_blocks()
+    {
+        using var log = new AppLogService();
+        using var receiver = new TelemetryReceiverService(log);
+        var port = GetFreeUdpPort();
+        var filePath = GetTempTelemetryPath();
+        var packet = ValidPacket.Replace("\"1.2.0\"", "\"1.7.0\"", StringComparison.Ordinal);
+
+        receiver.Start("127.0.0.1", port, 1000, filePath, includeDefaultFilePath: false, transportMode: "udp");
+        var stateTask = WaitForStateAsync(receiver, state => state.LastParseError is not null);
+
+        await SendUdpAsync(port, packet);
+
+        var state = await stateTask;
+        Assert.Null(state.LastPacket);
+        Assert.Contains("Unsupported telemetry top-level field 'suspension' for protocol 1.7.0", state.LastParseError, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Keeps_last_valid_packet_after_invalid_json()
     {
         using var log = new AppLogService();

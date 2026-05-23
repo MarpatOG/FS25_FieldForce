@@ -36,10 +36,7 @@ function FieldForceTelemetry.new()
     self.uiControls = {}
     self.fileWarningLogged = false
     self.transportWarningLogged = false
-    self.motionAccelerationSmoothingSec = 0.08
-    self.motionVerticalImpactDeadbandG = 0.22
     self.lastVehicleMotion = {}
-    self.lastImpactState = {}
     self.lastSteeringSample = nil
     self.engineEventState = nil
     self.frameSequence = 0
@@ -271,7 +268,6 @@ function FieldForceTelemetry:collectTelemetry()
     self.lastMotionDeltaSpeedKmh = inVehicle and motion.deltaSpeedKmh or nil
     local bodyAttitude = inVehicle and self:getBodyAttitudeTelemetry(motion) or nil
     local roadSlope = inVehicle and self:getRoadSlopeTelemetry(vehicle, wheel, bodyAttitude) or nil
-    local impact = inVehicle and self:calculateImpactImpulses(vehicle, motion, wheel) or {}
     local weather = inVehicle and self:getWeatherTelemetry() or {}
 
     local steeringAngle = inVehicle and self:getSteeringAngle(vehicle) or nil
@@ -283,7 +279,7 @@ function FieldForceTelemetry:collectTelemetry()
     local packet = {
         protocol = {
             name = "FIELDFORCE_TELEMETRY",
-            version = "1.6.0"
+            version = "1.7.0"
         },
         frame = {
             sequence = self.frameSequence,
@@ -353,15 +349,12 @@ function FieldForceTelemetry:collectTelemetry()
     packet.motion = {
         speedMps = type(speedKmh) == "number" and (speedKmh / 3.6) or nil,
         speedKmh = speedKmh,
+        worldPositionM = motion.worldPositionM,
+        rotationRad = motion.rotationRad,
         pitchDeg = motion.pitchDeg,
         rollDeg = motion.rollDeg,
         yawRateRadPerSec = self:degToRad(motion.yawRateDegPerSec),
-        slopeDeg = motion.slopeDeg,
-        localAccelerationMps2 = {
-            x = motion.localAccelerationX,
-            y = motion.localAccelerationY,
-            z = motion.localAccelerationZ
-        }
+        slopeDeg = motion.slopeDeg
     }
     packet.steering = {
         angle = steeringAngle,
@@ -417,31 +410,6 @@ function FieldForceTelemetry:collectTelemetry()
         gearChangeTimeMs = eventState.gearChangeTimeMs
     }
     packet.wheels = self:jsonArray(wheel.wheels or {})
-    packet.suspension = {
-        impulse = impact.suspensionImpulse,
-        hitImpulse = impact.hitImpulse,
-        bottomOutImpulse = impact.bottomOutImpulse,
-        verticalImpactImpulse = impact.verticalImpactImpulse,
-        landingImpulse = impact.landingImpulse,
-        leftImpulse = self:calculateSideSuspensionImpulse(impact.verticalImpactImpulse, wheel.leftSuspensionImpulse, wheel.leftContactRatio),
-        rightImpulse = self:calculateSideSuspensionImpulse(impact.verticalImpactImpulse, wheel.rightSuspensionImpulse, wheel.rightContactRatio),
-        leftHitImpulse = wheel.leftSuspensionImpulse,
-        rightHitImpulse = wheel.rightSuspensionImpulse,
-        leftBottomOutImpulse = impact.leftBottomOutImpulse,
-        rightBottomOutImpulse = impact.rightBottomOutImpulse,
-        suspensionConfidence = impact.suspensionConfidence,
-        bottomOutConfidence = impact.bottomOutConfidence,
-        source = impact.suspensionSource
-    }
-    packet.impact = {
-        localAccelerationMps2 = {
-            x = motion.localAccelerationX,
-            y = motion.localAccelerationY,
-            z = motion.localAccelerationZ
-        },
-        verticalBodyImpulse = impact.verticalImpactImpulse,
-        horizontalBodyImpulse = impact.longitudinalJerkImpulse
-    }
     packet.surface = {
         isOnField = self:getIsOnField(vehicle),
         type = surface.surfaceType,
@@ -451,10 +419,9 @@ function FieldForceTelemetry:collectTelemetry()
         groundWetness = surface.groundWetness or weather.groundWetness,
         rainScale = weather.rainScale
     }
-    packet.collisions = {
-        collisionImpulse = impact.collisionImpulse,
-        longitudinalJerkImpulse = impact.longitudinalJerkImpulse
-    }
+    packet.suspension = nil
+    packet.impact = nil
+    packet.collisions = nil
 
     return packet
 end
@@ -1930,10 +1897,6 @@ function FieldForceTelemetry:getWheelTelemetry(vehicle)
     local rightContactCount = 0
     local leftWheelCount = 0
     local rightWheelCount = 0
-    local leftSuspensionImpulse = 0
-    local rightSuspensionImpulse = 0
-    local leftSuspensionCount = 0
-    local rightSuspensionCount = 0
     local tireTypes = {}
     local tireTypeSet = {}
     local wheelPackets = {}
@@ -1944,7 +1907,6 @@ function FieldForceTelemetry:getWheelTelemetry(vehicle)
         local isSteeringWheel = math.abs(self:getFirstNumber(wheel.steeringAngle, wheel.rotatedTime, wheel.steeringInput, wheel.steeringAxis) or 0) > 0.0001
         local slip = nil
         local hasContact = nil
-        local suspensionImpulse = nil
         local wheelType = "unknown"
         local tireType = nil
         local tireProfile = "unknown"
@@ -1957,14 +1919,12 @@ function FieldForceTelemetry:getWheelTelemetry(vehicle)
         local contactPoint = self:getWheelContactPoint(wheel, physics)
         local contactNormal = self:getWheelContactNormal(wheel, physics)
         local rawSuspensionLength = self:getWheelRawSuspensionLength(wheel, physics)
-        local suspensionVelocity = self:updateWheelSuspensionVelocity(vehicle, index, rawSuspensionLength)
         local suspensionLoad = self:getFirstNumber(wheel.suspensionLoad, physics ~= nil and physics.suspensionLoad or nil, physics ~= nil and physics.wheelLoad or nil)
         local tireLoad = self:getFirstNumber(wheel.tireLoad, physics ~= nil and physics.tireLoad or nil)
         local contactForce = self:getFirstNumber(wheel.contactForce, physics ~= nil and physics.contactForce or nil)
         local axleRole = self:getWheelAxleRole(vehicle, wx, wy, wz)
         local wheelRole = self:getWheelRole(wheel, physics, isSteeringWheel)
         local steeringInfluence = self:getWheelSteeringInfluence(axleRole, wheelRole, isSteeringWheel)
-        local compressionRatio = self:getWheelCompressionRatio(vehicle, index, rawSuspensionLength)
         if isSteeringWheel then
             steeringWheelCount = steeringWheelCount + 1
         end
@@ -2010,16 +1970,6 @@ function FieldForceTelemetry:getWheelTelemetry(vehicle)
                 end
             end
 
-            suspensionImpulse = self:getWheelSuspensionImpulse(wheel, physics)
-            if suspensionImpulse ~= nil then
-                if side < 0 then
-                    leftSuspensionImpulse = math.max(leftSuspensionImpulse, suspensionImpulse)
-                    leftSuspensionCount = leftSuspensionCount + 1
-                elseif side > 0 then
-                    rightSuspensionImpulse = math.max(rightSuspensionImpulse, suspensionImpulse)
-                    rightSuspensionCount = rightSuspensionCount + 1
-                end
-            end
         end
 
         table.insert(wheelPackets, {
@@ -2029,10 +1979,8 @@ function FieldForceTelemetry:getWheelTelemetry(vehicle)
             slip = slip,
             hasGroundContact = hasContact,
             hasContact = hasContact,
-            suspensionImpulse = suspensionImpulse,
             rawSuspensionLength = rawSuspensionLength,
             suspTravel = self:getFirstNumber(wheel.suspTravel, wheel.suspensionTravel, physics ~= nil and physics.suspTravel or nil, physics ~= nil and physics.suspensionTravel or nil),
-            suspensionVelocity = suspensionVelocity,
             suspensionLoad = suspensionLoad,
             tireLoad = tireLoad,
             contactForce = contactForce,
@@ -2049,7 +1997,6 @@ function FieldForceTelemetry:getWheelTelemetry(vehicle)
             axleRole = axleRole,
             wheelRole = wheelRole,
             steeringInfluence = steeringInfluence,
-            compressionRatio = compressionRatio,
             worldPosition = wx ~= nil and { x = wx, y = wy, z = wz } or nil
         })
     end
@@ -2063,79 +2010,8 @@ function FieldForceTelemetry:getWheelTelemetry(vehicle)
         steeringGroundContactRatio = steeringWheelCount > 0 and (steeringContactCount / steeringWheelCount) or nil,
         leftContactRatio = leftWheelCount > 0 and (leftContactCount / leftWheelCount) or nil,
         rightContactRatio = rightWheelCount > 0 and (rightContactCount / rightWheelCount) or nil,
-        leftSuspensionImpulse = leftSuspensionCount > 0 and leftSuspensionImpulse or nil,
-        rightSuspensionImpulse = rightSuspensionCount > 0 and rightSuspensionImpulse or nil,
         wheelTireTypes = #tireTypes > 0 and table.concat(tireTypes, ",") or nil,
         wheelTireProfile = self:getWheelTireProfile(tireTypes)
-    }
-end
-
-function FieldForceTelemetry:calculateSideSuspensionImpulse(bumpImpulse, wheelImpulse, sideContactRatio)
-    if type(wheelImpulse) == "number" then
-        return math.max(0, math.min(2, wheelImpulse))
-    end
-
-    if type(bumpImpulse) ~= "number" or type(sideContactRatio) ~= "number" then
-        return nil
-    end
-
-    return math.max(0, math.min(2, bumpImpulse * math.max(0, math.min(1, sideContactRatio))))
-end
-
-function FieldForceTelemetry:calculateImpactImpulses(vehicle, motion, wheel)
-    local verticalImpactImpulse = motion.bumpImpulse
-    local wheelImpulse = math.max(wheel.leftSuspensionImpulse or 0, wheel.rightSuspensionImpulse or 0)
-    local suspensionImpulse = wheelImpulse > 0 and wheelImpulse or verticalImpactImpulse
-    local bottomOutImpulse, leftBottomOutImpulse, rightBottomOutImpulse, bottomOutConfidence = self:calculateBottomOutImpulse(wheel)
-    local contactRatio = wheel.groundContactRatio
-    local contact = type(contactRatio) == "number" and contactRatio > 0.20
-    local localAx = motion.localAccelerationX or 0
-    local localAz = motion.localAccelerationZ or 0
-    local horizontalImpulse = math.min(math.sqrt((localAx * localAx) + (localAz * localAz)) / 9.81, 2)
-    local lateralImpulse = math.abs(localAx) / 9.81
-    local longitudinalImpulse = math.abs(localAz) / 9.81
-    local speedKmh = motion.speedKmh or 0
-    local hasCollisionShape = horizontalImpulse >= 1.55 or lateralImpulse >= longitudinalImpulse * 0.85
-    local longitudinalJerkImpulse = horizontalImpulse
-    local collisionImpulse = speedKmh >= 4 and
-        horizontalImpulse >= 1.35 and
-        hasCollisionShape and
-        (verticalImpactImpulse == nil or horizontalImpulse > verticalImpactImpulse * 1.55) and
-        horizontalImpulse or nil
-    local landingImpulse = nil
-    local key = tostring(vehicle)
-    local previous = self.lastImpactState ~= nil and self.lastImpactState[key] or nil
-
-    if self.lastImpactState == nil then
-        self.lastImpactState = {}
-    end
-
-    if previous ~= nil and previous.contact == false and contact and verticalImpactImpulse ~= nil and verticalImpactImpulse >= 0.25 then
-        landingImpulse = verticalImpactImpulse
-    end
-
-    self.lastImpactState[key] = {
-        contact = contact,
-        speedKmh = motion.speedKmh
-    }
-
-    if collisionImpulse ~= nil or (verticalImpactImpulse ~= nil and verticalImpactImpulse >= 0.20) or wheelImpulse >= 0.18 then
-        longitudinalJerkImpulse = nil
-    end
-
-    return {
-        suspensionImpulse = suspensionImpulse,
-        hitImpulse = wheelImpulse > 0 and wheelImpulse or nil,
-        bottomOutImpulse = bottomOutImpulse,
-        leftBottomOutImpulse = leftBottomOutImpulse,
-        rightBottomOutImpulse = rightBottomOutImpulse,
-        suspensionConfidence = wheelImpulse > 0 and 1 or (verticalImpactImpulse ~= nil and 0.45 or 0),
-        bottomOutConfidence = bottomOutConfidence,
-        suspensionSource = wheelImpulse > 0 and "wheel" or "legacy",
-        verticalImpactImpulse = verticalImpactImpulse,
-        landingImpulse = landingImpulse,
-        collisionImpulse = collisionImpulse,
-        longitudinalJerkImpulse = longitudinalJerkImpulse
     }
 end
 
@@ -2158,29 +2034,6 @@ function FieldForceTelemetry:getWheelSide(vehicle, wheel)
     end
 
     return 0
-end
-
-function FieldForceTelemetry:getWheelSuspensionImpulse(wheel, physics)
-    local value = self:getFirstNumber(
-        wheel.suspensionCompression,
-        wheel.suspensionLoad,
-        wheel.lastSuspensionCompression,
-        physics.suspensionCompression,
-        physics.suspensionLoad,
-        physics.wheelLoad)
-    if type(value) ~= "number" then
-        return nil
-    end
-
-    if value < 0 then
-        value = math.abs(value)
-    end
-
-    if value > 2 then
-        value = value / 1000
-    end
-
-    return math.max(0, math.min(2, value))
 end
 
 function FieldForceTelemetry:getWheelWorldPosition(vehicle, wheel)
@@ -2244,47 +2097,6 @@ function FieldForceTelemetry:getWheelRawSuspensionLength(wheel, physics)
         wheel ~= nil and wheel.lastSuspensionLength or nil,
         physics ~= nil and physics.rawSuspensionLength or nil,
         physics ~= nil and physics.suspensionLength or nil)
-end
-
-function FieldForceTelemetry:updateWheelSuspensionVelocity(vehicle, index, rawSuspensionLength)
-    if type(rawSuspensionLength) ~= "number" then
-        return nil
-    end
-
-    self.lastWheelSuspension = self.lastWheelSuspension or {}
-    local key = tostring(vehicle) .. ":" .. tostring(index)
-    local now = self:getMonotonicSeconds()
-    local previous = self.lastWheelSuspension[key]
-    self.lastWheelSuspension[key] = { time = now, length = rawSuspensionLength }
-    if previous == nil or type(previous.length) ~= "number" or type(previous.time) ~= "number" then
-        return nil
-    end
-
-    local dt = now - previous.time
-    if dt <= 0 or dt > 1 then
-        return nil
-    end
-
-    return (rawSuspensionLength - previous.length) / dt
-end
-
-function FieldForceTelemetry:getWheelCompressionRatio(vehicle, index, rawSuspensionLength)
-    if type(rawSuspensionLength) ~= "number" then
-        return nil
-    end
-
-    self.observedWheelSuspensionRange = self.observedWheelSuspensionRange or {}
-    local key = tostring(vehicle) .. ":" .. tostring(index)
-    local state = self.observedWheelSuspensionRange[key] or { min = rawSuspensionLength, max = rawSuspensionLength }
-    state.min = math.min(state.min, rawSuspensionLength)
-    state.max = math.max(state.max, rawSuspensionLength)
-    self.observedWheelSuspensionRange[key] = state
-    local range = state.max - state.min
-    if range < 0.03 then
-        return nil
-    end
-
-    return math.max(0, math.min(1, (state.max - rawSuspensionLength) / range))
 end
 
 function FieldForceTelemetry:getWheelAxleRole(vehicle, wx, wy, wz)
@@ -2713,8 +2525,6 @@ function FieldForceTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
     local deltaSpeedKmh = nil
     local speedKmh = nil
     local yawRateDegPerSec = nil
-    local localAccelerationX, localAccelerationY, localAccelerationZ = nil, nil, nil
-    local bumpImpulse = nil
 
     if previous ~= nil and wx ~= nil and wy ~= nil and wz ~= nil then
         local dtSec = self:getDeltaSeconds(now, previous.time)
@@ -2739,26 +2549,11 @@ function FieldForceTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
             local positionSpike = stableMismatch or deltaJump
 
             if not positionSpike then
-                local ax = (vx - previousVx) / dtSec
-                local ay = (vy - previousVy) / dtSec
-                local az = (vz - previousVz) / dtSec
                 speedKmh = deltaSpeedKmh
-
-                localAccelerationX, localAccelerationY, localAccelerationZ = self:worldDirectionToLocalSafe(node, ax, ay, az)
-                if localAccelerationX == nil then
-                    localAccelerationX, localAccelerationY, localAccelerationZ = ax, ay, az
-                end
-                local rawLocalAccelerationY = localAccelerationY
-
-                localAccelerationX = self:smoothMotionSample(previous.localAccelerationX, localAccelerationX, dtSec, self.motionAccelerationSmoothingSec)
-                localAccelerationY = self:smoothMotionSample(previous.localAccelerationY, localAccelerationY, dtSec, self.motionAccelerationSmoothingSec)
-                localAccelerationZ = self:smoothMotionSample(previous.localAccelerationZ, localAccelerationZ, dtSec, self.motionAccelerationSmoothingSec)
 
                 if ry ~= nil and previous.yaw ~= nil then
                     yawRateDegPerSec = math.deg(self:angleDifference(ry, previous.yaw) / dtSec)
                 end
-
-                bumpImpulse = self:calculateVerticalImpactImpulse(rawLocalAccelerationY, localAccelerationY)
             end
 
             self.lastVehicleMotion[key] = {
@@ -2770,10 +2565,7 @@ function FieldForceTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
                 vx = positionSpike and previousVx or vx,
                 vy = positionSpike and previousVy or vy,
                 vz = positionSpike and previousVz or vz,
-                deltaSpeedKmh = positionSpike and previous.deltaSpeedKmh or deltaSpeedKmh,
-                localAccelerationX = positionSpike and previous.localAccelerationX or localAccelerationX,
-                localAccelerationY = positionSpike and previous.localAccelerationY or localAccelerationY,
-                localAccelerationZ = positionSpike and previous.localAccelerationZ or localAccelerationZ
+                deltaSpeedKmh = positionSpike and previous.deltaSpeedKmh or deltaSpeedKmh
             }
         end
     elseif wx ~= nil and wy ~= nil and wz ~= nil then
@@ -2786,24 +2578,19 @@ function FieldForceTelemetry:getMotionTelemetry(vehicle, stableSpeedKmh)
             vx = 0,
             vy = 0,
             vz = 0,
-            deltaSpeedKmh = nil,
-            localAccelerationX = 0,
-            localAccelerationY = 0,
-            localAccelerationZ = 0
+            deltaSpeedKmh = nil
         }
     end
 
     return {
         speedKmh = speedKmh or ((wx ~= nil and wz ~= nil) and 0 or nil),
         deltaSpeedKmh = deltaSpeedKmh,
+        worldPositionM = wx ~= nil and { x = wx, y = wy, z = wz } or nil,
+        rotationRad = rx ~= nil and { x = rx, y = ry, z = rz } or nil,
         pitchDeg = pitchDeg,
         rollDeg = rollDeg,
         yawRateDegPerSec = yawRateDegPerSec,
-        slopeDeg = nil,
-        localAccelerationX = localAccelerationX,
-        localAccelerationY = localAccelerationY,
-        localAccelerationZ = localAccelerationZ,
-        bumpImpulse = bumpImpulse
+        slopeDeg = nil
     }
 end
 
@@ -2820,43 +2607,6 @@ function FieldForceTelemetry:normalizeTiltDeg(deg)
     end
 
     return wrapped
-end
-
-function FieldForceTelemetry:smoothMotionSample(previousValue, currentValue, dtSec, smoothingSec)
-    if type(currentValue) ~= "number" then
-        return nil
-    end
-
-    if type(previousValue) ~= "number" or type(dtSec) ~= "number" or dtSec <= 0 then
-        return currentValue
-    end
-
-    local smoothing = math.max(0, tonumber(smoothingSec) or 0)
-    if smoothing <= 0 then
-        return currentValue
-    end
-
-    local alpha = math.max(0, math.min(1, dtSec / (smoothing + dtSec)))
-    return previousValue + ((currentValue - previousValue) * alpha)
-end
-
-function FieldForceTelemetry:calculateVerticalImpactImpulse(rawLocalAccelerationY, smoothedLocalAccelerationY)
-    if type(rawLocalAccelerationY) ~= "number" then
-        return nil
-    end
-
-    local rawAccelerationG = math.min(math.abs(rawLocalAccelerationY) / 9.81, 2)
-    local smoothedAccelerationG = type(smoothedLocalAccelerationY) == "number" and math.min(math.abs(smoothedLocalAccelerationY) / 9.81, 2) or rawAccelerationG
-    local deadband = math.max(0, math.min(1.5, tonumber(self.motionVerticalImpactDeadbandG) or 0))
-    if rawAccelerationG <= deadband then
-        return 0
-    end
-
-    if rawAccelerationG < 0.55 and smoothedAccelerationG <= deadband then
-        return 0
-    end
-
-    return math.min(math.max(rawAccelerationG, smoothedAccelerationG) - deadband, 2)
 end
 
 function FieldForceTelemetry:speedFromDelta(dx, dz, dtSec)
@@ -3162,7 +2912,7 @@ function FieldForceTelemetry:getOverlayLines(packet)
         table.insert(lines, "wet/rain: - / -")
         table.insert(lines, "slip/max: - / -")
         table.insert(lines, "pitch/roll/slope: - / - / -")
-        table.insert(lines, "accel/bump: - / -")
+        table.insert(lines, "position: - / - / -")
         return lines
     end
 
@@ -3172,9 +2922,8 @@ function FieldForceTelemetry:getOverlayLines(packet)
     local engine = packet.engine or {}
     local surface = packet.surface or {}
     local environment = packet.environment or {}
-    local suspension = packet.suspension or {}
-    local accel = motion.localAccelerationMps2 or {}
     local player = packet.player or {}
+    local position = motion.worldPositionM or {}
 
     table.insert(lines, "timestamp: " .. self:formatNumber(packet.frame ~= nil and packet.frame.timestampMs or nil, "", 0))
     table.insert(lines, "gameState: " .. tostring(packet.game ~= nil and packet.game.state or "-"))
@@ -3200,7 +2949,7 @@ function FieldForceTelemetry:getOverlayLines(packet)
     table.insert(lines, "wet/rain: " .. self:formatNumber(environment.groundWetness, "", 2) .. " / " .. self:formatNumber(environment.rainScale, "", 2))
     table.insert(lines, "wheels: " .. tostring(packet.wheels ~= nil and #packet.wheels or 0))
     table.insert(lines, "pitch/roll/slope: " .. self:formatNumber(motion.pitchDeg, "", 1) .. " / " .. self:formatNumber(motion.rollDeg, "", 1) .. " / " .. self:formatNumber(motion.slopeDeg, "", 1))
-    table.insert(lines, "accelY/bump: " .. self:formatNumber(accel.y, "", 2) .. " / " .. self:formatNumber(suspension.verticalImpactImpulse, "", 2))
+    table.insert(lines, "position: " .. self:formatNumber(position.x, "", 1) .. " / " .. self:formatNumber(position.y, "", 1) .. " / " .. self:formatNumber(position.z, "", 1))
 
     return lines
 end
@@ -3561,42 +3310,6 @@ function FieldForceTelemetry:onStartMotor()
         startedAt = g_currentMission ~= nil and g_currentMission.time or 0,
         durationMs = self.spec_motorized ~= nil and self.spec_motorized.motorStartDuration or 650
     }
-end
-
-function FieldForceTelemetry:calculateBottomOutImpulse(wheel)
-    if wheel == nil or type(wheel.wheels) ~= "table" then
-        return nil, nil, nil, 0
-    end
-
-    local total = 0
-    local left = 0
-    local right = 0
-    local count = 0
-    for _, entry in ipairs(wheel.wheels) do
-        local compressionRatio = entry.compressionRatio
-        local velocity = entry.suspensionVelocity
-        local load = self:getFirstNumber(entry.tireLoad, entry.suspensionLoad, entry.contactForce)
-        if type(compressionRatio) == "number" and type(velocity) == "number" and type(load) == "number" and
-            compressionRatio >= 0.92 and velocity < -0.25 and load > 0 and entry.hasContact == true then
-            local compressionPart = math.max(0, math.min(1, (compressionRatio - 0.92) / 0.08))
-            local velocityPart = math.max(0, math.min(1, math.abs(velocity) / 1.5))
-            local loadPart = math.max(0, math.min(1, load / 12000))
-            local impulse = math.max(0, math.min(2, (compressionPart * 0.75) + (velocityPart * 0.85) + (loadPart * 0.40)))
-            total = math.max(total, impulse)
-            if entry.side == "left" then
-                left = math.max(left, impulse)
-            elseif entry.side == "right" then
-                right = math.max(right, impulse)
-            end
-            count = count + 1
-        end
-    end
-
-    if count == 0 then
-        return nil, nil, nil, 0
-    end
-
-    return total, left > 0 and left or nil, right > 0 and right or nil, 1
 end
 
 function FieldForceTelemetry:onStopMotor()
