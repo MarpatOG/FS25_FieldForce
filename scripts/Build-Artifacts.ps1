@@ -13,6 +13,7 @@ $modSource = Join-Path $repoRoot "fs25-mod"
 $appPublishDir = Join-Path $artifactsDir "FieldForceApp-$Runtime"
 $appZip = Join-Path $artifactsDir "FieldForceApp-$Runtime.zip"
 $modZip = Join-Path $artifactsDir "FS25_FieldForceTelemetry.zip"
+$legacyG27PackageDir = Join-Path $artifactsDir "FS25RealFfbBridge-G27-FS25-test"
 
 function New-ZipFromDirectory {
     param(
@@ -58,6 +59,7 @@ Set-Location $repoRoot
 New-Item -ItemType Directory -Force -Path $artifactsDir | Out-Null
 
 Remove-Item -Recurse -Force $appPublishDir -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force $legacyG27PackageDir -ErrorAction SilentlyContinue
 
 $publishArgs = @(
     "publish",
@@ -77,6 +79,7 @@ if ($NoRestore) {
 dotnet @publishArgs
 
 New-ZipFromDirectory -SourcePath $appPublishDir -ZipPath $appZip -EntryPrefix "FieldForceApp-$Runtime"
+Remove-Item -Recurse -Force $appPublishDir
 New-ZipFromDirectory -SourcePath $modSource -ZipPath $modZip
 
 Write-Host "Created:"

@@ -1642,6 +1642,32 @@ public sealed class GameplayFfbCalculatorTests
     }
 
     [Fact]
+    public void Raw_asphalt_position_spike_with_full_has_contact_does_not_emit_collision()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        _ = calculator.Calculate(State(RawPacket(0, 0, 0, 0, surfaceType: "asphalt", useHasContactOnly: true)), settings);
+        _ = calculator.Calculate(State(RawPacket(1, 1, 0, 0, surfaceType: "asphalt", useHasContactOnly: true)), settings);
+        var output = calculator.Calculate(State(RawPacket(2, 3.2, 0, 0, surfaceType: "asphalt", useHasContactOnly: true)), settings);
+
+        Assert.NotEqual(FfbPulseKind.Collision, output.EventPulseKind);
+    }
+
+    [Fact]
+    public void Raw_asphalt_has_contact_drop_still_emits_collision()
+    {
+        var calculator = new GameplayFfbCalculator();
+        var settings = new GameplayFfbSettings();
+
+        _ = calculator.Calculate(State(RawPacket(0, 0, 0, 0, surfaceType: "asphalt", useHasContactOnly: true)), settings);
+        _ = calculator.Calculate(State(RawPacket(1, 1, 0, 0, surfaceType: "asphalt", useHasContactOnly: true)), settings);
+        var output = calculator.Calculate(State(RawPacket(2, 3.2, 0, 0, surfaceType: "asphalt", groundContactRatio: 0.5, useHasContactOnly: true)), settings);
+
+        Assert.Equal(FfbPulseKind.Collision, output.EventPulseKind);
+    }
+
+    [Fact]
     public void Raw_contact_restore_after_airborne_vertical_impact_emits_landing()
     {
         var calculator = new GameplayFfbCalculator();
@@ -2001,7 +2027,8 @@ public sealed class GameplayFfbCalculatorTests
         string? surfaceType = null,
         double? groundContactRatio = 1,
         double leftFrontLength = 0.42,
-        double tireLoad = 12000)
+        double tireLoad = 12000,
+        bool useHasContactOnly = false)
     {
         var packet = Packet(speedKmh: 20, isOnField: isOnField, surfaceType: surfaceType, groundContactRatio: groundContactRatio, frameDtMs: 100);
         packet.Suspension = null;
@@ -2020,7 +2047,12 @@ public sealed class GameplayFfbCalculatorTests
             packet.Wheels[index].ContactForce = tireLoad;
             packet.Wheels[index].SurfaceType = surfaceType;
             packet.Wheels[index].IsOnField = isOnField;
-            packet.Wheels[index].HasContact = packet.Wheels[index].HasGroundContact;
+            var hasContact = packet.Wheels[index].HasGroundContact;
+            packet.Wheels[index].HasContact = hasContact;
+            if (useHasContactOnly)
+            {
+                packet.Wheels[index].HasGroundContact = null;
+            }
         }
 
         return packet;

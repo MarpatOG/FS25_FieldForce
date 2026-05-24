@@ -52,9 +52,14 @@ internal sealed class RawTelemetryImpactDeriver
         var offroad = IsOffRoad(packet);
         var side = Math.Max(leftSuspension, rightSuspension);
         var speedKmh = Math.Max(0, packet.SpeedKmh ?? 0);
+        var hasRoadImpactConfirmation = offroad ||
+            side >= 0.30 ||
+            verticalImpact >= 0.30 ||
+            currentContactRatio < 0.85;
         var collision = speedKmh >= 6 &&
             horizontal >= (offroad ? 1.98 : 1.75) &&
             horizontal > verticalImpact * (offroad ? 2.15 : 1.65) &&
+            hasRoadImpactConfirmation &&
             (!offroad || side >= 0.75 || currentContactRatio < 0.70)
                 ? horizontal
                 : 0;
@@ -131,7 +136,10 @@ internal sealed class RawTelemetryImpactDeriver
 
         var load = FirstValid(wheel.TireLoad, wheel.SuspensionLoad, wheel.ContactForce) ?? 0;
         var loadRatio = Math.Clamp(Math.Abs(load) / 12000.0, 0, 1);
-        var impulse = Math.Clamp(Math.Abs(velocity) / 1.8 + loadRatio * 0.35, 0, 2);
+        var velocityMagnitude = Math.Abs(velocity);
+        var impulse = velocityMagnitude < 0.05
+            ? 0
+            : Math.Clamp(velocityMagnitude / 1.8 + loadRatio * 0.35, 0, 2);
         var observedRange = max - min;
         if (observedRange >= 0.03)
         {

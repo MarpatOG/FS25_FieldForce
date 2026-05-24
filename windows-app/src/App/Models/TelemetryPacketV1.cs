@@ -238,10 +238,10 @@ public sealed class TelemetryPacketV1
     public double? MaxWheelSlip => Wheels.Count == 0 ? null : Wheels.Where(w => IsValidFinite(w.Slip)).Select(w => w.Slip!.Value).DefaultIfEmpty().Max();
 
     [JsonIgnore]
-    public double? GroundContactRatio => Ratio(Wheels, w => w.HasGroundContact);
+    public double? GroundContactRatio => Ratio(Wheels, w => w.HasGroundContact ?? w.HasContact);
 
     [JsonIgnore]
-    public double? SteeringGroundContactRatio => Ratio(Wheels.Where(w => w.IsSteering == true), w => w.HasGroundContact);
+    public double? SteeringGroundContactRatio => Ratio(Wheels.Where(w => w.IsSteering == true), w => w.HasGroundContact ?? w.HasContact);
 
     [JsonIgnore]
     public double? SteeringWheelSlip => Wheels.Where(w => w.IsSteering == true && IsValidFinite(w.Slip)).Select(w => w.Slip!.Value).DefaultIfEmpty(double.NaN).Average() is var value && double.IsNaN(value) ? null : value;
